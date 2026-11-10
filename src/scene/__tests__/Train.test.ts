@@ -1,4 +1,5 @@
-import { ATTELAGE, frameIndex, nextTrainState, sequenceFor, trainSpeed, wagonX } from '@/scene/Train'
+import { ATTELAGE, ancrageRame, emprise, frameIndex, nextTrainState, sequenceFor, trainSpeed, wagonX } from '@/scene/Train'
+import { ECHELLE_TRAIN, HORIZON, STAGE } from '@/scene/layout'
 
 test('le train quitte l’arrêt par le démarrage', () => {
   expect(nextTrainState('arret', 0, true)).toBe('demarrage')
@@ -122,4 +123,39 @@ test('les tampons se touchent, ils ne laissent pas de trou', () => {
   const x = wagonX(LOCO, WAGON)
   expect(LOCO.x - (x + WAGON.width)).toBeLessThanOrEqual(0)
   expect(ATTELAGE).toBeGreaterThan(0)
+})
+
+// Réduire le train : la rame rétrécit, mais ses roues restent sur la voie et
+// la rame reste centrée dans le cadre.
+test('la voie reste exactement à sa place quand le train rétrécit', () => {
+  const a = ancrageRame(LOCO, WAGON, 0.5)
+  expect(a.y + 0.5 * HORIZON).toBeCloseTo(HORIZON, 6)
+})
+
+test('la rame est centrée dans le cadre', () => {
+  const { gauche, droite } = emprise(LOCO, WAGON)
+  const a = ancrageRame(LOCO, WAGON, 0.5)
+  expect(a.x + 0.5 * ((gauche + droite) / 2)).toBeCloseTo(STAGE.width / 2, 6)
+})
+
+test('réduire de moitié divise la largeur de la rame par deux', () => {
+  const { gauche, droite } = emprise(LOCO, WAGON)
+  const pleine = droite - gauche
+  const a = ancrageRame(LOCO, WAGON, 0.5)
+  const g = a.x + 0.5 * gauche
+  const d = a.x + 0.5 * droite
+  expect(d - g).toBeCloseTo(pleine / 2, 6)
+})
+
+test('la rame va du tampon arrière du wagon au nez de la locomotive', () => {
+  const { gauche, droite } = emprise(LOCO, WAGON)
+  expect(gauche).toBe(wagonX(LOCO, WAGON))
+  expect(droite).toBe(LOCO.x + LOCO.width)
+})
+
+test('à échelle réduite, la rame tient dans le cadre', () => {
+  const { gauche, droite } = emprise(LOCO, WAGON)
+  const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN)
+  expect(a.x + ECHELLE_TRAIN * gauche).toBeGreaterThanOrEqual(0)
+  expect(a.x + ECHELLE_TRAIN * droite).toBeLessThanOrEqual(STAGE.width)
 })

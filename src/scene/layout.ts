@@ -31,3 +31,12 @@ export const HORIZON = 921
 
 /** Source frame of the mountain band, before the pipeline resizes it. */
 export const MOUNTAIN_SOURCE = { width: 1918, height: 472 } as const
+
+/**
+ * How much smaller the train is drawn than its source frame.
+ *
+ * CONCEPT.md §6 wants it « environ 3 fois plus petit que les PNG ». A visual
+ * value: the track and the scroll speed follow it, so changing this one number
+ * keeps the whole rolling stock consistent.
+ */
+export const ECHELLE_TRAIN = 0.5

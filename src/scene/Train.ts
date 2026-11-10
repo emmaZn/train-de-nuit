@@ -1,6 +1,6 @@
 import { Container, Sprite, Texture, TilingSprite } from 'pixi.js'
 import { loadSequence, loadTexture } from './assets'
-import { STAGE } from './layout'
+import { ECHELLE_TRAIN, HORIZON, STAGE } from './layout'
 import type { Manifest, SequenceSpec, TrainSequence } from './types'
 
 export type TrainState = 'arret' | 'demarrage' | 'roule' | 'freinage'
@@ -88,11 +88,36 @@ export function wagonX(loco: SequenceSpec, wagon: SequenceSpec): number {
   return loco.x - wagon.width + ATTELAGE
 }
 
-/** Stage pixels the track scrolls through per second at full speed. */
+/** Left and right edge of the coupled train, in stage pixels at full size. */
+export function emprise(loco: SequenceSpec, wagon: SequenceSpec): { gauche: number; droite: number } {
+  return { gauche: wagonX(loco, wagon), droite: loco.x + loco.width }
+}
+
+/**
+ * Where to place the scaled rolling stock. Two things must hold whatever the
+ * scale: the wheels stay on the rail line, and the train stays centred in the
+ * frame. A point at the rail line maps to itself; the middle of the train maps
+ * to the middle of the stage.
+ */
+export function ancrageRame(
+  loco: SequenceSpec,
+  wagon: SequenceSpec,
+  echelle: number,
+): { x: number; y: number } {
+  const { gauche, droite } = emprise(loco, wagon)
+  return {
+    x: STAGE.width / 2 - echelle * ((gauche + droite) / 2),
+    y: HORIZON * (1 - echelle),
+  }
+}
+
+/** Stage pixels the track scrolls through per second at full size. */
 const DEFILEMENT = 900
 
 export class Train {
   private readonly racine = new Container()
+  /** Loco and carriage together: this is what the scale applies to. */
+  private readonly rame = new Container()
   private readonly loco = new Sprite()
   private readonly wagon = new Sprite()
   private rails: TilingSprite | null = null
@@ -106,7 +131,14 @@ export class Train {
     const spec = manifest.train
     this.wagon.position.set(wagonX(spec.loco, spec.wagon), spec.wagon.y)
     this.loco.position.set(spec.loco.x, spec.loco.y)
-    this.racine.addChild(this.wagon, this.loco)
+    this.rame.addChild(this.wagon, this.loco)
+
+    const ancre = ancrageRame(spec.loco, spec.wagon, ECHELLE_TRAIN)
+    this.rame.scale.set(ECHELLE_TRAIN)
+    this.rame.position.set(ancre.x, ancre.y)
+
+    // La voie n'est pas dans la rame : elle garde la pleine largeur du cadre.
+    this.racine.addChild(this.rame)
     parent.addChild(this.racine)
   }
 
@@ -122,15 +154,15 @@ export class Train {
     const voie = await loadTexture(this.manifest.rails.path)
     if (voie) {
       const voieSpec = this.manifest.rails
+      // La voie suit l'échelle du train : des traverses à taille réelle sous
+      // une locomotive réduite se verraient immédiatement.
       this.rails = new TilingSprite({
         texture: voie,
         width: STAGE.width,
-        height: voieSpec.height,
+        height: voieSpec.height * ECHELLE_TRAIN,
       })
-      // La voie se répète sur toute la largeur du cadre ; la texture est
-      // remise à l'échelle du cadre, puisqu'elle a été réduite à l'export.
-      this.rails.position.set(0, voieSpec.y)
-      this.rails.tileScale.set(1 / voieSpec.scale)
+      this.rails.position.set(0, HORIZON)
+      this.rails.tileScale.set(ECHELLE_TRAIN / voieSpec.scale)
       this.racine.addChildAt(this.rails, 0)
     }
 
@@ -164,7 +196,9 @@ export class Train {
     const vitesse = trainSpeed(this.etat, phase)
     // Le grain est vivant : la boucle tourne même à l'arrêt, mais sans défilement.
     this.image += dt * FPS
-    if (this.rails) this.rails.tilePosition.x -= dt * DEFILEMENT * vitesse
+    // Le défilement suit l'échelle, sinon la voie paraîtrait filer deux fois
+    // plus vite sous un train deux fois plus petit.
+    if (this.rails) this.rails.tilePosition.x -= dt * DEFILEMENT * ECHELLE_TRAIN * vitesse
     this.appliquer()
   }
 
