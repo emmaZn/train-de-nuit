@@ -1,0 +1,69 @@
+{
+  "stage": {
+    "width": 2320,
+    "height": 1217
+  },
+  "mountains": {
+    "count": 160,
+    "width": 1280,
+    "height": 315,
+    "path": "assets/mountains/{i}.webp"
+  },
+  "rails": {
+    "x": 770,
+    "y": 921,
+    "width": 564,
+    "height": 19,
+    "path": "assets/train/rails.webp"
+  },
+  "train": {
+    "loco": {
+      "count": 32,
+      "x": 597,
+      "y": 277,
+      "width": 670,
+      "height": 333,
+      "path": "assets/train/loco/{i}.webp"
+    },
+    "wagon": {
+      "count": 32,
+      "x": 597,
+      "y": 494,
+      "width": 560,
+      "height": 223,
+      "path": "assets/train/wagon/{i}.webp"
+    },
+    "loco-start": {
+      "count": 43,
+      "x": 597,
+      "y": 277,
+      "width": 670,
+      "height": 332,
+      "path": "assets/train/loco-start/{i}.webp"
+    },
+    "wagon-start": {
+      "count": 43,
+      "x": 597,
+      "y": 494,
+      "width": 560,
+      "height": 222,
+      "path": "assets/train/wagon-start/{i}.webp"
+    },
+    "loco-stop": {
+      "count": 43,
+      "x": 597,
+      "y": 277,
+      "width": 670,
+      "height": 332,
+      "path": "assets/train/loco-stop/{i}.webp"
+    },
+    "wagon-stop": {
+      "count": 43,
+      "x": 597,
+      "y": 494,
+      "width": 560,
+      "height": 222,
+      "path": "assets/train/wagon-stop/{i}.webp"
+    }
+  }
+}
