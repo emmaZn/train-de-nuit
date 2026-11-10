@@ -4,13 +4,16 @@ import { ECHELLE_MONTAGNES, HORIZON, MOUNTAIN_SOURCE, STAGE } from './layout'
 import type { Manifest } from './types'
 
 /**
- * One full sweep of the sequence per complete loop of the four stations.
+ * How many legs one full sweep of the sequence takes. Higher turns the range
+ * more slowly: at 8 it takes two complete loops of the four stations, so the
+ * relief drifts rather than spins.
+ *
  * The sequence does not loop — between the 160th frame and the 1st the alpha
  * jumps by 23.8 where consecutive frames differ by 0.8 — so it is walked back
- * and forth. An integer number of legs means both turnarounds fall on a stop
- * at a station, never while the train is moving.
+ * and forth. An integer number of legs keeps both turnarounds on a stop at a
+ * station, never while the train is moving.
  */
-export const SWEEP_LEGS = 4
+export const SWEEP_LEGS = 8
 
 /**
  * Index of the mountain frame for a distance travelled, counted in legs
