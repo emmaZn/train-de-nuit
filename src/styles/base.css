@@ -1,0 +1,36 @@
+:root {
+  /* La couleur de la nuit. Tout le reste s'y réfère : dans les assets, le noir devient cette couleur. */
+  --fond: #2e2313;
+  --texte: #ececf0;
+  --trait: #e6e6ea;
+
+  /* Hiérarchie du texte, par l'opacité seule. */
+  --fort: 0.95;
+  --moyen: 0.6;
+  --faible: 0.42;
+  --murmure: 0.2;
+
+  --police-texte: 'Inter', system-ui, sans-serif;
+  --police-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: var(--police-texte);
+  font-weight: 300;
+  transition: background-color 1s ease;
+}
+
+#app {
+  height: 100%;
+}
