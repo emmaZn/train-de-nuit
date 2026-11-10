@@ -1,0 +1,243 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import type { Gare } from '@/scene/types'
+import { GARES, forwardSteps, useVoyage } from '@/stores/voyage'
+
+/** Les routes gardent le tiret, les libellés non. */
+const LIBELLES: Record<Gare, string> = {
+  ici: 'ici',
+  'plus-loin': 'plus loin',
+  'la-haut': 'là-haut',
+  ailleurs: 'ailleurs',
+}
+
+/** Gares visibles de part et d'autre de celle où l'on est. */
+const AVANT = 2
+const APRES = 3
+
+type Etat = 'passee' | 'a-quai' | 'prochain' | 'a-venir'
+
+const voyage = useVoyage()
+const { gare, cible, enRoute, legs, progression } = storeToRefs(voyage)
+
+const entrees = computed(() => {
+  const base = GARES.indexOf(gare.value)
+  // En route, le prochain arrêt est la cible, pas une gare qu'on traverse.
+  const distanceCible = cible.value ? forwardSteps(gare.value, cible.value) : 1
+
+  return Array.from({ length: AVANT + APRES + 1 }, (_, i) => {
+    const decalage = i - AVANT
+    const index = (((base + decalage) % GARES.length) + GARES.length) % GARES.length
+    const station = GARES[index]
+
+    let etat: Etat
+    if (enRoute.value) {
+      if (decalage <= 0) etat = 'passee'
+      else if (decalage === distanceCible) etat = 'prochain'
+      else etat = 'a-venir'
+    } else if (decalage < 0) etat = 'passee'
+    else if (decalage === 0) etat = 'a-quai'
+    else if (decalage === 1) etat = 'prochain'
+    else etat = 'a-venir'
+
+    // La clé est l'étape absolue : elle survit au glissement, donc la gare
+    // garde son nœud du DOM et se déplace au lieu d'être recréée.
+    return { cle: legs.value + decalage, station, libelle: LIBELLES[station], etat, decalage }
+  })
+})
+</script>
+
+<template>
+  <nav class="frise" aria-label="Les gares du voyage">
+    <div class="piste" :style="{ '--legs': legs }">
+      <span class="voie" aria-hidden="true"></span>
+
+      <RouterLink
+        v-for="entree in entrees"
+        :key="entree.cle"
+        class="gare"
+        :to="`/${entree.station}`"
+        :data-etat="entree.etat"
+        :data-gare="entree.station"
+        :data-decalage="entree.decalage"
+        :style="{ '--cle': entree.cle }"
+      >
+        <span class="point" aria-hidden="true"></span>
+        <span class="libelle">{{ entree.libelle }}</span>
+        <span v-if="entree.etat === 'a-quai'" class="mention">À QUAI</span>
+        <span v-else-if="entree.etat === 'prochain'" class="mention">PROCHAIN ARRÊT</span>
+      </RouterLink>
+
+      <span
+        v-if="enRoute"
+        class="marqueur"
+        data-role="marqueur"
+        aria-hidden="true"
+        :style="{ '--avancee': progression }"
+      >
+        <span class="loco"></span>
+      </span>
+    </div>
+  </nav>
+</template>
+
+<style scoped>
+.frise {
+  --ecart: 164px;
+  --ancre: 120px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 96px;
+  z-index: 2;
+  overflow: hidden;
+  /* Les gares qui sortent s'estompent des deux côtés. */
+  mask-image: linear-gradient(to right, transparent, #000 90px, #000 calc(100% - 140px), transparent);
+}
+
+.piste {
+  position: absolute;
+  top: 44px;
+  left: 0;
+  height: 1px;
+  transform: translateX(calc(var(--ancre) - var(--legs) * var(--ecart)));
+  transition: transform 1.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.voie {
+  position: absolute;
+  top: 0;
+  left: calc(-4 * var(--ecart));
+  width: calc(40 * var(--ecart));
+  height: 1px;
+  background: var(--trait);
+  opacity: var(--murmure);
+}
+
+.gare {
+  position: absolute;
+  top: -5px;
+  left: calc(var(--cle) * var(--ecart));
+  display: block;
+  width: var(--ecart);
+  color: var(--texte);
+  text-decoration: none;
+  transition: opacity 1.2s ease;
+}
+
+.point {
+  display: block;
+  width: 9px;
+  height: 9px;
+  margin-left: -1px;
+  border: 1px solid var(--trait);
+  border-radius: 50%;
+}
+
+.libelle {
+  display: block;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 300;
+  white-space: nowrap;
+  transition: font-size 1.2s ease;
+}
+
+.mention {
+  display: block;
+  margin-top: 5px;
+  font-family: var(--police-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  opacity: var(--faible);
+  white-space: nowrap;
+}
+
+/* passée : petit point plein, estompé */
+.gare[data-etat='passee'] {
+  opacity: 0.3;
+}
+
+.gare[data-etat='passee'] .point {
+  background: var(--trait);
+  transform: scale(0.62);
+}
+
+/* à quai : point plein + halo, libellé plus grand */
+.gare[data-etat='a-quai'] .point {
+  background: var(--trait);
+  box-shadow: 0 0 0 4px rgb(230 230 234 / 10%), 0 0 14px 3px rgb(230 230 234 / 28%);
+}
+
+.gare[data-etat='a-quai'] .libelle {
+  font-size: 16px;
+  opacity: var(--fort);
+}
+
+/* prochain arrêt : anneau + point central + halo */
+.gare[data-etat='prochain'] .point {
+  position: relative;
+  background: none;
+  box-shadow: 0 0 10px 2px rgb(230 230 234 / 18%);
+}
+
+.gare[data-etat='prochain'] .point::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: var(--trait);
+  border-radius: 50%;
+}
+
+/* à venir : anneau vide */
+.gare[data-etat='a-venir'] {
+  opacity: 0.7;
+}
+
+.marqueur {
+  position: absolute;
+  top: -4px;
+  left: calc((var(--legs) + var(--avancee)) * var(--ecart));
+  width: 7px;
+  height: 7px;
+  background: var(--trait);
+  border-radius: 50%;
+  box-shadow: 0 0 12px 3px rgb(230 230 234 / 30%);
+}
+
+.loco {
+  position: absolute;
+  top: -11px;
+  left: -3px;
+  width: 13px;
+  height: 6px;
+  border: 1px solid var(--trait);
+  border-radius: 2px 3px 0 0;
+  opacity: var(--moyen);
+}
+
+.gare:focus-visible {
+  outline: 1px solid var(--trait);
+  outline-offset: 6px;
+}
+
+@media (max-width: 720px) {
+  .frise {
+    --ecart: 132px;
+    --ancre: 24px;
+  }
+
+  /* CONCEPT.md §11 : en mobile, la gare actuelle et la suivante seulement. */
+  .gare:not([data-decalage='0']):not([data-decalage='1']) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piste {
+    transition-duration: 0.2s;
+  }
+}
+</style>

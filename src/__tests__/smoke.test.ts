@@ -35,3 +35,9 @@ test('la gare ici affiche son nom et sa phrase', async () => {
   expect(wrapper.text()).toContain('Emmanuelle Zenou')
   expect(wrapper.text()).toContain('Chaque étoile est quelqu\'un qui est passé par ici.')
 })
+
+test('App pose la frise des gares par-dessus la scène', async () => {
+  const wrapper = await monter()
+  expect(wrapper.find('nav.frise').exists()).toBe(true)
+  expect(wrapper.get('[data-etat="a-quai"]').attributes('data-gare')).toBe('ici')
+})
