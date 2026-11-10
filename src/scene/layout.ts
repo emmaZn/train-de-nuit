@@ -40,3 +40,11 @@ export const MOUNTAIN_SOURCE = { width: 1918, height: 472 } as const
  * keeps the whole rolling stock consistent.
  */
 export const ECHELLE_TRAIN = 0.5
+
+/**
+ * How much bigger than the frame the mountain range is drawn.
+ *
+ * 1 fits its width exactly; above that it climbs higher and spills off both
+ * sides, which is what a nearer ridge does. A visual value, like the train's.
+ */
+export const ECHELLE_MONTAGNES = 1.15

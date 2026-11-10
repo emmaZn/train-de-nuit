@@ -1,6 +1,6 @@
 import { Container, Filter, GlProgram, Sprite, Texture, defaultFilterVert } from 'pixi.js'
 import { loadSequence } from './assets'
-import { HORIZON, MOUNTAIN_SOURCE, STAGE } from './layout'
+import { ECHELLE_MONTAGNES, HORIZON, MOUNTAIN_SOURCE, STAGE } from './layout'
 import type { Manifest } from './types'
 
 /**
@@ -53,6 +53,23 @@ export function createMountainFilter(): Filter {
   })
 }
 
+/**
+ * Where the mountain band goes, in stage pixels. Whatever the scale, its foot
+ * rests on the rail line and the range stays centred: growing it makes it
+ * climb higher and spill off both sides, never lift off the ground.
+ */
+export function cadreMontagnes(echelle: number): {
+  x: number
+  y: number
+  width: number
+  height: number
+} {
+  const facteur = (STAGE.width / MOUNTAIN_SOURCE.width) * echelle
+  const width = MOUNTAIN_SOURCE.width * facteur
+  const height = MOUNTAIN_SOURCE.height * facteur
+  return { x: (STAGE.width - width) / 2, y: HORIZON - height, width, height }
+}
+
 export class Mountains {
   private readonly sprite = new Sprite()
   private readonly textures: (Texture | undefined)[] = []
@@ -65,12 +82,7 @@ export class Mountains {
     this.count = this.spec.count
     this.textures.length = this.count
 
-    const echelle = STAGE.width / MOUNTAIN_SOURCE.width
-    this.sprite.width = MOUNTAIN_SOURCE.width * echelle
-    this.sprite.height = MOUNTAIN_SOURCE.height * echelle
-    this.sprite.x = 0
-    // Le pied des montagnes s'appuie sur la ligne de voie.
-    this.sprite.y = HORIZON - MOUNTAIN_SOURCE.height * echelle
+    this.cadrer()
     parent.addChild(this.sprite)
   }
 
@@ -96,9 +108,18 @@ export class Mountains {
       const texture = this.textures[voulu - ecart] ?? this.textures[voulu + ecart]
       if (texture) {
         this.sprite.texture = texture
+        // La taille est réappliquée après chaque texture : la poser une fois
+        // sur un sprite encore vide ne survit pas au premier échange.
+        this.cadrer()
         return
       }
     }
+  }
+
+  private cadrer(): void {
+    const c = cadreMontagnes(ECHELLE_MONTAGNES)
+    this.sprite.position.set(c.x, c.y)
+    this.sprite.setSize(c.width, c.height)
   }
 
   destroy(): void {

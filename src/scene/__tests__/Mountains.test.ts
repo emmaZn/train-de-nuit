@@ -1,4 +1,5 @@
-import { SWEEP_LEGS, mountainFrame } from '@/scene/Mountains'
+import { SWEEP_LEGS, cadreMontagnes, mountainFrame } from '@/scene/Mountains'
+import { ECHELLE_MONTAGNES, HORIZON, STAGE } from '@/scene/layout'
 
 const COUNT = 160
 
@@ -38,4 +39,39 @@ test('la séquence avance quand le train avance', () => {
 
 test('une séquence d’une seule image ne divise jamais par zéro', () => {
   expect(mountainFrame(3.7, 1)).toBe(0)
+})
+
+// Agrandir le massif : il grandit vers le haut et déborde symétriquement,
+// mais son pied ne quitte jamais la ligne de voie.
+test('le pied du massif reste sur la voie, quelle que soit l’échelle', () => {
+  for (const e of [1, 1.15, 1.4]) {
+    const c = cadreMontagnes(e)
+    expect(c.y + c.height).toBeCloseTo(HORIZON, 6)
+  }
+})
+
+test('le massif reste centré sur le cadre', () => {
+  const c = cadreMontagnes(1.25)
+  expect(c.x + c.width / 2).toBeCloseTo(STAGE.width / 2, 6)
+})
+
+test('à l’échelle 1 le massif remplit exactement la largeur du cadre', () => {
+  const c = cadreMontagnes(1)
+  expect(c.width).toBeCloseTo(STAGE.width, 6)
+  expect(c.x).toBeCloseTo(0, 6)
+})
+
+test('agrandir le massif le fait déborder des deux côtés à parts égales', () => {
+  const c = cadreMontagnes(1.2)
+  expect(c.width).toBeGreaterThan(STAGE.width)
+  expect(c.x).toBeLessThan(0)
+  expect(c.x + c.width - STAGE.width).toBeCloseTo(-c.x, 6)
+})
+
+test('agrandir le massif le fait monter plus haut', () => {
+  expect(cadreMontagnes(1.3).y).toBeLessThan(cadreMontagnes(1).y)
+})
+
+test('le massif ne sort pas par le haut du cadre à l’échelle retenue', () => {
+  expect(cadreMontagnes(ECHELLE_MONTAGNES).y).toBeGreaterThanOrEqual(0)
 })
