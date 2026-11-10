@@ -26,7 +26,7 @@ const { enRoute } = storeToRefs(useVoyage())
 
 .signature {
   position: absolute;
-  top: 88px;
+  top: 136px;
   left: 56px;
 }
 
@@ -47,7 +47,7 @@ const { enRoute } = storeToRefs(useVoyage())
 
 .phrase {
   position: absolute;
-  top: 176px;
+  top: 224px;
   left: 56px;
   margin: 0;
   max-width: 28ch;
