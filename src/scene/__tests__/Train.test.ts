@@ -1,4 +1,4 @@
-import { frameIndex, nextTrainState, sequenceFor, trainSpeed } from '@/scene/Train'
+import { ATTELAGE, frameIndex, nextTrainState, sequenceFor, trainSpeed, wagonX } from '@/scene/Train'
 
 test('le train quitte l’arrêt par le démarrage', () => {
   expect(nextTrainState('arret', 0, true)).toBe('demarrage')
@@ -98,4 +98,28 @@ test('une étape qui n’est plus la dernière relance le train', () => {
 
 test('le freinage continue tant que l’étape reste la dernière', () => {
   expect(nextTrainState('freinage', 0.5, true)).toBe('freinage')
+})
+
+// Le wagon et la locomotive sont deux rendus séparés, chacun dessiné au même
+// endroit du cadre. Les poser tous deux à leur origine les empile : le toit du
+// wagon barre alors la chaudière, au-dessus de la cheminée.
+const LOCO = { x: 597, y: 277, width: 1341, height: 666, count: 32, scale: 0.5, path: '' }
+const WAGON = { x: 597, y: 494, width: 1119, height: 446, count: 32, scale: 0.5, path: '' }
+
+test('le wagon est attelé derrière la locomotive, pas empilé dessus', () => {
+  const x = wagonX(LOCO, WAGON)
+  expect(x).toBeLessThan(LOCO.x)
+  expect(x + WAGON.width).toBeLessThanOrEqual(LOCO.x + ATTELAGE)
+})
+
+test('le wagon ne recouvre ni la chaudière ni la cheminée', () => {
+  const x = wagonX(LOCO, WAGON)
+  // la cheminée est dans la moitié avant de la locomotive
+  expect(x + WAGON.width).toBeLessThan(LOCO.x + LOCO.width / 2)
+})
+
+test('les tampons se touchent, ils ne laissent pas de trou', () => {
+  const x = wagonX(LOCO, WAGON)
+  expect(LOCO.x - (x + WAGON.width)).toBeLessThanOrEqual(0)
+  expect(ATTELAGE).toBeGreaterThan(0)
 })

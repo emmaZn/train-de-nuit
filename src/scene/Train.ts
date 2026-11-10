@@ -1,7 +1,7 @@
 import { Container, Sprite, Texture, TilingSprite } from 'pixi.js'
 import { loadSequence, loadTexture } from './assets'
 import { STAGE } from './layout'
-import type { Manifest, TrainSequence } from './types'
+import type { Manifest, SequenceSpec, TrainSequence } from './types'
 
 export type TrainState = 'arret' | 'demarrage' | 'roule' | 'freinage'
 
@@ -59,6 +59,35 @@ export function sequenceFor(state: TrainState): [TrainSequence, TrainSequence] {
   return ['loco-stop', 'wagon-stop']
 }
 
+/**
+ * How far the carriage overlaps the locomotive, in stage pixels, so the buffers
+ * meet instead of leaving a gap. A visual value, to set by eye against the Figma.
+ */
+export const ATTELAGE = 70
+
+/** Which sequence pairs with which, so a wagon is placed against its own loco. */
+const LOCO_DE: Record<TrainSequence, TrainSequence> = {
+  loco: 'loco',
+  wagon: 'loco',
+  'loco-start': 'loco-start',
+  'wagon-start': 'loco-start',
+  'loco-stop': 'loco-stop',
+  'wagon-stop': 'loco-stop',
+}
+
+/**
+ * Where the carriage goes, in stage pixels.
+ *
+ * The six sequences are six separate renders, and each vehicle was drawn at the
+ * same place in the 2320x1217 frame — both bounding boxes start at x = 597. So
+ * the recorded origin is not a position in a shared composition: placing both
+ * there stacks the carriage on the locomotive, and its roof cuts a bar straight
+ * across the boiler, above the chimney. The carriage is coupled behind instead.
+ */
+export function wagonX(loco: SequenceSpec, wagon: SequenceSpec): number {
+  return loco.x - wagon.width + ATTELAGE
+}
+
 /** Stage pixels the track scrolls through per second at full speed. */
 const DEFILEMENT = 900
 
@@ -75,9 +104,7 @@ export class Train {
   constructor(parent: Container, manifest: Manifest) {
     this.manifest = manifest
     const spec = manifest.train
-    // Chaque séquence est replacée à l'origine de sa bbox d'union : c'est ce qui
-    // reconstitue la composition d'origine du cadre 2320 x 1217.
-    this.wagon.position.set(spec.wagon.x, spec.wagon.y)
+    this.wagon.position.set(wagonX(spec.loco, spec.wagon), spec.wagon.y)
     this.loco.position.set(spec.loco.x, spec.loco.y)
     this.racine.addChild(this.wagon, this.loco)
     parent.addChild(this.racine)
@@ -154,7 +181,8 @@ export class Train {
     const boucle = cle === 'loco' || cle === 'wagon'
     sprite.texture = textures[frameIndex(this.etat, this.image, textures.length, boucle)]
     // Le fichier est réduit ; on le redessine à sa taille dans le cadre.
-    sprite.position.set(spec.x, spec.y)
+    const x = cle.startsWith('wagon') ? wagonX(this.manifest.train[LOCO_DE[cle]], spec) : spec.x
+    sprite.position.set(x, spec.y)
     sprite.setSize(spec.width, spec.height)
   }
 
