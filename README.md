@@ -8,7 +8,12 @@ Le cadrage complet — concept, direction artistique, architecture, étapes — 
 
 ## Démarrer
 
+Le projet tourne sur **Node 24**. La version est épinglée dans `mise.toml` : avec [mise](https://mise.jdx.dev), entrer dans le dossier suffit, et `mise install` la pose si elle manque. Sans mise, `package.json` déclare l'exigence dans `engines`.
+
+Node 24 n'est pas un caprice : c'est la seule ligne que toutes les dépendances acceptent. Vitest 5 exclut Node 25, jsdom 29 exclut Node 20.
+
 ```bash
+mise install    # si besoin
 npm install
 npm run dev
 ```

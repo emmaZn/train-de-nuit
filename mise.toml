@@ -1,0 +1,9 @@
+# La version de Node du projet. mise la prend en entrant dans le dossier.
+#
+# 24 : c'est la ligne LTS, et c'est la seule qui satisfasse toutes les
+# dépendances — vitest 5 exclut Node 25, et jsdom 29 exclut Node 20.
+# Épinglée au correctif près pour que la machine d'Emmanuelle, un CI et un
+# hébergeur exécutent exactement le même binaire. Pour suivre les correctifs
+# automatiquement, remplacer par "24".
+[tools]
+node = "24.20.0"
