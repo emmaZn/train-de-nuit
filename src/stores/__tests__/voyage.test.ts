@@ -93,3 +93,16 @@ test('etapesRestantes dit combien d’étapes il reste', () => {
   v.finirEtape()
   expect(v.etapesRestantes).toBe(2)
 })
+
+// C2 : en route, il reste toujours au moins une étape, même vers la gare occupée
+test('revenir vers la gare occupée coûte le tour complet', () => {
+  const v = useVoyage()
+  v.partirVers('plus-loin')
+  v.partirVers('ici')
+  expect(v.etapesRestantes).toBe(4)
+})
+
+test('à quai, il ne reste aucune étape', () => {
+  const v = useVoyage()
+  expect(v.etapesRestantes).toBe(0)
+})

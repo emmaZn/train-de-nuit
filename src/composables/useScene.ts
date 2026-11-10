@@ -30,10 +30,6 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     scene.value?.setPointer(x, y)
   }
 
-  function surRedimensionnement() {
-    scene.value?.resize()
-  }
-
   onMounted(async () => {
     document.documentElement.style.setProperty('--fond', fond.value)
     if (!canvas.value) return
@@ -51,8 +47,9 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     instance.setVoyage(enRoute.value, etapesRestantes.value)
     instance.setLegs(legs.value)
 
+    // Pas d'écouteur `resize` ici : le renderer Pixi recadre lui-même, à la
+    // frame où il connaît vraiment ses nouvelles dimensions.
     window.addEventListener('pointermove', surPointeur, { passive: true })
-    window.addEventListener('resize', surRedimensionnement, { passive: true })
   })
 
   watch([enRoute, etapesRestantes], ([route, restantes]) => {
@@ -65,7 +62,6 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
   onBeforeUnmount(() => {
     window.removeEventListener('pointermove', surPointeur)
-    window.removeEventListener('resize', surRedimensionnement)
     for (const off of detacher) off()
     scene.value?.dispose()
     scene.value = null

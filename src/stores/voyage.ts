@@ -25,8 +25,16 @@ export const useVoyage = defineStore('voyage', {
   }),
 
   getters: {
-    etapesRestantes: (state): number =>
-      state.cible ? forwardSteps(state.gare, state.cible) : 0,
+    /**
+     * Legs left before the train stops. While travelling, `gare` is the station
+     * behind the train, so counting from it returns 0 when the target is the
+     * station just left — and a whole leg gets skipped. One leg is always left
+     * to run, so the count starts from the station ahead.
+     */
+    etapesRestantes: (state): number => {
+      if (!state.enRoute || !state.cible) return 0
+      return 1 + forwardSteps(gareSuivante(state.gare), state.cible)
+    },
   },
 
   actions: {

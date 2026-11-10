@@ -90,3 +90,12 @@ test('l’index d’image reste dans les bornes', () => {
     expect(i).toBeLessThan(32)
   }
 })
+
+// I1 : une cible redirigée pendant le freinage doit relancer le train
+test('une étape qui n’est plus la dernière relance le train', () => {
+  expect(nextTrainState('freinage', 0.5, false)).toBe('roule')
+})
+
+test('le freinage continue tant que l’étape reste la dernière', () => {
+  expect(nextTrainState('freinage', 0.5, true)).toBe('freinage')
+})

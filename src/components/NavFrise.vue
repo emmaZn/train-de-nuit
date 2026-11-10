@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import type { Gare } from '@/scene/types'
-import { GARES, forwardSteps, useVoyage } from '@/stores/voyage'
+import { GARES, useVoyage } from '@/stores/voyage'
 
 /** Les routes gardent le tiret, les libellés non. */
 const LIBELLES: Record<Gare, string> = {
@@ -14,17 +14,18 @@ const LIBELLES: Record<Gare, string> = {
 
 /** Gares visibles de part et d'autre de celle où l'on est. */
 const AVANT = 2
-const APRES = 3
+const APRES = 4
 
 type Etat = 'passee' | 'a-quai' | 'prochain' | 'a-venir'
 
 const voyage = useVoyage()
-const { gare, cible, enRoute, legs, progression } = storeToRefs(voyage)
+const { gare, enRoute, etapesRestantes, legs, progression } = storeToRefs(voyage)
 
 const entrees = computed(() => {
   const base = GARES.indexOf(gare.value)
   // En route, le prochain arrêt est la cible, pas une gare qu'on traverse.
-  const distanceCible = cible.value ? forwardSteps(gare.value, cible.value) : 1
+  // Le compte vient du store, seul endroit où il est juste à toute étape.
+  const distanceCible = enRoute.value ? etapesRestantes.value : 1
 
   return Array.from({ length: AVANT + APRES + 1 }, (_, i) => {
     const decalage = i - AVANT

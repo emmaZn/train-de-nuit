@@ -26,6 +26,9 @@ export function nextTrainState(state: TrainState, phase: number, derniereEtape: 
   if (state === 'arret') return 'demarrage'
   if (state === 'demarrage') return phase >= PHASE_ROULE ? 'roule' : 'demarrage'
   if (state === 'roule') return derniereEtape && phase >= PHASE_FREINAGE ? 'freinage' : 'roule'
+  // Le freinage n'a de sens que sur la dernière étape : si la cible est
+  // redirigée pendant qu'il freine, le train doit repartir.
+  if (!derniereEtape) return 'roule'
   return phase >= 1 ? 'arret' : 'freinage'
 }
 
@@ -104,13 +107,24 @@ export class Train {
       this.racine.addChildAt(this.rails, 0)
     }
 
-    // La boucle de roulement d'abord : c'est elle qu'on voit en arrivant.
-    for (const cle of ['loco', 'wagon', 'loco-stop', 'wagon-stop', 'loco-start', 'wagon-start'] as const) {
-      const textures = await loadSequence(this.manifest.train[cle])
-      if (textures.length) this.sequences.set(cle, textures)
-      if (cle === 'wagon') this.appliquer()
+    // La séquence d'arrêt d'abord : le train est à quai quand on arrive, et
+    // `sequenceFor('arret')` ne demande qu'elle. Charger la boucle en premier
+    // laissait le train invisible le temps de 64 images.
+    for (const paire of [
+      ['loco-stop', 'wagon-stop'],
+      ['loco', 'wagon'],
+      ['loco-start', 'wagon-start'],
+    ] as const) {
+      await Promise.all(
+        paire.map(async (cle) => {
+          const textures = await loadSequence(this.manifest.train[cle], {
+            onFrame: () => this.appliquer(),
+          })
+          if (textures.length) this.sequences.set(cle, textures)
+        }),
+      )
+      this.appliquer()
     }
-    this.appliquer()
   }
 
   update(dt: number, phase: number, derniereEtape: boolean, enRoute: boolean): void {

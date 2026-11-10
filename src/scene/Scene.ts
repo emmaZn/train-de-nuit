@@ -42,6 +42,9 @@ export class Scene {
   private phase = 0
   private enRoute = false
   private etapesRestantes = 0
+  /** Whole legs travelled; the fraction of the current one is `phase`. */
+  private legsBase = 0
+  private dernierSaut = -1
   private vivante = false
 
   constructor(canvas: HTMLCanvasElement, opts: SceneOptions) {
@@ -84,10 +87,16 @@ export class Scene {
     this.decor.filters = [this.recolor]
 
     this.cadrer()
+    // `resizeTo: window` reporte le redimensionnement à un requestAnimationFrame :
+    // lire `app.screen` depuis un écouteur `resize` du document donne toujours
+    // les dimensions d'avant. C'est le renderer qui dit quand il a changé.
+    this.app.renderer.on('resize', () => this.cadrer())
     this.app.ticker.add((ticker) => this.tick(ticker.deltaMS / 1000))
 
     const manifest = await loadManifest()
-    if (manifest) await this.peupler(manifest)
+    // Sans `await` : 396 images ne doivent pas retarder la couleur mémorisée,
+    // le parallax ni le premier cadrage.
+    if (manifest) void this.peupler(manifest)
   }
 
   private async peupler(manifest: Manifest): Promise<void> {
@@ -117,8 +126,8 @@ export class Scene {
 
     this.refletTexture?.destroy(true)
     this.refletTexture = RenderTexture.create({
-      width: STAGE.width * REFLET_RESOLUTION,
-      height: HORIZON * REFLET_RESOLUTION,
+      width: Math.round(STAGE.width * REFLET_RESOLUTION),
+      height: Math.round(HORIZON * REFLET_RESOLUTION),
     })
     this.refletSprite.texture = this.refletTexture
     this.refletSprite.width = STAGE.width
@@ -149,9 +158,18 @@ export class Scene {
     // Sans rendu animé — mouvement réduit (CONCEPT.md §11) ou pas de WebGL —
     // l'étape est franchie aussitôt. Sinon `arrived` ne partirait jamais, le
     // voyage ne finirait pas, et la gare n'arriverait jamais à quai.
-    if (enRoute && !this.peutAnimer) {
+    // Sans rendu animé, on ne relance le rattrapage que lorsque l'état a
+    // vraiment changé : sinon un simple rappel consommerait une étape.
+    if (enRoute && !this.peutAnimer && this.dernierSaut !== etapesRestantes) {
+      this.dernierSaut = etapesRestantes
       queueMicrotask(() => this.emitter.emit('arrived'))
     }
+    if (!enRoute) this.dernierSaut = -1
+  }
+
+  /** Distance travelled in legs, fractional: what the mountains turn with. */
+  get legsParcourues(): number {
+    return this.legsBase + (this.enRoute ? this.phase : 0)
   }
 
   /** False without WebGL, and false when the visitor asked for less movement. */
@@ -160,7 +178,8 @@ export class Scene {
   }
 
   setLegs(legs: number): void {
-    this.mountains?.setLegs(legs)
+    this.legsBase = legs
+    this.mountains?.setLegs(this.legsParcourues)
   }
 
   /** Fades the colour of the night over about a second (CONCEPT.md §6). */
@@ -191,15 +210,21 @@ export class Scene {
     if (this.enRoute && this.peutAnimer) {
       this.phase += dt / DUREE_ETAPE
       if (this.phase >= 1) {
-        // Sur la dernière étape, la phase reste à 1 : la remettre à zéro
+        // La scène décompte elle-même : le store ne la rafraîchit qu'au tick
+        // suivant, et s'en remettre à lui ferait franchir deux étapes d'affilée.
+        this.etapesRestantes = Math.max(0, this.etapesRestantes - 1)
+        this.legsBase += 1
+        // Sur la dernière étape la phase reste à 1 : la remettre à zéro
         // relancerait la voie à pleine vitesse le temps d'une image.
-        this.phase = this.etapesRestantes <= 1 ? 1 : 0
+        this.phase = this.etapesRestantes <= 0 ? 1 : 0
         this.emitter.emit('arrived')
       } else {
         this.emitter.emit('progress', this.phase)
       }
     }
 
+    // Les montagnes tournent pendant l'étape, pas d'un cran à chaque gare.
+    this.mountains?.setLegs(this.legsParcourues)
     this.sky?.update()
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
     this.rendreReflet()
