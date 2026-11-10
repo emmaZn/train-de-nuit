@@ -47,4 +47,4 @@ export const ECHELLE_TRAIN = 0.5
  * 1 fits its width exactly; above that it climbs higher and spills off both
  * sides, which is what a nearer ridge does. A visual value, like the train's.
  */
-export const ECHELLE_MONTAGNES = 1.15
+export const ECHELLE_MONTAGNES = 1.4
