@@ -4,7 +4,7 @@ Two measurements shape this pipeline.
 
 Mountains carry no colour at all: every opaque pixel is the same grey (~196)
 and all the relief lives in the alpha channel. Storing the alpha alone, as a
-greyscale WebP, costs 46 kB per frame at 1280 px where RGBA costs 190 kB. The
+greyscale WebP, costs 75 kB per frame at 1600 px where RGBA costs 190 kB. The
 renderer turns that luminance back into alpha with a one-line shader.
 
 Train sequences all share the 2320x1217 frame of the rails. Trimming each
@@ -121,7 +121,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--src', required=True, type=Path)
     parser.add_argument('--out', required=True, type=Path)
-    parser.add_argument('--mountain-width', type=int, default=1280)
+    # 1600 : la source fait 1918 px, et le massif est dessine bien plus large
+    # que le cadre. En dessous, l'etirement a l'affichage se voit sur le grain.
+    parser.add_argument('--mountain-width', type=int, default=1600)
     parser.add_argument('--train-scale', type=float, default=0.5)
     parser.add_argument('--quality', type=int, default=80)
     # Absolute on purpose: stations are served at /ici, /plus-loin, … and a

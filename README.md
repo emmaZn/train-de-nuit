@@ -27,7 +27,7 @@ npm run dev
 
 ## Les assets
 
-Les images sources sont **hors du dépôt**, dans `~/projet_zero/` : 160 PNG de montagnes (554 Mo) et six séquences de train (52 Mo). Le dépôt ne contient que leurs sorties WebP, dans `public/assets/` (≈ 17 Mo), décrites par `public/assets/manifest.json`.
+Les images sources sont **hors du dépôt**, dans `~/projet_zero/` : 160 PNG de montagnes (554 Mo) et six séquences de train (52 Mo). Le dépôt ne contient que leurs sorties WebP, dans `public/assets/` (≈ 20 Mo), décrites par `public/assets/manifest.json`.
 
 Pour les régénérer :
 
@@ -35,11 +35,13 @@ Pour les régénérer :
 python3 tools/build_assets.py --src ~/projet_zero --out public/assets
 ```
 
-Options : `--mountain-width` (1280), `--train-scale` (0.5), `--quality` (80), `--jobs`, `--base` (`/assets`).
+Options : `--mountain-width` (1600), `--train-scale` (0.5), `--quality` (80), `--jobs`, `--base` (`/assets`).
 
 Deux mesures expliquent ce que fait ce script :
 
-- **Les montagnes n'ont aucune couleur.** Tout leur relief est dans le canal alpha, sur un seul gris. On ne stocke donc que l'alpha, en WebP niveaux de gris : 46 Ko par image à 1280 px, contre 190 Ko en RGBA. Un shader refait l'opération inverse à l'affichage.
+- **Les montagnes n'ont aucune couleur.** Tout leur relief est dans le canal alpha, sur un seul gris. On ne stocke donc que l'alpha, en WebP niveaux de gris : 75 Ko par image à 1600 px, contre 190 Ko en RGBA à la même largeur. Un shader refait l'opération inverse à l'affichage.
+
+  La source ne fait que 1918 px de large, alors que le massif s'affiche sur plus de 3500 px sur un écran Retina : il reste donc un étirement d'environ 1,9×. Le seul vrai remède serait de re-rendre la séquence source plus grande.
 - **Les six séquences du train partagent le cadre 2320 × 1217 des rails.** Rogner chaque image sur sa propre boîte englobante casserait l'alignement entre images : le rognage utilise la boîte englobante **de la séquence entière**, et le manifeste en note l'origine.
 
 Les chemins du manifeste sont **absolus** (`/assets/…`) : les gares sont servies sur `/ici`, `/plus-loin`, … et un chemin relatif serait résolu contre la route courante.
