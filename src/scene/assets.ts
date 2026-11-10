@@ -34,7 +34,7 @@ export async function loadTexture(path: string): Promise<Texture | null> {
  * missing frame is skipped, never fatal.
  */
 export async function loadSequence(
-  spec: SequenceSpec,
+  spec: Pick<SequenceSpec, 'count' | 'path'>,
   opts: { onFrame?: (index: number, texture: Texture) => void } = {},
 ): Promise<Texture[]> {
   const textures: Texture[] = []

@@ -98,17 +98,21 @@ def build_mountains(src: Path, out: Path, width: int, quality: int, jobs: int, b
     }
 
 
-def build_sequence(files, folder: Path, scale: int, quality: int, jobs: int, path: str):
+def build_sequence(files, folder: Path, scale: float, quality: int, jobs: int, path: str):
     box = union_bbox(files)
     folder.mkdir(parents=True, exist_ok=True)
-    sizes = run(
+    run(
         [(f, folder / f'{i:04d}.webp', box, scale, quality) for i, f in enumerate(files, 1)],
         write_crop, jobs,
     )
+    # Everything is reported in pixels of the 2320x1217 stage frame, origin
+    # included: mixing source and output units is how a sprite ends up drawn at
+    # half its size. `scale` says what was applied to the files themselves.
     return {
         'count': len(files),
         'x': box[0], 'y': box[1],
-        'width': sizes[0][0], 'height': sizes[0][1],
+        'width': box[2] - box[0], 'height': box[3] - box[1],
+        'scale': scale,
         'path': path,
     }
 
@@ -120,7 +124,9 @@ def main() -> None:
     parser.add_argument('--mountain-width', type=int, default=1280)
     parser.add_argument('--train-scale', type=float, default=0.5)
     parser.add_argument('--quality', type=int, default=80)
-    parser.add_argument('--base', default='assets', help='prefix of the paths written in the manifest')
+    # Absolute on purpose: stations are served at /ici, /plus-loin, … and a
+    # relative path would resolve against the current route, not the site root.
+    parser.add_argument('--base', default='/assets', help='prefix of the paths written in the manifest')
     parser.add_argument('--jobs', type=int, default=cpu_count())
     args = parser.parse_args()
 

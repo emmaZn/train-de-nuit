@@ -1,4 +1,4 @@
-import { nextTrainState, sequenceFor, trainSpeed } from '@/scene/Train'
+import { frameIndex, nextTrainState, sequenceFor, trainSpeed } from '@/scene/Train'
 
 test('le train quitte l’arrêt par le démarrage', () => {
   expect(nextTrainState('arret', 0, true)).toBe('demarrage')
@@ -66,5 +66,27 @@ test('la vitesse ne sort jamais de [0,1]', () => {
       expect(v).toBeGreaterThanOrEqual(0)
       expect(v).toBeLessThanOrEqual(1)
     }
+  }
+})
+
+test('une séquence en boucle tourne indéfiniment', () => {
+  expect(frameIndex('roule', 35, 32, true)).toBe(3)
+})
+
+test('une séquence à jouer une fois s’arrête sur sa dernière image', () => {
+  // Le démarrage et le freinage ne se rejouent pas : sans cela, le train
+  // repartirait du début de sa séquence d'arrêt au milieu du freinage.
+  expect(frameIndex('freinage', 70, 43, false)).toBe(42)
+})
+
+test('à l’arrêt, c’est la dernière image qui reste', () => {
+  expect(frameIndex('arret', 5, 43, false)).toBe(42)
+})
+
+test('l’index d’image reste dans les bornes', () => {
+  for (const image of [0, 1.9, 1000]) {
+    const i = frameIndex('roule', image, 32, true)
+    expect(i).toBeGreaterThanOrEqual(0)
+    expect(i).toBeLessThan(32)
   }
 })

@@ -62,3 +62,27 @@ test('les images de montagne portent l’alpha source dans leur luminance', () =
   expect(px.g).toBe(px.b)
   expect(px.r).toBeCloseTo(FIXTURE_ALPHA, -1)
 })
+
+// Les gares sont servies sur /ici, /plus-loin, … : un chemin relatif serait
+// résolu contre la route courante et donnerait /ici/assets/…, qui n'existe pas.
+test('les chemins du manifeste sont absolus', () => {
+  expect(manifest.mountains.path.startsWith('/')).toBe(true)
+  expect(manifest.rails.path.startsWith('/')).toBe(true)
+  expect(manifest.train.loco.path.startsWith('/')).toBe(true)
+})
+
+// x/y étaient en pixels sources et width/height en pixels de sortie : le train
+// se dessinait à la moitié de sa taille. Tout le manifeste parle désormais en
+// pixels du cadre 2320 x 1217, et `scale` dit ce qui a été appliqué aux fichiers.
+test('le manifeste décrit le train en pixels du cadre, pas en pixels de sortie', () => {
+  // bbox d'union des fixtures : 580..1710 en x, 400..900 en y
+  expect(manifest.train.loco.width).toBe(1130)
+  expect(manifest.train.loco.height).toBe(500)
+  expect(manifest.train.loco.scale).toBe(0.1)
+})
+
+test('les rails aussi sont décrits en pixels du cadre', () => {
+  expect(manifest.rails.width).toBe(1127)
+  expect(manifest.rails.height).toBe(38)
+  expect(manifest.rails.scale).toBe(0.1)
+})

@@ -19,9 +19,11 @@ export type Trace = {
 }
 
 /**
- * One image sequence. `x` and `y` are the origin of the union bounding box in
- * the 2320x1217 stage frame, in source pixels; `width` and `height` are the
- * output size. `path` holds `{i}`, a placeholder for a four-digit index.
+ * One image sequence, described entirely in pixels of the 2320x1217 stage
+ * frame: `x` and `y` are the origin of the union bounding box, `width` and
+ * `height` its size. `scale` is what the pipeline applied to the files, so a
+ * tiling texture can be scaled back up. `path` holds `{i}`, a placeholder for
+ * a four-digit index.
  */
 export type SequenceSpec = {
   count: number
@@ -29,6 +31,7 @@ export type SequenceSpec = {
   y: number
   width: number
   height: number
+  scale: number
   path: string
 }
 

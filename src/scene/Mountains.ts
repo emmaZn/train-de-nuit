@@ -76,7 +76,7 @@ export class Mountains {
 
   /** Loads the whole sequence, showing each frame as it arrives. */
   async load(): Promise<void> {
-    await loadSequence({ ...this.spec, x: 0, y: 0 }, {
+    await loadSequence(this.spec, {
       onFrame: (index, texture) => {
         this.textures[index - 1] = texture
         this.montrer()

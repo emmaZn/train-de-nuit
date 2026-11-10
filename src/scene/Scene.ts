@@ -145,6 +145,18 @@ export class Scene {
     if (enRoute && !this.enRoute) this.phase = 0
     this.enRoute = enRoute
     this.etapesRestantes = etapesRestantes
+
+    // Sans rendu animé — mouvement réduit (CONCEPT.md §11) ou pas de WebGL —
+    // l'étape est franchie aussitôt. Sinon `arrived` ne partirait jamais, le
+    // voyage ne finirait pas, et la gare n'arriverait jamais à quai.
+    if (enRoute && !this.peutAnimer) {
+      queueMicrotask(() => this.emitter.emit('arrived'))
+    }
+  }
+
+  /** False without WebGL, and false when the visitor asked for less movement. */
+  private get peutAnimer(): boolean {
+    return this.vivante && !this.reducedMotion
   }
 
   setLegs(legs: number): void {
@@ -176,10 +188,12 @@ export class Scene {
   private tick(dt: number): void {
     if (!this.vivante) return
 
-    if (this.enRoute && !this.reducedMotion) {
+    if (this.enRoute && this.peutAnimer) {
       this.phase += dt / DUREE_ETAPE
       if (this.phase >= 1) {
-        this.phase = 0
+        // Sur la dernière étape, la phase reste à 1 : la remettre à zéro
+        // relancerait la voie à pleine vitesse le temps d'une image.
+        this.phase = this.etapesRestantes <= 1 ? 1 : 0
         this.emitter.emit('arrived')
       } else {
         this.emitter.emit('progress', this.phase)

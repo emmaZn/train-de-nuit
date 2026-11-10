@@ -5,8 +5,8 @@ import type { Manifest, TrainSequence } from './types'
 
 export type TrainState = 'arret' | 'demarrage' | 'roule' | 'freinage'
 
-/** End of the start-up ramp, as a share of the leg. */
-export const PHASE_ROULE = 0.2
+/** End of the start-up ramp, as a share of the leg: 1.8 s, the 43 frames at 24 fps. */
+export const PHASE_ROULE = 0.3
 /** « Il ralentit longuement à l'approche d'une gare » (CONCEPT.md §6). */
 export const PHASE_FREINAGE = 0.7
 
@@ -27,6 +27,18 @@ export function nextTrainState(state: TrainState, phase: number, derniereEtape: 
   if (state === 'demarrage') return phase >= PHASE_ROULE ? 'roule' : 'demarrage'
   if (state === 'roule') return derniereEtape && phase >= PHASE_FREINAGE ? 'freinage' : 'roule'
   return phase >= 1 ? 'arret' : 'freinage'
+}
+
+/**
+ * Which image of a sequence to show. Rolling loops; starting and braking are
+ * played once and hold on their last image — wrapping them would pop the train
+ * back to the start of its braking in the middle of a stop.
+ */
+export function frameIndex(state: TrainState, image: number, count: number, boucle: boolean): number {
+  if (count <= 0) return 0
+  if (state === 'arret') return count - 1
+  const entier = Math.max(0, Math.floor(image))
+  return boucle ? entier % count : Math.min(count - 1, entier)
 }
 
 /** 0 to 1. Drives how fast the track scrolls under the train. */
@@ -79,14 +91,16 @@ export class Train {
   async load(): Promise<void> {
     const voie = await loadTexture(this.manifest.rails.path)
     if (voie) {
+      const voieSpec = this.manifest.rails
       this.rails = new TilingSprite({
         texture: voie,
         width: STAGE.width,
-        height: this.manifest.rails.height * 2,
+        height: voieSpec.height,
       })
-      // La voie se répète sur toute la largeur du cadre, à la hauteur mesurée.
-      this.rails.position.set(0, this.manifest.rails.y)
-      this.rails.tileScale.set(2, 2)
+      // La voie se répète sur toute la largeur du cadre ; la texture est
+      // remise à l'échelle du cadre, puisqu'elle a été réduite à l'export.
+      this.rails.position.set(0, voieSpec.y)
+      this.rails.tileScale.set(1 / voieSpec.scale)
       this.racine.addChildAt(this.rails, 0)
     }
 
@@ -123,12 +137,11 @@ export class Train {
     const textures = this.sequences.get(cle)
     if (!textures || !textures.length) return
     const spec = this.manifest.train[cle]
+    const boucle = cle === 'loco' || cle === 'wagon'
+    sprite.texture = textures[frameIndex(this.etat, this.image, textures.length, boucle)]
+    // Le fichier est réduit ; on le redessine à sa taille dans le cadre.
     sprite.position.set(spec.x, spec.y)
-    const index =
-      this.etat === 'arret'
-        ? textures.length - 1
-        : Math.min(textures.length - 1, Math.floor(this.image) % textures.length)
-    sprite.texture = textures[index]
+    sprite.setSize(spec.width, spec.height)
   }
 
   destroy(): void {
