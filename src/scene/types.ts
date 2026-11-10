@@ -1,0 +1,43 @@
+/** The four stations of the loop, in travel order. */
+export type Gare = 'ici' | 'plus-loin' | 'la-haut' | 'ailleurs'
+
+/** The six train sequences produced by tools/build_assets.py. */
+export type TrainSequence =
+  | 'loco'
+  | 'wagon'
+  | 'loco-start'
+  | 'wagon-start'
+  | 'loco-stop'
+  | 'wagon-stop'
+
+/** A sentence left by a visitor, shown as a star. Used from step 2 onwards. */
+export type Trace = {
+  id: string
+  phrase: string
+  prenom?: string
+  creeLe: number
+}
+
+/**
+ * One image sequence. `x` and `y` are the origin of the union bounding box in
+ * the 2320x1217 stage frame, in source pixels; `width` and `height` are the
+ * output size. `path` holds `{i}`, a placeholder for a four-digit index.
+ */
+export type SequenceSpec = {
+  count: number
+  x: number
+  y: number
+  width: number
+  height: number
+  path: string
+}
+
+/** The rails are a single image, so they carry no frame count. */
+export type RailsSpec = Omit<SequenceSpec, 'count'>
+
+export type Manifest = {
+  stage: { width: number; height: number }
+  mountains: { count: number; width: number; height: number; path: string }
+  rails: RailsSpec
+  train: Record<TrainSequence, SequenceSpec>
+}
