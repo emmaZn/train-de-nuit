@@ -57,3 +57,27 @@ export const ECHELLE_MONTAGNES = 1.4
  * after the scale, so shrinking the train never drifts it back to the centre.
  */
 export const DECALAGE_RAME = -200
+
+/**
+ * Height of the veil that puts out the foot of the mountain range, in stage
+ * pixels, measured up from the rail line. It is what the train's white line
+ * stands out against.
+ */
+export const DEGRADE_HAUTEUR = 380
+
+/** How far the veil closes at the rail line, 0 to 1. */
+export const DEGRADE_OPACITE = 0.9
+
+/**
+ * The band the veil covers: full frame width, resting on the rail line and
+ * fading out upwards. Drawn in black, so the project's one rule turns it into
+ * the colour of the night, whatever that colour is.
+ */
+export function cadreDegrade(hauteur: number): {
+  x: number
+  y: number
+  width: number
+  height: number
+} {
+  return { x: 0, y: HORIZON - hauteur, width: STAGE.width, height: hauteur }
+}

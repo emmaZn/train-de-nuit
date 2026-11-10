@@ -1,8 +1,8 @@
 import gsap from 'gsap'
-import { Application, BlurFilter, Container, RenderTexture, Sprite } from 'pixi.js'
+import { Application, BlurFilter, Container, FillGradient, Graphics, RenderTexture, Sprite } from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
-import { HORIZON, STAGE, fitStage } from './layout'
+import { DEGRADE_HAUTEUR, DEGRADE_OPACITE, HORIZON, STAGE, cadreDegrade, fitStage } from './layout'
 import { Mountains } from './Mountains'
 import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
@@ -103,11 +103,33 @@ export class Scene {
     // Les montagnes portent leur propre conteneur et leur propre filtre :
     // c'est lui qui fond chaque image dans la suivante.
     this.mountains = new Mountains(this.decor, manifest)
+    // Entre le massif et le train : c'est ce qui détache le trait blanc.
+    this.decor.addChild(this.voileDuPied())
     this.train = new Train(this.decor, manifest)
 
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
     await this.train.load()
     await this.mountains.load()
+  }
+
+  /**
+   * The veil that puts out the foot of the range. Drawn in black, so the
+   * recolor filter above turns it into the colour of the night — it follows
+   * the eye like everything else.
+   */
+  private voileDuPied(): Graphics {
+    const c = cadreDegrade(DEGRADE_HAUTEUR)
+    const degrade = new FillGradient({
+      type: 'linear',
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 1 },
+      textureSpace: 'local',
+      colorStops: [
+        { offset: 0, color: 'rgba(0,0,0,0)' },
+        { offset: 1, color: `rgba(0,0,0,${DEGRADE_OPACITE})` },
+      ],
+    })
+    return new Graphics().rect(c.x, c.y, c.width, c.height).fill(degrade)
   }
 
   /** Scale and centre the stage frame over the viewport. */
