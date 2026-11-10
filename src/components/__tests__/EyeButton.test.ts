@@ -1,5 +1,6 @@
 import { mount } from '@vue/test-utils'
 import EyeButton from '@/components/EyeButton.vue'
+import { PALETTE } from '@/scene/palette'
 
 test('le bouton annonce ce qu’il fait aux lecteurs d’écran', () => {
   const wrapper = mount(EyeButton)
@@ -7,15 +8,15 @@ test('le bouton annonce ce qu’il fait aux lecteurs d’écran', () => {
 })
 
 test('un clic demande la couleur suivante du cycle', async () => {
-  const wrapper = mount(EyeButton, { props: { fond: '#2E2313' } })
+  const wrapper = mount(EyeButton, { props: { fond: PALETTE[0] } })
   await wrapper.get('button').trigger('click')
-  expect(wrapper.emitted('change')?.[0]).toEqual(['#141B2B'])
+  expect(wrapper.emitted('change')?.[0]).toEqual([PALETTE[1]])
 })
 
 test('un clic sur la dernière couleur revient à la première', async () => {
-  const wrapper = mount(EyeButton, { props: { fond: '#261725' } })
+  const wrapper = mount(EyeButton, { props: { fond: PALETTE[PALETTE.length - 1] } })
   await wrapper.get('button').trigger('click')
-  expect(wrapper.emitted('change')?.[0]).toEqual(['#2E2313'])
+  expect(wrapper.emitted('change')?.[0]).toEqual([PALETTE[0]])
 })
 
 test('l’œil est un bouton, pas une image cliquable', () => {
