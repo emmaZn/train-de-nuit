@@ -1,5 +1,5 @@
 import { ATTELAGE, ancrageRame, emprise, frameIndex, nextTrainState, sequenceFor, trainSpeed, wagonX } from '@/scene/Train'
-import { ECHELLE_TRAIN, HORIZON, STAGE } from '@/scene/layout'
+import { DECALAGE_RAME, ECHELLE_TRAIN, HORIZON, STAGE } from '@/scene/layout'
 
 test('le train quitte l’arrêt par le démarrage', () => {
   expect(nextTrainState('arret', 0, true)).toBe('demarrage')
@@ -132,10 +132,23 @@ test('la voie reste exactement à sa place quand le train rétrécit', () => {
   expect(a.y + 0.5 * HORIZON).toBeCloseTo(HORIZON, 6)
 })
 
-test('la rame est centrée dans le cadre', () => {
+test('la rame se tient à gauche du centre, du décalage demandé', () => {
   const { gauche, droite } = emprise(LOCO, WAGON)
   const a = ancrageRame(LOCO, WAGON, 0.5)
-  expect(a.x + 0.5 * ((gauche + droite) / 2)).toBeCloseTo(STAGE.width / 2, 6)
+  expect(a.x + 0.5 * ((gauche + droite) / 2)).toBeCloseTo(STAGE.width / 2 + DECALAGE_RAME, 6)
+})
+
+test('le décalage va bien vers la gauche', () => {
+  expect(DECALAGE_RAME).toBeLessThan(0)
+})
+
+test('le décalage ne dépend pas de l’échelle : il ne recentre pas la rame en rétrécissant', () => {
+  const { gauche, droite } = emprise(LOCO, WAGON)
+  const centre = (gauche + droite) / 2
+  for (const e of [0.3, 0.44, 0.8]) {
+    const a = ancrageRame(LOCO, WAGON, e)
+    expect(a.x + e * centre).toBeCloseTo(STAGE.width / 2 + DECALAGE_RAME, 6)
+  }
 })
 
 test('réduire de moitié divise la largeur de la rame par deux', () => {

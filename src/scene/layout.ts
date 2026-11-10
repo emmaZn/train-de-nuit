@@ -39,7 +39,7 @@ export const MOUNTAIN_SOURCE = { width: 1918, height: 472 } as const
  * value: the track and the scroll speed follow it, so changing this one number
  * keeps the whole rolling stock consistent.
  */
-export const ECHELLE_TRAIN = 0.5
+export const ECHELLE_TRAIN = 0.44
 
 /**
  * How much bigger than the frame the mountain range is drawn.
@@ -48,3 +48,12 @@ export const ECHELLE_TRAIN = 0.5
  * sides, which is what a nearer ridge does. A visual value, like the train's.
  */
 export const ECHELLE_MONTAGNES = 1.4
+
+/**
+ * How far left of the middle of the frame the train sits, in stage pixels.
+ *
+ * The locomotive faces right, so leaving room ahead of it reads as a train
+ * arriving rather than one parked in the middle. A visual value; it is applied
+ * after the scale, so shrinking the train never drifts it back to the centre.
+ */
+export const DECALAGE_RAME = -200

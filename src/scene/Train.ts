@@ -1,6 +1,6 @@
 import { Container, Sprite, Texture, TilingSprite } from 'pixi.js'
 import { loadSequence, loadTexture } from './assets'
-import { ECHELLE_TRAIN, HORIZON, STAGE } from './layout'
+import { DECALAGE_RAME, ECHELLE_TRAIN, HORIZON, STAGE } from './layout'
 import type { Manifest, SequenceSpec, TrainSequence } from './types'
 
 export type TrainState = 'arret' | 'demarrage' | 'roule' | 'freinage'
@@ -95,9 +95,9 @@ export function emprise(loco: SequenceSpec, wagon: SequenceSpec): { gauche: numb
 
 /**
  * Where to place the scaled rolling stock. Two things must hold whatever the
- * scale: the wheels stay on the rail line, and the train stays centred in the
- * frame. A point at the rail line maps to itself; the middle of the train maps
- * to the middle of the stage.
+ * scale: the wheels stay on the rail line, and the train keeps its place
+ * across the frame. A point at the rail line maps to itself; the middle of the
+ * train maps to the middle of the stage, shifted by DECALAGE_RAME.
  */
 export function ancrageRame(
   loco: SequenceSpec,
@@ -106,7 +106,7 @@ export function ancrageRame(
 ): { x: number; y: number } {
   const { gauche, droite } = emprise(loco, wagon)
   return {
-    x: STAGE.width / 2 - echelle * ((gauche + droite) / 2),
+    x: STAGE.width / 2 + DECALAGE_RAME - echelle * ((gauche + droite) / 2),
     y: HORIZON * (1 - echelle),
   }
 }
