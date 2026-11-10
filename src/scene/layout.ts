@@ -22,3 +22,12 @@ export function fitStage(viewportW: number, viewportH: number): Frame {
     offsetY: (height - STAGE.height * scale) / 2,
   }
 }
+
+/**
+ * Stage y of the rail line: every asset standing on the track — mountains
+ * behind, poles, the signpost — is placed against it. Measured on rails.png.
+ */
+export const HORIZON = 921
+
+/** Source frame of the mountain band, before the pipeline resizes it. */
+export const MOUNTAIN_SOURCE = { width: 1918, height: 472 } as const
