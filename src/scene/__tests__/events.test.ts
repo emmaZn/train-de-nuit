@@ -31,5 +31,5 @@ test('clear() retire tous les abonnés', () => {
 
 test('émettre un événement sans abonné ne lève pas', () => {
   const emitter = createEmitter<SceneEvents>()
-  expect(() => emitter.emit('arrived', 'ici')).not.toThrow()
+  expect(() => emitter.emit('arrived')).not.toThrow()
 })
