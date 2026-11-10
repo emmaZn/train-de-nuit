@@ -3,7 +3,7 @@ import { Application, BlurFilter, Container, RenderTexture, Sprite } from 'pixi.
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { HORIZON, STAGE, fitStage } from './layout'
-import { Mountains, createMountainFilter } from './Mountains'
+import { Mountains } from './Mountains'
 import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Train } from './Train'
@@ -100,11 +100,9 @@ export class Scene {
   }
 
   private async peupler(manifest: Manifest): Promise<void> {
-    const montagnes = new Container()
-    montagnes.filters = [createMountainFilter()]
-    this.decor.addChild(montagnes)
-
-    this.mountains = new Mountains(montagnes, manifest)
+    // Les montagnes portent leur propre conteneur et leur propre filtre :
+    // c'est lui qui fond chaque image dans la suivante.
+    this.mountains = new Mountains(this.decor, manifest)
     this.train = new Train(this.decor, manifest)
 
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.

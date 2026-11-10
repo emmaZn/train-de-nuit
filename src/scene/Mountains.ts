@@ -1,4 +1,4 @@
-import { Container, Filter, GlProgram, Sprite, Texture, defaultFilterVert } from 'pixi.js'
+import { Container, Filter, GlProgram, Sprite, Texture, UniformGroup, defaultFilterVert } from 'pixi.js'
 import { loadSequence } from './assets'
 import { ECHELLE_MONTAGNES, HORIZON, MOUNTAIN_SOURCE, STAGE } from './layout'
 import type { Manifest } from './types'
@@ -15,45 +15,98 @@ import type { Manifest } from './types'
  */
 export const SWEEP_LEGS = 8
 
+/** The single grey every opaque pixel of the source holds. */
+const GRIS = 196 / 255
+
+/**
+ * Continuous position in the sequence, 0 to count-1, walking back and forth.
+ * Fractional on purpose: it is what makes the relief drift instead of step.
+ */
+function position(legs: number, count: number): number {
+  if (count <= 1) return 0
+  const last = count - 1
+  const tour = (((legs / SWEEP_LEGS) % 2) + 2) % 2
+  const brut = tour * last
+  return Math.min(last, Math.max(0, brut <= last ? brut : 2 * last - brut))
+}
+
 /**
  * Index of the mountain frame for a distance travelled, counted in legs
  * (one leg = one station to the next), fractional and unbounded.
  */
 export function mountainFrame(legs: number, count: number): number {
-  if (count <= 1) return 0
-  const last = count - 1
-  const position = ((legs / SWEEP_LEGS) % 2 + 2) % 2
-  const brut = position * last
-  const plie = brut <= last ? brut : 2 * last - brut
-  return Math.min(last, Math.max(0, Math.round(plie)))
+  return Math.round(position(legs, count))
+}
+
+export type Melange = {
+  /** Frame currently showing. */
+  index: number
+  /** The one it is dissolving into. */
+  suivant: number
+  /** How far along, 0 to 1. */
+  melange: number
+}
+
+/**
+ * The two frames to show at once, and how much of the second.
+ *
+ * A sweep takes 48 s for 160 frames — 3.3 frames a second — so showing one
+ * frame at a time reads as a slideshow, which §6 rules out ("pas d'à-coups
+ * mécaniques"). Dissolving each frame into the next decouples smoothness from
+ * frame rate: the relief drifts evenly however slowly the sequence is walked.
+ */
+export function mountainBlend(legs: number, count: number): Melange {
+  const p = position(legs, count)
+  const index = Math.min(count - 1, Math.floor(p))
+  return { index, suivant: Math.min(count - 1, index + 1), melange: p - index }
 }
 
 /**
  * The pipeline stores only the alpha of each mountain frame, as luminance.
- * This filter does the inverse: luminance back to alpha, over the single grey
- * the source actually holds. It runs before the recolor filter.
+ * This filter does the inverse — luminance back to alpha, over the single grey
+ * the source holds — and blends the two frames on the way.
+ *
+ * The two frames arrive in two channels: the container below holds two
+ * additive sprites, one tinted red and one tinted green, so the red channel
+ * carries the current frame and the green the next. That keeps a single
+ * texture sampler and the ordinary filter plumbing.
  */
 const FRAGMENT = `
 in vec2 vTextureCoord;
 out vec4 finalColor;
 
 uniform sampler2D uTexture;
+uniform float uMelange;
 
 void main(void)
 {
-    float a = texture(uTexture, vTextureCoord).r;
-    finalColor = vec4(vec3(${(196 / 255).toFixed(6)}) * a, a);
+    vec4 texel = texture(uTexture, vTextureCoord);
+    float a = mix(texel.r, texel.g, uMelange);
+    finalColor = vec4(vec3(${GRIS.toFixed(6)}) * a, a);
 }
 `
 
+const groupes = new WeakMap<Filter, UniformGroup>()
+
 export function createMountainFilter(): Filter {
-  return new Filter({
+  const uniforms = new UniformGroup({ uMelange: { value: 0, type: 'f32' } })
+  const filter = new Filter({
     glProgram: GlProgram.from({
       vertex: defaultFilterVert,
       fragment: FRAGMENT,
-      name: 'mountain-alpha',
+      name: 'mountain-blend',
     }),
+    resources: { mountainUniforms: uniforms },
   })
+  groupes.set(filter, uniforms)
+  return filter
+}
+
+export function setMountainMelange(filter: Filter, melange: number): void {
+  const uniforms = groupes.get(filter)
+  if (!uniforms) return
+  uniforms.uniforms.uMelange = melange
+  uniforms.update()
 }
 
 /**
@@ -74,7 +127,12 @@ export function cadreMontagnes(echelle: number): {
 }
 
 export class Mountains {
-  private readonly sprite = new Sprite()
+  private readonly racine = new Container()
+  /** Writes the current frame into the red channel. */
+  private readonly courante = new Sprite()
+  /** Writes the next one into the green channel. */
+  private readonly suivante = new Sprite()
+  private readonly filtre = createMountainFilter()
   private readonly textures: (Texture | undefined)[] = []
   private readonly count: number
   private readonly spec: Manifest['mountains']
@@ -85,8 +143,18 @@ export class Mountains {
     this.count = this.spec.count
     this.textures.length = this.count
 
+    for (const [sprite, teinte] of [
+      [this.courante, 0xff0000],
+      [this.suivante, 0x00ff00],
+    ] as const) {
+      sprite.tint = teinte
+      sprite.blendMode = 'add'
+      this.racine.addChild(sprite)
+    }
+
+    this.racine.filters = [this.filtre]
     this.cadrer()
-    parent.addChild(this.sprite)
+    parent.addChild(this.racine)
   }
 
   /** Loads the whole sequence, showing each frame as it arrives. */
@@ -104,28 +172,38 @@ export class Mountains {
     this.montrer()
   }
 
-  /** Shows the wanted frame, or the closest one already loaded. */
-  private montrer(): void {
-    const voulu = mountainFrame(this.legs, this.count)
+  /** The wanted frame, or the closest one already loaded. */
+  private proche(voulu: number): Texture | undefined {
     for (let ecart = 0; ecart < this.count; ecart += 1) {
       const texture = this.textures[voulu - ecart] ?? this.textures[voulu + ecart]
-      if (texture) {
-        this.sprite.texture = texture
-        // La taille est réappliquée après chaque texture : la poser une fois
-        // sur un sprite encore vide ne survit pas au premier échange.
-        this.cadrer()
-        return
-      }
+      if (texture) return texture
     }
+    return undefined
+  }
+
+  private montrer(): void {
+    const { index, suivant, melange } = mountainBlend(this.legs, this.count)
+    const a = this.proche(index)
+    if (!a) return
+    // Tant que la suivante n'est pas chargée, on reste sur la courante plutôt
+    // que de faire disparaître le relief dans un fondu vers rien.
+    const b = this.textures[suivant] ?? a
+
+    this.courante.texture = a
+    this.suivante.texture = b
+    setMountainMelange(this.filtre, this.textures[suivant] ? melange : 0)
+    this.cadrer()
   }
 
   private cadrer(): void {
     const c = cadreMontagnes(ECHELLE_MONTAGNES)
-    this.sprite.position.set(c.x, c.y)
-    this.sprite.setSize(c.width, c.height)
+    for (const sprite of [this.courante, this.suivante]) {
+      sprite.position.set(c.x, c.y)
+      sprite.setSize(c.width, c.height)
+    }
   }
 
   destroy(): void {
-    this.sprite.destroy()
+    this.racine.destroy({ children: true })
   }
 }

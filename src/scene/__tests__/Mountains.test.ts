@@ -1,4 +1,4 @@
-import { SWEEP_LEGS, cadreMontagnes, mountainFrame } from '@/scene/Mountains'
+import { SWEEP_LEGS, cadreMontagnes, mountainBlend, mountainFrame } from '@/scene/Mountains'
 import { ECHELLE_MONTAGNES, HORIZON, STAGE } from '@/scene/layout'
 
 const COUNT = 160
@@ -74,4 +74,50 @@ test('agrandir le massif le fait monter plus haut', () => {
 
 test('le massif ne sort pas par le haut du cadre à l’échelle retenue', () => {
   expect(cadreMontagnes(ECHELLE_MONTAGNES).y).toBeGreaterThanOrEqual(0)
+})
+
+// Le relief ne saute pas d'une image à l'autre : chaque image se fond dans la
+// suivante, donc la douceur ne dépend plus de la cadence (CONCEPT.md §6,
+// « pas d'à-coups mécaniques »).
+test('au départ, on est pile sur la première image', () => {
+  const m = mountainBlend(0, COUNT)
+  expect(m.index).toBe(0)
+  expect(m.melange).toBeCloseTo(0, 6)
+})
+
+test('le mélange reste toujours entre 0 et 1', () => {
+  for (const legs of [0, 0.37, 1.5, 7.77, 1234.5]) {
+    const m = mountainBlend(legs, COUNT)
+    expect(m.melange).toBeGreaterThanOrEqual(0)
+    expect(m.melange).toBeLessThan(1)
+  }
+})
+
+test('les deux images encadrent la position et restent dans les bornes', () => {
+  for (const legs of [0.3, 3.3, 9.9, 100.1]) {
+    const m = mountainBlend(legs, COUNT)
+    expect(m.index).toBeGreaterThanOrEqual(0)
+    expect(m.suivant).toBeLessThan(COUNT)
+    expect(m.suivant - m.index).toBeLessThanOrEqual(1)
+  }
+})
+
+test('le relief avance sans à-coup : un petit pas de temps donne un petit pas de mélange', () => {
+  const pas = 0.001
+  let precedent = mountainBlend(1, COUNT)
+  for (let i = 1; i <= 200; i += 1) {
+    const actuel = mountainBlend(1 + i * pas, COUNT)
+    const saut =
+      actuel.index === precedent.index
+        ? Math.abs(actuel.melange - precedent.melange)
+        : Math.abs(actuel.melange + 1 - precedent.melange)
+    expect(saut).toBeLessThan(0.2)
+    precedent = actuel
+  }
+})
+
+test('au demi-tour, la dernière image ne déborde pas', () => {
+  const m = mountainBlend(SWEEP_LEGS, COUNT)
+  expect(m.suivant).toBeLessThan(COUNT)
+  expect(m.index).toBeLessThan(COUNT)
 })
