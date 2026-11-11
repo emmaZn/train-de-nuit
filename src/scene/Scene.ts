@@ -2,6 +2,8 @@ import gsap from 'gsap'
 import { Application, BlurFilter, Container, FillGradient, Graphics, RenderTexture, Sprite } from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
+import { Dissolve, grainsDePhrase, poigneeSansAnimation } from './Dissolve'
+import type { Poignee } from './Dissolve'
 import {
   DEGRADE_HAUTEUR,
   DEGRADE_OPACITE,
@@ -15,6 +17,7 @@ import type { Relief } from './Relief'
 import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
+import type { Place } from './stars'
 import { Train, avancement } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
@@ -39,6 +42,9 @@ export class Scene {
   private readonly decor = new Container()
   private readonly refletSprite = new Sprite()
   private refletTexture: RenderTexture | null = null
+  /** Les grains des phrases qui se défont : au-dessus de tout le reste. */
+  private readonly dissous = new Container()
+  private readonly dissolutions = new Set<Dissolve>()
 
   private sky: Sky | null = null
   private stars: Stars | null = null
@@ -96,7 +102,7 @@ export class Scene {
     // Stars live in screen space, behind the stage frame that covers the
     // viewport: a phone shows only a quarter of that frame's width.
     this.stars = new Stars(this.app.stage, { reducedMotion: this.reducedMotion })
-    this.app.stage.addChild(this.monde)
+    this.app.stage.addChild(this.monde, this.dissous)
     this.sky = new Sky(this.monde)
 
     this.refletSprite.scale.y = -1
@@ -185,7 +191,7 @@ export class Scene {
     }
 
     this.sky?.resize(STAGE.width, STAGE.height, width < 720)
-    this.stars?.setStars(this.traces, width, height)
+    this.pousserEtoiles()
     this.stars?.resize(width, height)
     this.relief?.cadrer(frame, width, height, this.app.renderer.resolution)
 
@@ -214,9 +220,52 @@ export class Scene {
   /** The visitors' stars. Called again whenever the store changes. */
   setStars(traces: Trace[]): void {
     this.traces = traces
+    this.pousserEtoiles()
+  }
+
+  /**
+   * Les étoiles à poser : celles qu'on nous donne, moins celles dont le grain
+   * monte encore. Le magasin confirme la trace à l'instant du décollage ;
+   * sans ce retrait, son étoile s'allumerait avant que le grain n'arrive.
+   */
+  private pousserEtoiles(): void {
     if (!this.vivante) return
+    const enVol: Place[] = []
+    for (const d of this.dissolutions) if (d.placeEnVol) enVol.push(d.placeEnVol)
+    const visibles =
+      enVol.length === 0
+        ? this.traces
+        : this.traces.filter((t) => !enVol.some((p) => p.x === t.x && p.y === t.y))
     const { width, height } = this.app.screen
-    this.stars?.setStars(traces, width, height)
+    this.stars?.setStars(visibles, width, height)
+  }
+
+  /**
+   * La phrase se défait en grains (CONCEPT.md §4.3). L'écriture est déjà
+   * partie : la poignée dit comment elle a fini — `land` allume l'étoile,
+   * `revert` reforme la phrase —, et la première des deux l'emporte.
+   */
+  beginDissolve(phrase: string, from: DOMRect, place: Place): Poignee {
+    const allumer = (trace: Trace) => {
+      this.traces = [trace, ...this.traces.filter((t) => t.id !== trace.id)]
+      this.pousserEtoiles()
+    }
+    // Mouvement réduit, ou pas de WebGL : l'horloge de la scène ne tourne
+    // pas, une dissolution animée ne finirait jamais. L'étoile se pose.
+    if (!this.peutAnimer) return poigneeSansAnimation(allumer)
+
+    const { width, height } = this.app.screen
+    const dissolution = new Dissolve({
+      depuis: from,
+      place,
+      parent: this.dissous,
+      viewportW: width,
+      viewportH: height,
+      grains: grainsDePhrase(phrase, from),
+      allumer,
+    })
+    this.dissolutions.add(dissolution)
+    return dissolution
   }
 
   /** The pointer in CSS pixels: tells which star, if any, it is over. */
@@ -332,6 +381,10 @@ export class Scene {
     this.relief?.dessiner()
     this.sky?.update()
     this.stars?.update(dt, Date.now())
+    for (const d of this.dissolutions) {
+      d.update(dt)
+      if (d.fini) this.dissolutions.delete(d)
+    }
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
     this.rendreReflet()
   }
@@ -350,6 +403,8 @@ export class Scene {
     this.train?.destroy()
     this.sky?.destroy()
     this.stars?.destroy()
+    for (const d of this.dissolutions) d.destroy()
+    this.dissolutions.clear()
     if (this.vivante) this.app.destroy(true, { children: true })
     this.vivante = false
   }
