@@ -4,7 +4,7 @@ Two measurements shape this pipeline.
 
 Mountains carry no colour at all: every opaque pixel is the same grey (~196)
 and all the relief lives in the alpha channel. Storing the alpha alone, as a
-greyscale WebP, costs 75 kB per frame at 1600 px where RGBA costs 190 kB. The
+greyscale WebP, costs 115 kB per frame at the source's native 1918 px. The
 renderer turns that luminance back into alpha with a one-line shader.
 
 Train sequences all share the 2320x1217 frame of the rails. Trimming each
@@ -14,6 +14,9 @@ its origin so the renderer can place it back in the stage frame.
 
 Usage:
   python3 tools/build_assets.py --src ~/projet_zero --out public/assets
+  python3 tools/build_assets.py --src ~/projet_zero --out public/assets --train-src PTITRAIN_blanc
+  python3 tools/build_assets.py --src ~/projet_zero --out public/assets \
+      --mountain-src montagne_hd/webp --mountain-step 2 --mountain-width 3840
 """
 import argparse
 import json
@@ -24,6 +27,10 @@ from PIL import Image
 
 STAGE = {'width': 2320, 'height': 1217}
 RAILS_DIR = '01_rails'
+# Toutes les versions du dessin ne contiennent pas la voie ; PTITRAIN_blanc par
+# exemple n'a que les vehicules. La voie est le meme dessin partout, on la
+# reprend donc dans la version de reference.
+RAILS_FALLBACK = 'PTITRAIN_grain_vivant'
 SEQUENCES = {
     '02_locomotive': 'loco',
     '03_wagon': 'wagon',
@@ -35,8 +42,11 @@ SEQUENCES = {
 LANCZOS = Image.Resampling.LANCZOS
 
 
-def frames_in(folder: Path) -> list[Path]:
-    return sorted(p for p in folder.glob('*.png'))
+def frames_in(folder: Path, step: int = 1) -> list[Path]:
+    """Frames of a sequence, in order. `step` keeps one frame out of N."""
+    files = sorted(p for p in folder.iterdir()
+                   if p.suffix.lower() in ('.png', '.webp'))
+    return files[::max(1, step)]
 
 
 def union_bbox(files: list[Path]) -> tuple[int, int, int, int]:
@@ -55,11 +65,18 @@ def union_bbox(files: list[Path]) -> tuple[int, int, int, int]:
 
 
 def write_mountain(job):
-    src, dst, width, quality = job
-    alpha = Image.open(src).getchannel('A')
-    height = max(1, round(alpha.height * width / alpha.width))
-    alpha.resize((width, height), LANCZOS).save(dst, 'WEBP', quality=quality, method=6)
-    return (width, height)
+    src, dst, width, quality, lossless = job
+    alpha = Image.open(src).convert('RGBA').getchannel('A')
+    # Un nuage de points d'un pixel ne survit a aucun reechantillonnage : a
+    # taille egale on ne redimensionne pas du tout, on recopie.
+    if width != alpha.width:
+        height = max(1, round(alpha.height * width / alpha.width))
+        alpha = alpha.resize((width, height), LANCZOS)
+    if lossless:
+        alpha.save(dst, 'WEBP', lossless=True, method=6)
+    else:
+        alpha.save(dst, 'WEBP', quality=quality, method=6)
+    return alpha.size
 
 
 def write_crop(job):
@@ -80,14 +97,15 @@ def run(jobs, worker, parallel):
     return [worker(job) for job in jobs]
 
 
-def build_mountains(src: Path, out: Path, width: int, quality: int, jobs: int, base: str):
-    files = frames_in(src / 'montagne')
+def build_mountains(src: Path, out: Path, width: int, quality: int, jobs: int, base: str,
+                    dossier: str = 'montagne', step: int = 1, lossless: bool = False):
+    files = frames_in(src / dossier, step)
     if not files:
         return None
     folder = out / 'mountains'
     folder.mkdir(parents=True, exist_ok=True)
     sizes = run(
-        [(f, folder / f'{i:04d}.webp', width, quality) for i, f in enumerate(files, 1)],
+        [(f, folder / f'{i:04d}.webp', width, quality, lossless) for i, f in enumerate(files, 1)],
         write_mountain, jobs,
     )
     return {
@@ -121,9 +139,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--src', required=True, type=Path)
     parser.add_argument('--out', required=True, type=Path)
-    # 1600 : la source fait 1918 px, et le massif est dessine bien plus large
-    # que le cadre. En dessous, l'etirement a l'affichage se voit sur le grain.
-    parser.add_argument('--mountain-width', type=int, default=1600)
+    # 1918 : la largeur native de la source. Le massif est dessine bien plus
+    # large que le cadre, donc tout ce qui manque ici se voit sur le grain.
+    parser.add_argument('--mountain-src', default='montagne',
+                        help='folder holding the mountain frames, inside --src')
+    parser.add_argument('--mountain-step', type=int, default=1,
+                        help='keep one frame out of N; the renderer dissolves between them')
+    parser.add_argument('--mountain-width', type=int, default=1918)
+    parser.add_argument('--mountain-lossless', action='store_true',
+                        help='store the mountains without loss; needed for a dithered '
+                             'point cloud, where it is also far lighter')
+    parser.add_argument('--train-src', default='PTITRAIN_grain_vivant',
+                        help='folder holding the train sequences, inside --src')
     parser.add_argument('--train-scale', type=float, default=0.5)
     parser.add_argument('--quality', type=int, default=80)
     # Absolute on purpose: stations are served at /ici, /plus-loin, … and a
@@ -136,12 +163,18 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     manifest = {'stage': dict(STAGE)}
 
-    mountains = build_mountains(args.src, out, args.mountain_width, args.quality, args.jobs, args.base)
+    mountains = build_mountains(args.src, out, args.mountain_width, args.quality, args.jobs,
+                                args.base, args.mountain_src, args.mountain_step,
+                                args.mountain_lossless)
     if mountains:
         manifest['mountains'] = mountains
 
-    train_src = args.src / 'PTITRAIN_grain_vivant'
-    rails = frames_in(train_src / RAILS_DIR)
+    train_src = args.src / args.train_src
+    rails_dir = train_src / RAILS_DIR
+    if not rails_dir.is_dir():
+        rails_dir = args.src / RAILS_FALLBACK / RAILS_DIR
+        print(f'no {RAILS_DIR} in {args.train_src}, taking the track from {RAILS_FALLBACK}')
+    rails = frames_in(rails_dir)
     if rails:
         spec = build_sequence(rails, out / 'train', args.train_scale, args.quality, 1,
                               f'{args.base}/train/rails.webp')

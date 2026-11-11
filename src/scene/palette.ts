@@ -3,11 +3,11 @@
  * remembered for the next visit, and every read and write falls back silently
  * when storage is unavailable — private windows, blocked cookies, full quota.
  */
-export const PALETTE = ['#2E2313', '#141B2B', '#151517', '#13241D', '#261725'] as const
+export const PALETTE = ['#151517', '#0a1728', '#0c1c12', '#2f1b0c'] as const
 
 export type Fond = (typeof PALETTE)[number]
 
-/** « vieille photo » */
+/** La première du cycle. */
 export const DEFAUT: Fond = PALETTE[0]
 
 const CLE = 'train-de-nuit:fond'

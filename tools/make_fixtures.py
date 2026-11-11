@@ -53,8 +53,28 @@ def rails_frame(path: Path) -> None:
 def main(root: Path) -> None:
     montagne = root / 'montagne'
     montagne.mkdir(parents=True, exist_ok=True)
-    for i in (1, 2):
+    for i in (1, 2, 3, 4):
         mountain_frame(montagne / f'{i:04d}.png')
+
+    # Une seconde source de montagnes, en WebP : c'est la forme qu'a
+    # montagne_hd, et le pipeline doit savoir la lire aussi.
+    hd = root / 'montagne_hd'
+    hd.mkdir(parents=True, exist_ok=True)
+    for i in (1, 2, 3, 4):
+        Image.new('RGBA', MOUNTAIN, (*MOUNTAIN_GRAY, MOUNTAIN_ALPHA)).save(hd / f'{i:04d}.webp')
+
+    # Une troisieme : un vrai nuage de points isoles. C'est ce que produit le
+    # tramage, et c'est la seule forme qui revele un reencodage ou un
+    # redimensionnement — un point d'un pixel ne survit ni a l'un ni a l'autre.
+    points = root / 'montagne_points'
+    points.mkdir(parents=True, exist_ok=True)
+    rng = __import__('random').Random(5)
+    for i in (1, 2):
+        im = Image.new('RGBA', MOUNTAIN, (0, 0, 0, 0))
+        px = im.load()
+        for _ in range(4000):
+            px[rng.randrange(MOUNTAIN[0]), rng.randrange(MOUNTAIN[1])] = (237, 237, 237, 255)
+        im.save(points / f'{i:04d}.webp', lossless=True)
 
     train = root / 'PTITRAIN_grain_vivant'
     rails_dir = train / '01_rails'
@@ -63,6 +83,16 @@ def main(root: Path) -> None:
 
     for name, lefts in SEQUENCES.items():
         folder = train / name
+        folder.mkdir(parents=True, exist_ok=True)
+        for i, left in enumerate(lefts, start=1):
+            train_frame(folder / f'v{i:03d}.png', left)
+
+    # Une seconde version du train, sans dossier 01_rails : c'est la forme
+    # qu'a PTITRAIN_blanc, et le pipeline doit savoir aller chercher la voie
+    # ailleurs plutot que de la laisser tomber.
+    traits = root / 'PTITRAIN_traits'
+    for name, lefts in SEQUENCES.items():
+        folder = traits / name
         folder.mkdir(parents=True, exist_ok=True)
         for i, left in enumerate(lefts, start=1):
             train_frame(folder / f'v{i:03d}.png', left)

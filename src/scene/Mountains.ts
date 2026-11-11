@@ -4,30 +4,42 @@ import { ECHELLE_MONTAGNES, HORIZON, MOUNTAIN_SOURCE, STAGE } from './layout'
 import type { Manifest } from './types'
 
 /**
- * How many legs one full sweep of the sequence takes. Higher turns the range
- * more slowly: at 8 it takes two complete loops of the four stations, so the
+ * How many legs one full turn of the range takes. Higher turns it more slowly:
+ * at 8 a full rotation spans two complete loops of the four stations, so the
  * relief drifts rather than spins.
  *
- * The sequence does not loop — between the 160th frame and the 1st the alpha
- * jumps by 23.8 where consecutive frames differ by 0.8 — so it is walked back
- * and forth. An integer number of legs keeps both turnarounds on a stop at a
- * station, never while the train is moving.
+ * The sequence loops — the 180th frame leads into the 1st exactly as any frame
+ * leads into the next — so it is walked in one direction, forever, like the
+ * train. No turnaround, nothing to hide at a station.
  */
 export const SWEEP_LEGS = 8
 
-/** The single grey every opaque pixel of the source holds. */
-const GRIS = 196 / 255
+/**
+ * How much of one mountain frame dissolves into the next, 0 to 1.
+ *
+ * 0 means a hard cut, and that is what a point cloud needs: blending two
+ * frames shows both sets of points at half opacity, so every point ghosts
+ * into a double. On dense grain the dissolve smoothed a low frame rate out;
+ * on isolated points it spoils them. It is not needed either — between two
+ * neighbouring frames the points do not move by even a pixel.
+ */
+export const FONDU_MONTAGNES = 0
+
+export function fonduApplique(melange: number): number {
+  return melange * FONDU_MONTAGNES
+}
+
+/** The single grey every point of the source holds. */
+const GRIS = 237 / 255
 
 /**
- * Continuous position in the sequence, 0 to count-1, walking back and forth.
- * Fractional on purpose: it is what makes the relief drift instead of step.
+ * Continuous position in the sequence, 0 to count, going round. Fractional on
+ * purpose: it is what makes the relief drift instead of step.
  */
 function position(legs: number, count: number): number {
   if (count <= 1) return 0
-  const last = count - 1
-  const tour = (((legs / SWEEP_LEGS) % 2) + 2) % 2
-  const brut = tour * last
-  return Math.min(last, Math.max(0, brut <= last ? brut : 2 * last - brut))
+  const tour = (((legs / SWEEP_LEGS) % 1) + 1) % 1
+  return tour * count
 }
 
 /**
@@ -35,7 +47,8 @@ function position(legs: number, count: number): number {
  * (one leg = one station to the next), fractional and unbounded.
  */
 export function mountainFrame(legs: number, count: number): number {
-  return Math.round(position(legs, count))
+  if (count <= 1) return 0
+  return Math.floor(position(legs, count)) % count
 }
 
 export type Melange = {
@@ -50,15 +63,17 @@ export type Melange = {
 /**
  * The two frames to show at once, and how much of the second.
  *
- * A sweep takes 48 s for 160 frames — 3.3 frames a second — so showing one
+ * A turn takes 48 s for 180 frames — under 4 frames a second — so showing one
  * frame at a time reads as a slideshow, which §6 rules out ("pas d'à-coups
  * mécaniques"). Dissolving each frame into the next decouples smoothness from
  * frame rate: the relief drifts evenly however slowly the sequence is walked.
  */
 export function mountainBlend(legs: number, count: number): Melange {
+  if (count <= 1) return { index: 0, suivant: 0, melange: 0 }
   const p = position(legs, count)
-  const index = Math.min(count - 1, Math.floor(p))
-  return { index, suivant: Math.min(count - 1, index + 1), melange: p - index }
+  const index = Math.floor(p) % count
+  // La derniere image se fond dans la premiere : la sequence boucle.
+  return { index, suivant: (index + 1) % count, melange: p - Math.floor(p) }
 }
 
 /**
@@ -187,11 +202,11 @@ export class Mountains {
     if (!a) return
     // Tant que la suivante n'est pas chargée, on reste sur la courante plutôt
     // que de faire disparaître le relief dans un fondu vers rien.
-    const b = this.textures[suivant] ?? a
+    const fondu = this.textures[suivant] ? fonduApplique(melange) : 0
 
     this.courante.texture = a
-    this.suivante.texture = b
-    setMountainMelange(this.filtre, this.textures[suivant] ? melange : 0)
+    this.suivante.texture = fondu > 0 ? (this.textures[suivant] ?? a) : a
+    setMountainMelange(this.filtre, fondu)
     this.cadrer()
   }
 

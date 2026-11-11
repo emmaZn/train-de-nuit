@@ -37,7 +37,7 @@ function pixel(file: string, x: number, y: number) {
 
 test('le pipeline écrit un manifeste et les WebP attendus', () => {
   expect(manifest.stage).toEqual({ width: 2320, height: 1217 })
-  expect(manifest.mountains.count).toBe(2)
+  expect(manifest.mountains.count).toBe(4)
   expect(manifest.mountains.width).toBe(64)
   expect(manifest.train.loco.count).toBe(2)
   expect(existsSync(join(out, 'mountains/0001.webp'))).toBe(true)
@@ -85,4 +85,112 @@ test('les rails aussi sont décrits en pixels du cadre', () => {
   expect(manifest.rails.width).toBe(1127)
   expect(manifest.rails.height).toBe(38)
   expect(manifest.rails.scale).toBe(0.1)
+})
+
+
+// PTITRAIN_blanc n'a pas de dossier 01_rails : le pipeline doit prendre la
+// voie dans la version de secours plutôt que de produire un manifeste sans
+// rails, qui ferait disparaître la voie de la scène.
+describe('une autre version du train', () => {
+  let autre: any
+
+  beforeAll(() => {
+    const tmp = mkdtempSync(join(tmpdir(), 'train-traits-'))
+    const src = join(tmp, 'src')
+    const sortie = join(tmp, 'out')
+    execFileSync('python3', ['-I', 'tools/make_fixtures.py', src])
+    execFileSync('python3', [
+      '-I', 'tools/build_assets.py',
+      '--src', src, '--out', sortie,
+      '--train-src', 'PTITRAIN_traits',
+      '--mountain-width', '64', '--train-scale', '0.1',
+    ])
+    autre = JSON.parse(readFileSync(join(sortie, 'manifest.json'), 'utf8'))
+  }, 60_000)
+
+  test('--train-src choisit la version du train', () => {
+    expect(autre.train.loco.count).toBe(2)
+    expect(autre.train.loco.x).toBe(UNION_LEFT)
+  })
+
+  test('la voie est reprise ailleurs quand la version choisie n’en a pas', () => {
+    expect(autre.rails).toBeDefined()
+    expect(autre.rails.x).toBe(770)
+    expect(autre.rails.y).toBe(921)
+  })
+})
+
+
+// La nouvelle source est en WebP, dans un autre dossier, et on veut pouvoir
+// n'en garder qu'une image sur deux : le fondu rend la difference invisible
+// et c'est ce qui ramene le poids a quelque chose de tenable.
+describe('une autre source de montagnes', () => {
+  let autre: any
+
+  beforeAll(() => {
+    const tmp = mkdtempSync(join(tmpdir(), 'train-hd-'))
+    const src = join(tmp, 'src')
+    const sortie = join(tmp, 'out')
+    execFileSync('python3', ['-I', 'tools/make_fixtures.py', src])
+    execFileSync('python3', [
+      '-I', 'tools/build_assets.py',
+      '--src', src, '--out', sortie,
+      '--mountain-src', 'montagne_hd',
+      '--mountain-step', '2',
+      '--mountain-width', '64', '--train-scale', '0.1',
+    ])
+    autre = JSON.parse(readFileSync(join(sortie, 'manifest.json'), 'utf8'))
+  }, 60_000)
+
+  test('--mountain-src lit une autre source, même en WebP', () => {
+    expect(autre.mountains).toBeDefined()
+    expect(autre.mountains.width).toBe(64)
+  })
+
+  test('--mountain-step ne garde qu’une image sur deux', () => {
+    expect(autre.mountains.count).toBe(2)
+  })
+})
+
+
+// Le tramage est un nuage de points d'un pixel. Ni un reencodage avec perte
+// ni un redimensionnement ne les laisse intacts : le pipeline doit savoir les
+// recopier a l'identique.
+describe('une source en nuage de points', () => {
+  let sortie: string
+  let src: string
+
+  beforeAll(() => {
+    const tmp = mkdtempSync(join(tmpdir(), 'train-points-'))
+    src = join(tmp, 'src')
+    sortie = join(tmp, 'out')
+    execFileSync('python3', ['-I', 'tools/make_fixtures.py', src])
+    execFileSync('python3', [
+      '-I', 'tools/build_assets.py',
+      '--src', src, '--out', sortie,
+      '--mountain-src', 'montagne_points',
+      '--mountain-width', '1918',
+      '--mountain-lossless',
+      '--train-scale', '0.1',
+    ])
+  }, 60_000)
+
+  test('chaque point ressort exactement où il était', () => {
+    const code =
+      'import sys\n' +
+      'from PIL import Image\n' +
+      'import numpy as np\n' +
+      'a = np.array(Image.open(sys.argv[1]).convert("RGBA").getchannel("A"))\n' +
+      'b = np.array(Image.open(sys.argv[2]).convert("L"))\n' +
+      'print(int(np.array_equal(a, b)), int((a > 128).sum()), int((b > 128).sum()))\n'
+    const [identique, avant, apres] = execFileSync('python3', [
+      '-I', '-c', code,
+      join(src, 'montagne_points/0001.webp'),
+      join(sortie, 'mountains/0001.webp'),
+    ]).toString().trim().split(/\s+/).map(Number)
+
+    expect(avant).toBeGreaterThan(3000)
+    expect(apres).toBe(avant)
+    expect(identique).toBe(1)
+  })
 })
