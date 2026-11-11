@@ -81,7 +81,7 @@ export const TETE_LOCO = 0.5
 export const DEGRADE_HAUTEUR = 380
 
 /** How far the veil closes at the rail line, 0 to 1. */
-export const DEGRADE_OPACITE = 0.9
+export const DEGRADE_OPACITE = 0.75
 
 /**
  * The band the veil covers: full frame width, resting on the rail line and
@@ -147,14 +147,19 @@ export const ECHELLE_MASSIF = 2 / 3
 /**
  * Secondes par étape. « Lents, comme un souffle » (CONCEPT.md §6) : le train
  * roule un moment avant de freiner, et on a le temps de regarder dehors.
+ *
+ * Les deux rampes gardent leur durée — elles sont calées sur les séquences
+ * de démarrage et d'arrêt — donc allonger l'étape allonge le roulage, pas
+ * les transitions.
  */
-export const DUREE_ETAPE = 7.5
+export const DUREE_ETAPE = 9
 
 /**
  * Étapes pour un tour complet du massif.
  *
- * La boucle fait quatre gares : le massif met donc seize boucles de train à
- * faire son tour, soit huit minutes, et six degrés par étape. Un relief
+ * La boucle fait quatre gares : le massif met donc trente-deux boucles de
+ * train à faire son tour, soit seize minutes, et moins de trois degrés par
+ * étape — « elles tournent légèrement quand le train avance » (CONCEPT.md §6). Un relief
  * lointain ne défile pas, il se découvre.
  *
  * Un tour dure `SWEEP_LEGS × DUREE_ETAPE` secondes et chaque étape en fait
@@ -166,7 +171,7 @@ export const DUREE_ETAPE = 7.5
  * Et agrandir le massif la rend plus visible sans la changer — les points
  * parcourent plus de chemin à l'écran pour le même angle.
  */
-export const SWEEP_LEGS = 64
+export const SWEEP_LEGS = 128
 
 /**
  * Tours de massif pour une distance parcourue, en étapes. **Négatif** : le

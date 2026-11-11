@@ -26,8 +26,18 @@ export const IMAGES_TRANSITION = 43
  * image pendant que la voie défilait encore.
  */
 export const PHASE_ROULE = IMAGES_TRANSITION / FPS / DUREE_ETAPE
-/** « Il ralentit longuement à l'approche d'une gare » (CONCEPT.md §6). */
-export const PHASE_FREINAGE = 1 - PHASE_ROULE
+
+/**
+ * Début du freinage. « Il ralentit longuement à l'approche d'une gare »
+ * (CONCEPT.md §6) : il dure **deux fois** la séquence d'arrêt.
+ *
+ * La rotation d'une roue est proportionnelle à la distance, pas au temps. Au
+ * freinage ses images avancent donc avec la vitesse, ce qui les fait ralentir
+ * puis s'immobiliser avec le train. À vitesse décroissante il faut deux fois
+ * plus de temps pour consommer les 43 images — et c'est tant mieux, c'est ce
+ * qui donne un ralentissement qu'on sent venir.
+ */
+export const PHASE_FREINAGE = 1 - (2 * IMAGES_TRANSITION) / FPS / DUREE_ETAPE
 
 function borne(v: number): number {
   return Math.min(1, Math.max(0, v))
@@ -60,12 +70,60 @@ export function frameIndex(state: TrainState, image: number, count: number, bouc
   return boucle ? entier % count : Math.min(count - 1, entier)
 }
 
+/**
+ * Adoucit une rampe : à plat aux deux bouts, sans angle au milieu.
+ *
+ * La vitesse montait et descendait en ligne droite, donc son profil était un
+ * trapèze : l'accélération sautait d'un coup à chaque transition. C'est
+ * exactement l'à-coup mécanique que CONCEPT.md §6 refuse.
+ *
+ * `6t⁵ - 15t⁴ + 10t³` plutôt que `3t² - 2t³` : la pente **et** sa dérivée
+ * s'annulent aux deux bouts, ce qui rend le départ et l'arrêt bien plus
+ * sensibles. Son aire vaut ½ comme l'autre, donc une étape couvre la même
+ * distance et le massif ne prend aucun retard.
+ */
+export function adoucir(t: number): number {
+  const x = borne(t)
+  return x * x * x * (x * (x * 6 - 15) + 10)
+}
+
 /** 0 to 1. Drives how fast the track scrolls under the train. */
 export function trainSpeed(state: TrainState, phase: number): number {
   if (state === 'arret') return 0
-  if (state === 'demarrage') return borne(phase / PHASE_ROULE)
+  if (state === 'demarrage') return adoucir(phase / PHASE_ROULE)
   if (state === 'roule') return 1
-  return borne((1 - phase) / (1 - PHASE_FREINAGE))
+  return adoucir((1 - phase) / (1 - PHASE_FREINAGE))
+}
+
+/** Aire sous la rampe adoucie, de 0 à u. */
+function aire(u: number): number {
+  const x = borne(u)
+  return x ** 6 - 3 * x ** 5 + 2.5 * x ** 4
+}
+
+/**
+ * Distance parcourue depuis le début de l'étape, en part de l'étape.
+ *
+ * C'est l'intégrale de la vitesse, ramenée à 1 sur une étape entière. Le
+ * massif tourne avec elle et non avec le temps : sans quoi il tournerait déjà
+ * à pleine vitesse quand le train est encore à l'arrêt, et continuerait
+ * quand il s'est arrêté. L'adoucissement de la vitesse ne se verrait pas.
+ *
+ * `demarrage` et `freinage` disent si l'étape en comporte : une étape de
+ * passage se fait à vitesse constante, le train ne s'arrête qu'au terminus.
+ */
+export function avancement(phase: number, demarrage: boolean, freinage: boolean): number {
+  const p = borne(phase)
+  const montee = demarrage ? PHASE_ROULE : 0
+  const descente = freinage ? 1 - PHASE_FREINAGE : 0
+  const plein = 1 - montee - descente
+  const total = montee / 2 + plein + descente / 2
+  if (total <= 0) return p
+
+  let d = montee * aire(montee > 0 ? p / montee : 0)
+  if (p > montee) d += Math.min(p, montee + plein) - montee
+  if (p > montee + plein && descente > 0) d += descente * (0.5 - aire((1 - p) / descente))
+  return borne(d / total)
 }
 
 export function sequenceFor(state: TrainState): [TrainSequence, TrainSequence] {
@@ -220,8 +278,11 @@ export class Train {
     }
 
     const vitesse = trainSpeed(this.etat, phase)
+    // Au freinage, les images suivent la distance et non le temps : la roue
+    // ralentit avec le sol au lieu de tourner à plein régime jusqu'à se figer.
+    const cadence = this.etat === 'freinage' ? vitesse : 1
     // Le grain est vivant : la boucle tourne même à l'arrêt, mais sans défilement.
-    this.image += dt * FPS
+    this.image += dt * FPS * cadence
     // Le défilement suit l'échelle, sinon la voie paraîtrait filer deux fois
     // plus vite sous un train deux fois plus petit.
     if (this.rails) this.rails.tilePosition.x -= dt * DEFILEMENT * ECHELLE_TRAIN * vitesse

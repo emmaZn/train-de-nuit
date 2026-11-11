@@ -27,7 +27,7 @@ ici  →  plus loin  →  là-haut  →  ailleurs  →  (ici …)
 ```
 
 - Le train ne recule **jamais**. Pour aller à une gare « derrière », il fait le tour de la boucle vers l'avant (y compris avec le bouton retour du navigateur).
-- **La frise** (en haut de l'écran) défile **en continu** pendant le trajet, et non d'un cran à chaque arrivée : le repère de la gare courante reste fixe à gauche, et les gares glissent sous lui au rythme du train. Les quatre gares occupent la largeur sur desktop, deux au plus sur mobile. Celles qui sortent à gauche s'estompent, celles qui entrent à droite apparaissent en fondu.
+- **La frise** (en haut de l'écran) défile **en continu** pendant le trajet, et non d'un cran à chaque arrivée : le repère de la gare courante reste fixe à gauche, et les gares glissent sous lui **à la distance parcourue** par le train : la frise accélère et ralentit donc avec lui, comme le massif. Tout ce qui bouge dans la scène est sur la même horloge. Les quatre gares occupent la largeur sur desktop, deux au plus sur mobile. Celles qui sortent à gauche s'estompent, celles qui entrent à droite apparaissent en fondu.
 - **États d'une gare dans la frise** :
 
 | État | Rendu |
@@ -135,11 +135,11 @@ const eclat = Math.max(0.16, Math.exp(-age / 18))   // 1 = neuve, 0.16 = très a
 ## 6. Décor et mouvements
 
 - **Fond** : nuit encre, `#151517` par défaut, avec une poussière d'étoiles. **La couleur de fond change** avec l'icône « œil » en haut à droite (voir « Couleur de fond variable » ci-dessous).
-- **Montagnes** : nuage de points / grain. **Elles tournent légèrement quand le train avance**, comme un relief vu depuis un train en marche. Le massif n'est plus une séquence d'images mais un rendu calculé dans le navigateur, depuis la carte de relief (voir §12.1) : la rotation est continue et le grain reste net sur tous les écrans.
-- **Train** : version **pleine** (il masque le décor derrière lui), et **son corps prend la couleur du fond**, quelle qu'elle soit. Les séquences sont donc prises avec un corps **noir** — `PTITRAIN_grain_blanc`, c'est-à-dire `PTITRAIN_plein` passée au grain avec le trait laissé à pleine luminosité : c'est le rendu qui remplace ce noir par la couleur du moment. La rame est une locomotive et **deux wagons**, attelés tampons contre tampons. Séquences : rouler, démarrer, s'arrêter. Il ralentit longuement à l'approche d'une gare, s'arrête, puis repart.
+- **Montagnes** : nuage de points / grain. **Elles tournent légèrement quand le train avance**, comme un relief vu depuis un train en marche. Le massif n'est plus une séquence d'images mais un rendu calculé dans le navigateur, depuis la carte de relief (voir §12.1) : la rotation est continue et le grain reste net sur tous les écrans. **Elles tournent avec la distance parcourue, pas avec le temps** : le relief démarre et s'arrête donc avec le train, au lieu de tourner à vitesse constante pendant qu'il freine.
+- **Train** : version **pleine** (il masque le décor derrière lui), et **son corps prend la couleur du fond**, quelle qu'elle soit. Les séquences sont donc prises avec un corps **noir** — `PTITRAIN_grain_blanc`, c'est-à-dire `PTITRAIN_plein` passée au grain avec le trait laissé à pleine luminosité : c'est le rendu qui remplace ce noir par la couleur du moment. La rame est une locomotive et **deux wagons**, attelés tampons contre tampons. Séquences : rouler, démarrer, s'arrêter. Il ralentit longuement à l'approche d'une gare — le freinage prend près de la moitié de l'étape, deux fois plus que le démarrage — s'arrête, puis repart. Les images des roues y avancent avec la **distance** et non avec le temps : elles ralentissent donc avec le sol au lieu de tourner à plein régime jusqu'à se figer.
 - **Reflet** : sous la voie, le décor et le train retournés et atténués.
 - **Grain** : partout, la même matière que les montagnes.
-- **Mouvements** : lents, comme un souffle. Pas d'à-coups mécaniques.
+- **Mouvements** : lents, comme un souffle. Pas d'à-coups mécaniques — la vitesse du train monte et descend en courbe douce, pas en ligne droite, pour que l'accélération elle-même ne saute pas aux transitions.
 - **Typographie** : Inter (Light / Regular) pour les textes, JetBrains Mono pour les petites mentions (frise, compteurs, panneaux).
 - **Couleur de fond variable** — règle unique : **dans tous les assets, le noir devient la couleur du fond.** Le train, les poteaux, le poteau indicateur et le corps des oiseaux sont dessinés avec du noir ; au rendu, ce noir est remplacé par la couleur de fond courante.
   - En shader (PixiJS / Three.js) : `rgb = mix(uFond, texel.rgb, luminance(texel.rgb))`, alpha inchangé. Le noir devient le fond, le blanc reste blanc, les gris se mélangent.

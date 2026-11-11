@@ -7,7 +7,9 @@ import {
   PHASE_FREINAGE,
   PHASE_ROULE,
   WAGONS,
+  adoucir,
   ancrageRame,
+  avancement,
   emprise,
   frameIndex,
   nextTrainState,
@@ -213,10 +215,6 @@ test('la montée en vitesse dure exactement la séquence de démarrage', () => {
   expect(PHASE_ROULE * DUREE_ETAPE).toBeCloseTo(IMAGES_TRANSITION / FPS, 9)
 })
 
-test('le freinage dure exactement la séquence d’arrêt', () => {
-  expect((1 - PHASE_FREINAGE) * DUREE_ETAPE).toBeCloseTo(IMAGES_TRANSITION / FPS, 9)
-})
-
 // Et il reste du roulage entre les deux : une étape trop courte ferait
 // freiner le train avant d'avoir fini de démarrer.
 test('le train roule un moment entre le démarrage et le freinage', () => {
@@ -259,4 +257,110 @@ test('les roues restent sur la voie quelle que soit la longueur de la rame', () 
     const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, n)
     expect(a.y + ECHELLE_TRAIN * HORIZON).toBeCloseTo(HORIZON, 6)
   }
+})
+
+// Le profil de vitesse était un trapèze : des angles à chaque transition,
+// donc des à-coups que CONCEPT.md §6 interdit. On l'adoucit.
+test('la rampe adoucie part et arrive à plat', () => {
+  expect(adoucir(0)).toBe(0)
+  expect(adoucir(1)).toBe(1)
+  expect(adoucir(0.5)).toBeCloseTo(0.5, 6)
+  // à plat aux deux bouts : le premier centième avance bien moins que linéairement
+  expect(adoucir(0.01)).toBeLessThan(0.01 / 10)
+  expect(1 - adoucir(0.99)).toBeLessThan(0.01 / 10)
+})
+
+test('la rampe adoucie ne redescend jamais', () => {
+  for (let i = 1; i <= 100; i += 1) {
+    expect(adoucir(i / 100)).toBeGreaterThanOrEqual(adoucir((i - 1) / 100))
+  }
+})
+
+test('la rampe adoucie reste bornée hors de son intervalle', () => {
+  expect(adoucir(-1)).toBe(0)
+  expect(adoucir(2)).toBe(1)
+})
+
+// Le massif tourne avec la distance parcourue, pas avec le temps : il doit
+// donc démarrer et s'arrêter avec le train.
+test('une étape entière vaut toujours exactement une étape', () => {
+  for (const [d, f] of [[false, false], [true, false], [false, true], [true, true]] as const) {
+    expect(avancement(0, d, f)).toBeCloseTo(0, 9)
+    expect(avancement(1, d, f)).toBeCloseTo(1, 9)
+  }
+})
+
+test('sans démarrage ni freinage, la distance suit le temps', () => {
+  for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+    expect(avancement(p, false, false)).toBeCloseTo(p, 9)
+  }
+})
+
+test('au départ d’une gare, le massif reste presque immobile', () => {
+  expect(avancement(0.02, true, false)).toBeLessThan(0.02 / 5)
+})
+
+test('à l’approche d’une gare, le massif a presque fini de tourner', () => {
+  expect(1 - avancement(0.98, false, true)).toBeLessThan(0.02 / 5)
+})
+
+test('la distance ne recule jamais, quel que soit le profil', () => {
+  for (const [d, f] of [[false, false], [true, false], [false, true], [true, true]] as const) {
+    for (let i = 1; i <= 200; i += 1) {
+      expect(avancement(i / 200, d, f)).toBeGreaterThanOrEqual(avancement((i - 1) / 200, d, f))
+    }
+  }
+})
+
+// Le train roule moins loin sur une étape où il démarre : c'est justement ce
+// que la normalisation rattrape, sinon le massif prendrait du retard.
+test('le milieu de l’étape est atteint plus tard quand le train démarre', () => {
+  expect(avancement(0.5, true, false)).toBeLessThan(avancement(0.5, false, false))
+})
+
+// La courbe retenue est plus plate aux bouts qu'un smoothstep ordinaire
+// (0.028 au dixième) : c'est ce qui rend le départ et l'arrêt sensibles.
+test('la rampe est franchement plate au départ et à l’arrivée', () => {
+  expect(adoucir(0.1)).toBeLessThan(0.01)
+  expect(1 - adoucir(0.9)).toBeLessThan(0.01)
+})
+
+// Son aire reste ½ : sans ça une étape couvrirait moins de distance et le
+// massif prendrait du retard sur le train.
+test('adoucir la rampe ne change pas la distance couverte', () => {
+  let somme = 0
+  const n = 20000
+  for (let i = 0; i < n; i += 1) somme += adoucir((i + 0.5) / n) / n
+  expect(somme).toBeCloseTo(0.5, 4)
+})
+
+// « Il ralentit longuement à l'approche d'une gare » (CONCEPT.md §6). Le
+// freinage dure deux fois la séquence d'arrêt : ses images avancent avec la
+// distance, et à vitesse décroissante il faut deux fois plus de temps pour
+// les consommer toutes.
+test('le freinage dure deux fois la séquence d’arrêt', () => {
+  expect((1 - PHASE_FREINAGE) * DUREE_ETAPE).toBeCloseTo((2 * IMAGES_TRANSITION) / FPS, 9)
+})
+
+// Sa durée est fixée par la séquence d'arrêt, donc sa part de l'étape
+// diminue si on allonge l'étape. Ce qui compte est qu'elle en occupe une
+// bonne tranche : un freinage expédié ne se sentirait pas.
+test('le freinage occupe une bonne part de l’étape', () => {
+  expect(1 - PHASE_FREINAGE).toBeGreaterThan(0.3)
+  expect(1 - PHASE_FREINAGE).toBeLessThan(0.55)
+})
+
+test('il reste du roulage entre le démarrage et le freinage', () => {
+  expect(PHASE_FREINAGE - PHASE_ROULE).toBeGreaterThan(0.2)
+})
+
+// Le compte doit tomber juste : une image de moins et la roue se fige avant
+// l'arrêt, une de plus et la séquence est coupée.
+test('la séquence d’arrêt se consomme exactement sur le freinage', () => {
+  const pas = 1 / 20000
+  let images = 0
+  for (let p = PHASE_FREINAGE; p < 1; p += pas) {
+    images += pas * DUREE_ETAPE * FPS * trainSpeed('freinage', p + pas / 2)
+  }
+  expect(images).toBeCloseTo(IMAGES_TRANSITION, 0)
 })

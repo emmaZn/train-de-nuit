@@ -14,7 +14,7 @@ import {
 import type { Relief } from './Relief'
 import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
-import { Train } from './Train'
+import { Train, avancement } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
@@ -50,6 +50,12 @@ export class Scene {
   private etapesRestantes = 0
   /** Whole legs travelled; the fraction of the current one is `phase`. */
   private legsBase = 0
+  /**
+   * Ce que fait le train sur l'étape en cours. Figé à son début : une cible
+   * redirigée en plein freinage changerait sinon le profil au milieu, et le
+   * massif reculerait d'un cheveu.
+   */
+  private profil = { demarrage: false, freinage: false }
   private dernierSaut = -1
   private vivante = false
 
@@ -201,7 +207,10 @@ export class Scene {
    * target redirected in flight simply extends the number of legs left.
    */
   setVoyage(enRoute: boolean, etapesRestantes: number): void {
-    if (enRoute && !this.enRoute) this.phase = 0
+    if (enRoute && !this.enRoute) {
+      this.phase = 0
+      this.profil = { demarrage: true, freinage: etapesRestantes <= 1 }
+    }
     this.enRoute = enRoute
     this.etapesRestantes = etapesRestantes
 
@@ -217,9 +226,19 @@ export class Scene {
     if (!enRoute) this.dernierSaut = -1
   }
 
-  /** Distance travelled in legs, fractional: what the mountains turn with. */
+  /**
+   * Part de l'étape déjà parcourue, en distance et non en temps. Tout ce qui
+   * suit le train s'y accroche — le massif comme la frise — pour que la scène
+   * entière démarre et s'arrête d'un seul mouvement.
+   */
+  private get avancementEtape(): number {
+    return avancement(this.phase, this.profil.demarrage, this.profil.freinage)
+  }
+
+  /** Distance parcourue, en étapes : c'est elle qui fait tourner le massif. */
   get legsParcourues(): number {
-    return this.legsBase + (this.enRoute ? this.phase : 0)
+    if (!this.enRoute) return this.legsBase
+    return this.legsBase + this.avancementEtape
   }
 
   /** False without WebGL, and false when the visitor asked for less movement. */
@@ -273,10 +292,15 @@ export class Scene {
         } else {
           this.legsBase += 1
           this.phase = 0
+          // Les gares de passage se franchissent à vitesse constante : le
+          // train ne s'arrête qu'au terminus.
+          this.profil = { demarrage: false, freinage: this.etapesRestantes <= 1 }
         }
         this.emitter.emit('arrived')
       } else {
-        this.emitter.emit('progress', this.phase)
+        // La frise suit la distance, pas l'horloge : sans ça elle continuerait
+        // de défiler à vitesse constante pendant que le train freine.
+        this.emitter.emit('progress', this.avancementEtape)
       }
     }
 

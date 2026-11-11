@@ -24,9 +24,14 @@ function monterLeJoint(reducedMotion = false) {
   const arrivees: number[] = []
   /** La distance telle que le rendu la lit : dans le tick, avant tout relais. */
   const distances: number[] = []
+  /** Ce que la frise reçoit, étape par étape. */
+  const progressions: number[] = []
   let temps = 0
 
-  scene.on('progress', (p) => voyage.setProgression(p))
+  scene.on('progress', (p) => {
+    progressions.push(p)
+    voyage.setProgression(p)
+  })
   scene.on('arrived', () => {
     voyage.finirEtape()
     arrivees.push(temps)
@@ -44,7 +49,7 @@ function monterLeJoint(reducedMotion = false) {
     }
   }
 
-  return { voyage, scene, interne, arrivees, distances, avancer }
+  return { voyage, scene, interne, arrivees, distances, progressions, avancer }
 }
 
 test('un voyage d’une étape arrive après la durée d’une étape', () => {
@@ -120,4 +125,38 @@ test('la distance parcourue n’a aucun à-coup, arrivées comprises', () => {
   for (let i = 1; i < distances.length; i += 1) {
     expect(distances[i]).toBeGreaterThanOrEqual(distances[i - 1])
   }
+})
+
+// La frise suit la distance parcourue, comme le massif : elle doit donc
+// ralentir avec le train à l'approche d'une gare, au lieu de continuer à
+// défiler à vitesse constante pendant qu'il freine.
+test('la frise ralentit avec le train à l’approche d’une gare', () => {
+  const { voyage, progressions, avancer } = monterLeJoint()
+  voyage.partirVers('plus-loin') // une seule étape, donc démarrage et freinage
+  avancer(DUREE_ETAPE + 1)
+
+  const pas = progressions.slice(1).map((p, i) => p - progressions[i])
+  const milieu = pas[Math.floor(pas.length / 2)]
+  const fin = pas[pas.length - 2]
+  expect(fin).toBeLessThan(milieu / 5)
+  expect(fin).toBeGreaterThanOrEqual(0)
+})
+
+test('la frise part doucement, elle ne saute pas au départ', () => {
+  const { voyage, progressions, avancer } = monterLeJoint()
+  voyage.partirVers('plus-loin')
+  avancer(DUREE_ETAPE + 1)
+  const pas = progressions.slice(1).map((p, i) => p - progressions[i])
+  expect(pas[1]).toBeLessThan(pas[Math.floor(pas.length / 2)] / 5)
+})
+
+test('la frise ne recule jamais et atteint bien la gare', () => {
+  const { voyage, progressions, avancer } = monterLeJoint()
+  voyage.partirVers('plus-loin')
+  avancer(DUREE_ETAPE + 1)
+  for (let i = 1; i < progressions.length; i += 1) {
+    expect(progressions[i]).toBeGreaterThanOrEqual(progressions[i - 1])
+  }
+  expect(progressions[progressions.length - 1]).toBeGreaterThan(0.98)
+  expect(voyage.gare).toBe('plus-loin')
 })
