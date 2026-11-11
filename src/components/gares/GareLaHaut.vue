@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, ref, shallowRef } from 'vue'
+import { storeToRefs } from 'pinia'
 import { SCENE_KEY } from '@/composables/useScene'
 import type { Poignee } from '@/scene/Dissolve'
 import type { Scene } from '@/scene/Scene'
@@ -7,6 +8,7 @@ import { bandeCiel } from '@/scene/layout'
 import { tirerPlace } from '@/scene/stars'
 import { useTraces } from '@/stores/traces'
 import type { Envoi } from '@/stores/traces'
+import { useVoyage } from '@/stores/voyage'
 
 /**
  * Le formulaire de « là-haut » (CONCEPT.md §4.3) et l'ordre des opérations de
@@ -31,6 +33,7 @@ const DELAI = 10_000
 const MESSAGE = "on n'a pas pu confirmer"
 
 const traces = useTraces()
+const { enRoute } = storeToRefs(useVoyage())
 const scene = inject(SCENE_KEY, shallowRef<Scene | null>(null))
 
 const phrase = ref('')
@@ -44,8 +47,14 @@ const champ = ref<HTMLInputElement | null>(null)
  * L'envoi parti et non réglé. Entrée s'y rattache au lieu de rappeler
  * `ecrire` : les règles interdisent l'`update`, un second appel tirerait un
  * nouvel identifiant et laisserait un doublon à modérer.
+ *
+ * Il tient aussi les champs en lecture seule, et c'est le même fait qui le
+ * veut : tant que cette écriture-là court, c'est elle qu'on redéfait et c'est
+ * elle qu'on effacera. Un texte corrigé entre-temps ne partirait jamais, et
+ * serait effacé sans un mot — on montrerait une phrase en en enregistrant une
+ * autre. Le verrou se lève de lui-même dès que l'écriture est réglée.
  */
-let envoi: Envoi | null = null
+const envoi = shallowRef<Envoi | null>(null)
 /** La dissolution à l'écran. **Il faut toujours la conclure** (Dissolve.ts). */
 let poignee: Poignee | null = null
 let minuteur: ReturnType<typeof setTimeout> | null = null
@@ -127,16 +136,22 @@ function demarrer(texte: string): Envoi {
 function laisser(): void {
   if (enVol.value) return
   // Un envoi déjà parti se redéfait tel qu'il a été écrit, texte compris.
-  const texte = envoi ? envoi.trace.phrase : phrase.value.trim()
+  const texte = envoi.value ? envoi.value.trace.phrase : phrase.value.trim()
   if (texte.length === 0 || [...texte].length > MAX_PHRASE) return
 
   enVol.value = true
   message.value = ''
-  const courant = envoi ?? demarrer(texte)
-  envoi = courant
+  const courant = envoi.value ?? demarrer(texte)
+  envoi.value = courant
+  // Mesuré avant de rendre la main au clavier : sur un téléphone, Entrée le
+  // referme et la fenêtre change de taille à l'instant même. C'est
+  // `Dissolve.resize` qui rattrape la place ; le cadre de départ, lui, doit
+  // être celui du champ encore en place.
+  const cadre = cadrePhrase()
+  champ.value?.blur()
   // Sans attendre la réponse : le formulaire s'efface, la phrase se défait.
   poignee =
-    scene.value?.beginDissolve(texte, cadrePhrase(), {
+    scene.value?.beginDissolve(texte, cadre, {
       x: courant.trace.x,
       y: courant.trace.y,
     }) ?? null
@@ -150,7 +165,7 @@ function laisser(): void {
  */
 async function reussir(parti: Envoi): Promise<void> {
   arreter()
-  envoi = null
+  envoi.value = null
   const p = reprendre()
   if (p) await p.land(parti.trace)
   traces.confirmer(parti.trace)
@@ -164,7 +179,7 @@ async function reussir(parti: Envoi): Promise<void> {
 /** L'écriture est refusée : rien n'a été écrit, un renvoi peut repartir à neuf. */
 function echouer(): void {
   arreter()
-  envoi = null
+  envoi.value = null
   reprendre()?.revert()
   message.value = MESSAGE
   enVol.value = false
@@ -203,40 +218,47 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="gare-la-haut">
-    <form
-      class="trace"
-      :data-envoi="enVol"
-      @submit.prevent
-      @keydown.enter.prevent="laisser"
-    >
-      <h2 class="titre">Laisser une trace ?</h2>
-      <input
-        ref="champ"
-        class="phrase"
-        data-champ="phrase"
-        type="text"
-        autocomplete="off"
-        aria-label="votre phrase"
-        placeholder="une phrase, un mot, une pensée…"
-        :value="phrase"
-        @input="saisirPhrase"
-      />
-      <input
-        class="prenom"
-        data-champ="prenom"
-        type="text"
-        autocomplete="off"
-        aria-label="votre prénom"
-        placeholder="un prénom, si vous voulez"
-        :value="prenom"
-        @input="saisirPrenom"
-      />
-      <p class="meta">
-        <span data-role="compteur">{{ compte }} / {{ MAX_PHRASE }}</span>
-        <span>laisser ↵</span>
-      </p>
-      <p v-if="message" class="dit" data-role="dit" aria-live="polite">{{ message }}</p>
-    </form>
+    <!-- On n'écrit pas depuis un train qui roule : le formulaire arrive à
+         quai, par dissolution, comme le reste des gares. -->
+    <Transition name="dissoudre">
+      <form
+        v-if="!enRoute"
+        class="trace"
+        :data-envoi="enVol"
+        @submit.prevent
+        @keydown.enter.prevent="laisser"
+      >
+        <h2 class="titre">Laisser une trace ?</h2>
+        <input
+          ref="champ"
+          class="phrase"
+          data-champ="phrase"
+          type="text"
+          autocomplete="off"
+          aria-label="votre phrase"
+          placeholder="une phrase, un mot, une pensée…"
+          :value="phrase"
+          :readonly="envoi !== null"
+          @input="saisirPhrase"
+        />
+        <input
+          class="prenom"
+          data-champ="prenom"
+          type="text"
+          autocomplete="off"
+          aria-label="votre prénom"
+          placeholder="un prénom, si vous voulez"
+          :value="prenom"
+          :readonly="envoi !== null"
+          @input="saisirPrenom"
+        />
+        <p class="meta">
+          <span data-role="compteur">{{ compte }} / {{ MAX_PHRASE }}</span>
+          <span>laisser ↵</span>
+        </p>
+        <p v-if="message" class="dit" data-role="dit" aria-live="polite">{{ message }}</p>
+      </form>
+    </Transition>
   </div>
 </template>
 
@@ -333,6 +355,20 @@ onBeforeUnmount(() => {
   opacity: var(--moyen);
 }
 
+/* Tout ce qui apparaît ou disparaît le fait par dissolution (CONCEPT.md §2). */
+.dissoudre-enter-active {
+  transition: opacity 2.4s ease;
+}
+
+.dissoudre-leave-active {
+  transition: opacity 1.2s ease;
+}
+
+.dissoudre-enter-from,
+.dissoudre-leave-to {
+  opacity: 0;
+}
+
 @media (max-width: 720px) {
   .trace {
     right: 16px;
@@ -342,7 +378,9 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .trace {
+  .trace,
+  .dissoudre-enter-active,
+  .dissoudre-leave-active {
     transition-duration: 0.2s;
   }
 }

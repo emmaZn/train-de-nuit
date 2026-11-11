@@ -9,6 +9,7 @@ import { bandeCiel } from '@/scene/layout'
 import { tirerPlace } from '@/scene/stars'
 import type { Place } from '@/scene/stars'
 import { useTraces } from '@/stores/traces'
+import { useVoyage } from '@/stores/voyage'
 import { loadMiennes } from '@/stores/traces-locales'
 
 /**
@@ -453,4 +454,71 @@ test('la gare démontée conclut sa dissolution au lieu d’abandonner ses grain
   await champ.trigger('keydown.enter')
   wrapper.unmount()
   expect(scene.poignees[0].revert).toHaveBeenCalledTimes(1)
+})
+
+test('la gare démontée n’abandonne pas son minuteur', async () => {
+  const { wrapper, champ } = monter()
+  await champ.setValue('une phrase')
+  await champ.trigger('keydown.enter')
+  expect(vi.getTimerCount()).toBe(1)
+  // Un minuteur orphelin écrirait dans des références mortes, sans rien dire.
+  wrapper.unmount()
+  expect(vi.getTimerCount()).toBe(0)
+})
+
+/* ---- Le texte montré est le texte enregistré ---- */
+
+test('tant que l’écriture n’est pas réglée, les deux champs sont en lecture seule', async () => {
+  const { wrapper, champ } = monter()
+  const prenom = wrapper.get('[data-champ="prenom"]')
+  await champ.setValue('une phrase')
+  expect(champ.attributes('readonly')).toBeUndefined()
+
+  await champ.trigger('keydown.enter')
+  expect(champ.attributes('readonly')).toBeDefined()
+  expect(prenom.attributes('readonly')).toBeDefined()
+
+  // Le délai ne règle rien : l'écriture court toujours, et un texte corrigé
+  // ici ne partirait jamais — c'est `envoi.trace.phrase` qui se redéfait.
+  await passerLeDelai()
+  expect(champ.attributes('readonly')).toBeDefined()
+  expect(prenom.attributes('readonly')).toBeDefined()
+
+  ecriture.resoudre()
+  await souffler()
+  expect(champ.attributes('readonly')).toBeUndefined()
+  expect(prenom.attributes('readonly')).toBeUndefined()
+})
+
+test('un échec rend aussitôt les deux champs au visiteur', async () => {
+  const { wrapper, champ } = monter()
+  await champ.setValue('une phrase')
+  await champ.trigger('keydown.enter')
+  ecriture.rejeter()
+  await souffler()
+  expect(champ.attributes('readonly')).toBeUndefined()
+  expect(wrapper.get('[data-champ="prenom"]').attributes('readonly')).toBeUndefined()
+})
+
+test('Entrée rend la main au clavier, mais seulement une fois le champ mesuré', async () => {
+  const { champ } = monter()
+  const el = champ.element as HTMLInputElement
+  const mesure = vi.spyOn(el, 'getBoundingClientRect')
+  const rendre = vi.spyOn(el, 'blur')
+  await champ.setValue('une phrase')
+  await champ.trigger('keydown.enter')
+
+  expect(rendre).toHaveBeenCalledTimes(1)
+  // Sur un téléphone, le clavier qui se referme redimensionne la fenêtre :
+  // mesurer après coup prendrait le champ déjà déplacé.
+  expect(mesure.mock.invocationCallOrder[0]).toBeLessThan(rendre.mock.invocationCallOrder[0])
+})
+
+/* ---- La gare n’est à l’écran qu’une fois le train à quai ---- */
+
+test('en route, le formulaire n’est pas à l’écran', async () => {
+  const { wrapper } = monter()
+  useVoyage().partirVers('ailleurs')
+  await nextTick()
+  expect(wrapper.find('[data-champ="phrase"]').exists()).toBe(false)
 })
