@@ -21,7 +21,7 @@ const lignes = computed(() => {
 <template>
   <!-- La liste du §11 : les mêmes phrases que le ciel, pour qui ne survole pas. -->
   <section v-if="lignes.length > 0" class="etoiles">
-    <ul tabindex="0" aria-label="Étoiles laissées par les voyageurs">
+    <ul role="list" tabindex="0" aria-label="Étoiles laissées par les voyageurs">
       <li v-for="ligne in lignes" :key="ligne.id">
         <span class="phrase">{{ ligne.phrase }}</span>
         <span class="mention"> — {{ ligne.mention }}</span>
@@ -65,6 +65,7 @@ const lignes = computed(() => {
   border: 1px solid color-mix(in srgb, var(--trait) 30%, transparent);
 }
 
+/* role="list" in the template: Safari drops list semantics under list-style: none. */
 ul {
   margin: 0;
   padding: 0;

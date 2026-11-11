@@ -54,8 +54,14 @@ test('la bulle montre la phrase en Inter Light 14 px et la ligne mono 10 px', as
   expect(wrapper.get('[data-role="phrase"]').text()).toBe('Je pense à toi depuis le quai')
   // jsdom does not load the component stylesheet: the typography is read from the source.
   const css = (await import('@/components/StarTooltip.vue?raw')).default
-  expect(css).toMatch(/\.phrase\s*\{[^}]*font-family:\s*var\(--police-texte\)[^}]*font-weight:\s*300[^}]*font-size:\s*14px/s)
-  expect(css).toMatch(/\.mention\s*\{[^}]*font-family:\s*var\(--police-mono\)[^}]*font-size:\s*10px/s)
+  const bloc = (sel: string) => new RegExp(`\\.${sel}\\s*\\{([^}]*)\\}`, 's').exec(css)?.[1] ?? ''
+  const phrase = bloc('phrase')
+  expect(phrase).toMatch(/font-family:\s*var\(--police-texte\)/)
+  expect(phrase).toMatch(/font-weight:\s*300/)
+  expect(phrase).toMatch(/font-size:\s*14px/)
+  const mention = bloc('mention')
+  expect(mention).toMatch(/font-family:\s*var\(--police-mono\)/)
+  expect(mention).toMatch(/font-size:\s*10px/)
 })
 
 test('la ligne mono joint le prénom et l’âge relatif par « · »', async () => {
@@ -75,19 +81,38 @@ test('sans prénom, la ligne mono ne montre que l’âge', async () => {
 })
 
 // Review Focus #5
-test('près du bord droit, la bulle se retourne vers la gauche', async () => {
+test('près du bord droit, la bulle reste dans l’écran', async () => {
   const { scene, survol } = fausseScene()
   const { wrapper } = monter(scene)
   survol(trace(), 300, 300)
   await wrapper.vm.$nextTick()
-  expect(wrapper.get('[data-role="bulle"]').attributes('data-cote')).toBe('droite')
+  expect((wrapper.get('[data-role="bulle"]').element as HTMLElement).style.left).toBe('314px')
   survol(trace({ id: 'b' }), 950, 300)
   await wrapper.vm.$nextTick()
-  const bulle = wrapper.get('[data-role="bulle"]')
-  expect(bulle.attributes('data-cote')).toBe('gauche')
-  // Anchored by its right edge, so it ends before the star whatever its width.
-  expect((bulle.element as HTMLElement).style.right).toBe(`${1000 - (950 - 14)}px`)
-  expect((bulle.element as HTMLElement).style.left).toBe('')
+  // 1000 - 16 margin - 240 width
+  expect((wrapper.get('[data-role="bulle"]').element as HTMLElement).style.left).toBe('744px')
+})
+
+test('sur un téléphone, une étoile au milieu ne fait déborder la bulle d’aucun côté', async () => {
+  Object.defineProperty(window, 'innerWidth', { value: 375, configurable: true })
+  const { scene, survol } = fausseScene()
+  const { wrapper } = monter(scene)
+  survol(trace(), 187, 300)
+  await wrapper.vm.$nextTick()
+  const left = parseFloat((wrapper.get('[data-role="bulle"]').element as HTMLElement).style.left)
+  expect(left).toBeGreaterThanOrEqual(16)
+  expect(left + 240).toBeLessThanOrEqual(375 - 16)
+})
+
+test('près du bord gauche, la bulle garde sa marge', async () => {
+  Object.defineProperty(window, 'innerWidth', { value: 300, configurable: true })
+  const { scene, survol } = fausseScene()
+  const { wrapper } = monter(scene)
+  survol(trace(), 2, 300)
+  await wrapper.vm.$nextTick()
+  const left = parseFloat((wrapper.get('[data-role="bulle"]').element as HTMLElement).style.left)
+  expect(left).toBeGreaterThanOrEqual(16)
+  expect(left + 268).toBeLessThanOrEqual(300)
 })
 
 test('près du bord haut, la bulle passe au-dessous du point', async () => {

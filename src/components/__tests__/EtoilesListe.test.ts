@@ -43,6 +43,8 @@ test('la liste masquée nomme chaque étoile récente, phrase et âge', () => {
 
 test('la liste est une liste nommée, que les lecteurs d’écran trouvent', () => {
   const wrapper = monter([trace('a')])
+  // Safari/VoiceOver drop list semantics under `list-style: none` without it.
+  expect(wrapper.get('ul').attributes('role')).toBe('list')
   expect(wrapper.get('ul').attributes('aria-label')).toBe('Étoiles laissées par les voyageurs')
   // Neither of these would leave it in the accessibility tree.
   expect(wrapper.find('[hidden]').exists()).toBe(false)
@@ -71,5 +73,9 @@ test('la liste est invisible à l’écran sans quitter l’arbre d’accessibil
   expect(css).not.toMatch(/display:\s*none/)
   expect(css).not.toMatch(/visibility:\s*hidden/)
   // Reaching it by keyboard must make it visible, or focus lands on nothing.
-  expect(css).toMatch(/\.etoiles:focus-within\s*\{/)
+  const visible = bloc('\\.etoiles:focus-within')
+  expect(visible).toMatch(/clip:\s*auto/)
+  expect(visible).toMatch(/height:\s*auto/)
+  expect(visible).toMatch(/width:\s*min\(/)
+  expect(visible).toMatch(/overflow:\s*auto/)
 })

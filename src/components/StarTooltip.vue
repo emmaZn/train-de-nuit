@@ -16,7 +16,7 @@ const MARGE = 16
  */
 const HAUTEUR_MAX = 110
 
-type Survol = { trace: Trace; x: number; y: number; age: string; droite: boolean; dessus: boolean }
+type Survol = { trace: Trace; x: number; y: number; age: string; gauche: number; dessus: boolean }
 
 const scene = inject(SCENE_KEY, ref(null))
 const survol = ref<Survol | null>(null)
@@ -35,9 +35,13 @@ function surEtoile(trace: Trace | null, x: number, y: number) {
     x,
     y,
     age: ageRelatif(trace.creeLe, Date.now()),
-    // Flip left when the bubble would run past the right edge…
-    droite: x + ECART + largeur <= window.innerWidth - MARGE,
-    // …and below the point when it would run past the top.
+    // Beside the star, but never past either edge: clamped, not flipped, so a
+    // star in the middle of a phone still gets a bubble that fits.
+    gauche: Math.max(
+      MARGE,
+      Math.min(x + ECART, window.innerWidth - MARGE - largeur),
+    ),
+    // Below the point when it would run past the top.
     dessus: y - ECART - HAUTEUR_MAX >= 0,
   }
 }
@@ -62,12 +66,8 @@ const mention = computed(() => {
 const position = computed(() => {
   const s = survol.value
   if (!s) return {}
-  // Anchored by the edge nearest the star, so the box grows away from it
-  // whatever the sentence length.
   return {
-    ...(s.droite
-      ? { left: `${s.x + ECART}px` }
-      : { right: `${window.innerWidth - (s.x - ECART)}px` }),
+    left: `${s.gauche}px`,
     ...(s.dessus
       ? { bottom: `${window.innerHeight - (s.y - ECART)}px` }
       : { top: `${s.y + ECART}px` }),
@@ -83,7 +83,6 @@ const position = computed(() => {
       :key="survol.trace.id"
       class="bulle"
       data-role="bulle"
-      :data-cote="survol.droite ? 'droite' : 'gauche'"
       :data-sens="survol.dessus ? 'dessus' : 'dessous'"
       :style="position"
       aria-hidden="true"
