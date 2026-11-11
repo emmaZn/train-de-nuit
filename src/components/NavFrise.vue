@@ -111,9 +111,7 @@ const entrees = computed(() => {
 
     </div>
 
-    <span v-if="enRoute" class="marqueur" data-role="marqueur" aria-hidden="true">
-      <span class="loco"></span>
-    </span>
+    <span v-if="enRoute" class="marqueur" data-role="marqueur" aria-hidden="true"></span>
   </nav>
 </template>
 
@@ -247,17 +245,6 @@ const entrees = computed(() => {
   background: var(--trait);
   border-radius: 50%;
   box-shadow: 0 0 12px 3px rgb(230 230 234 / 30%);
-}
-
-.loco {
-  position: absolute;
-  top: -11px;
-  left: -3px;
-  width: 13px;
-  height: 6px;
-  border: 1px solid var(--trait);
-  border-radius: 2px 3px 0 0;
-  opacity: var(--moyen);
 }
 
 .gare:focus-visible {
