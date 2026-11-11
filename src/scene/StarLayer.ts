@@ -43,6 +43,13 @@ export class Stars {
   private hauteur = 0
   private horloge = 0
   private maintenant = Date.now()
+  /**
+   * How many stars the sky holds, fixed at load and never recomputed. Read
+   * again on every resize, a phone loaded in landscape (844 px, 120 stars)
+   * would put 70 of them out when turned to portrait (390 px), and bring them
+   * back all at once, with no fade, when turned back.
+   */
+  private limite: number | null = null
 
   constructor(parent: Container, opts: { reducedMotion: boolean }) {
     this.reducedMotion = opts.reducedMotion
@@ -56,14 +63,21 @@ export class Stars {
   setStars(traces: Trace[], viewportW: number, viewportH: number): void {
     this.largeur = viewportW
     this.hauteur = viewportH
-    const gardees = [...traces]
-      .sort((a, b) => b.creeLe - a.creeLe)
-      .slice(0, limiteEtoiles(viewportW))
+    this.limite ??= limiteEtoiles(viewportW)
+    const gardees = [...traces].sort((a, b) => b.creeLe - a.creeLe).slice(0, this.limite)
     const ids = new Set(gardees.map((t) => t.id))
 
     for (const id of this.posees.keys()) if (!ids.has(id)) this.fadeOut(id)
     for (const trace of gardees) {
-      if (!this.posees.has(trace.id)) this.poser(trace)
+      const posee = this.posees.get(trace.id)
+      if (!posee) this.poser(trace)
+      // A star that comes back while it is fading out is lit again. Left to
+      // itself it would finish going out, and only return at the next
+      // `setStars` — which may never come.
+      else if (posee.extinction !== null) {
+        posee.extinction = null
+        posee.gfx.alpha = this.alphaDe(posee)
+      }
     }
   }
 

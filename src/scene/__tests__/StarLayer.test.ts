@@ -1,7 +1,7 @@
 import { Container } from 'pixi.js'
 import { afterEach, beforeEach, vi } from 'vitest'
 import { Stars } from '@/scene/StarLayer'
-import { limiteEtoiles, projeter } from '@/scene/stars'
+import { ETOILES_MAX_BUREAU, limiteEtoiles, projeter } from '@/scene/stars'
 import type { Trace } from '@/scene/types'
 
 const JOUR = 86_400_000
@@ -108,6 +108,38 @@ test('setStars est idempotent par id : une étoile déjà posée n’est ni rede
   expect(racine.children[0]).toBe(gfx)
   expect(gfx.alpha).toBe(alpha)
   expect(gfx.x).toBe(x)
+})
+
+test('la limite du ciel est figée au chargement : tourner le téléphone n’éteint rien', () => {
+  const { stars, racine } = monter()
+  const traces = Array.from({ length: ETOILES_MAX_BUREAU + 10 }, (_, i) => trace(i))
+  // Chargé en paysage : 844 px, donc la limite du bureau.
+  stars.setStars(traces, 844, 390)
+  expect(racine.children).toHaveLength(ETOILES_MAX_BUREAU)
+
+  // Tourné en portrait : la limite ne se recalcule pas. Sinon soixante-dix
+  // étoiles s'éteindraient, et reviendraient d'un coup au retour, sans fondu.
+  stars.setStars(traces, 390, 844)
+  stars.update(10, MAINTENANT)
+  expect(racine.children).toHaveLength(ETOILES_MAX_BUREAU)
+})
+
+test('une étoile revenue pendant son extinction est rallumée au lieu de finir de s’éteindre', () => {
+  const { stars, racine } = monter()
+  const t = trace(0, { x: 0.25, y: 0.5 })
+  stars.setStars([t], 1000, 800)
+  const gfx = racine.children[0]
+
+  // Elle sort de la limite : elle s'éteint en 1,2 s.
+  stars.setStars([], 1000, 800)
+  stars.update(0.3, MAINTENANT)
+  // Elle revient en plein fondu.
+  stars.setStars([t], 1000, 800)
+  stars.update(10, MAINTENANT)
+
+  expect(racine.children).toContain(gfx)
+  const { px, py } = projeter({ x: 0.25, y: 0.5 }, 1000, 800)
+  expect(stars.hit(px, py)?.id).toBe('t0')
 })
 
 test('fadeOut retire l’étoile de la cible des survols', () => {
