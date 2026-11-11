@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
+import {
+  ANCRE_FRISE,
+  ANCRE_FRISE_MOBILE,
+  SEUIL_MOBILE,
+  ecartFrise,
+  garesVisibles,
+} from '@/scene/layout'
 import type { Gare } from '@/scene/types'
 import { GARES, useVoyage } from '@/stores/voyage'
 
@@ -12,14 +19,34 @@ const LIBELLES: Record<Gare, string> = {
   ailleurs: 'ailleurs',
 }
 
-/** Gares visibles de part et d'autre de celle où l'on est. */
-const AVANT = 2
+/**
+ * Une seule gare derrière : elle sort par la gauche dès le début du trajet.
+ * Devant, on en garde toujours quatre rendues même si l'écran n'en montre que
+ * deux — sinon la cible d'un tour complet ne serait nulle part, et plus rien
+ * ne porterait « PROCHAIN ARRÊT ».
+ */
+const AVANT = 1
 const APRES = 4
 
 type Etat = 'passee' | 'a-quai' | 'prochain' | 'a-venir'
 
 const voyage = useVoyage()
 const { gare, enRoute, etapesRestantes, legs, progression } = storeToRefs(voyage)
+
+/**
+ * La frise étale ses gares sur la largeur : quatre sur un écran, deux sur un
+ * téléphone. L'écartement se calcule plutôt que de vivre en dur dans le CSS,
+ * pour qu'il soit vérifiable par un test.
+ */
+const largeur = ref(typeof window === 'undefined' ? 1280 : window.innerWidth)
+const mesurer = () => {
+  largeur.value = window.innerWidth
+}
+onMounted(() => window.addEventListener('resize', mesurer, { passive: true }))
+onBeforeUnmount(() => window.removeEventListener('resize', mesurer))
+
+const ancre = computed(() => (largeur.value < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE))
+const ecart = computed(() => ecartFrise(largeur.value, garesVisibles(largeur.value)))
 
 /**
  * Position de la frise, en crans, fractionnaire pendant le trajet : c'est elle
@@ -58,7 +85,11 @@ const entrees = computed(() => {
 </script>
 
 <template>
-  <nav class="frise" aria-label="Les gares du voyage">
+  <nav
+    class="frise"
+    aria-label="Les gares du voyage"
+    :style="{ '--ecart': `${ecart}px`, '--ancre': `${ancre}px` }"
+  >
     <div class="piste" :class="{ 'en-route': enRoute }" :style="{ '--legs': position }">
       <span class="voie" aria-hidden="true"></span>
 
@@ -88,8 +119,6 @@ const entrees = computed(() => {
 
 <style scoped>
 .frise {
-  --ecart: 164px;
-  --ancre: 120px;
   position: fixed;
   top: 0;
   left: 0;
@@ -98,7 +127,7 @@ const entrees = computed(() => {
   z-index: 2;
   overflow: hidden;
   /* Les gares qui sortent s'estompent des deux côtés. */
-  mask-image: linear-gradient(to right, transparent, #000 90px, #000 calc(100% - 140px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 60px, #000 calc(100% - 60px), transparent);
 }
 
 .piste {
@@ -234,18 +263,6 @@ const entrees = computed(() => {
 .gare:focus-visible {
   outline: 1px solid var(--trait);
   outline-offset: 6px;
-}
-
-@media (max-width: 720px) {
-  .frise {
-    --ecart: 132px;
-    --ancre: 24px;
-  }
-
-  /* CONCEPT.md §11 : en mobile, la gare actuelle et la suivante seulement. */
-  .gare:not([data-decalage='0']):not([data-decalage='1']) {
-    display: none;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

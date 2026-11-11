@@ -29,8 +29,12 @@ export function fitStage(viewportW: number, viewportH: number): Frame {
  */
 export const HORIZON = 921
 
-/** Source frame of the mountain band, before the pipeline resizes it. */
-export const MOUNTAIN_SOURCE = { width: 1918, height: 472 } as const
+/**
+ * Source frame of the mountain band, before the pipeline resizes it. Only its
+ * aspect ratio matters here: the band is always drawn STAGE.width wide, times
+ * ECHELLE_MONTAGNES.
+ */
+export const MOUNTAIN_SOURCE = { width: 3840, height: 944 } as const
 
 /**
  * How much smaller the train is drawn than its source frame.
@@ -80,4 +84,41 @@ export function cadreDegrade(hauteur: number): {
   height: number
 } {
   return { x: 0, y: HORIZON - hauteur, width: STAGE.width, height: hauteur }
+}
+
+/* ---- La frise ---- */
+
+/** Au-dessous de cette largeur, on est sur un téléphone (CONCEPT.md §11). */
+export const SEUIL_MOBILE = 720
+
+/** Où se tient la gare à quai, depuis le bord gauche. */
+export const ANCRE_FRISE = 120
+export const ANCRE_FRISE_MOBILE = 24
+
+/** Ce qu'on garde à droite, pour que la dernière mention ait sa place. */
+export const MARGE_FRISE = 150
+export const MARGE_FRISE_MOBILE = 110
+
+/** Écartement minimal : en dessous, deux gares se chevaucheraient. */
+const ECART_MINIMUM = 80
+
+/**
+ * Combien de gares la frise étale sur la largeur : quatre sur un écran, deux
+ * sur un téléphone, où il n'y a de place que pour celle où l'on est et la
+ * suivante.
+ */
+export function garesVisibles(largeur: number): number {
+  return largeur < SEUIL_MOBILE ? 2 : 4
+}
+
+/**
+ * Écart entre deux gares, pour que `visibles` gares occupent exactement la
+ * largeur, de l'ancre jusqu'à la marge de droite.
+ */
+export function ecartFrise(largeur: number, visibles: number): number {
+  const mobile = largeur < SEUIL_MOBILE
+  const ancre = mobile ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
+  const marge = mobile ? MARGE_FRISE_MOBILE : MARGE_FRISE
+  const intervalles = Math.max(1, visibles - 1)
+  return Math.max(ECART_MINIMUM, (largeur - ancre - marge) / intervalles)
 }

@@ -4,6 +4,7 @@ import { RouterLink, createMemoryHistory } from 'vue-router'
 import NavFrise from '@/components/NavFrise.vue'
 import { createAppRouter } from '@/router'
 import { useVoyage } from '@/stores/voyage'
+import { ANCRE_FRISE, ANCRE_FRISE_MOBILE, ecartFrise, garesVisibles } from '@/scene/layout'
 
 async function monter() {
   setActivePinia(createPinia())
@@ -99,4 +100,34 @@ test('le marqueur ne se deplace plus : c est la frise qui defile sous lui', asyn
 test('le marqueur n’apparaît qu’en route', async () => {
   const { wrapper } = await monter()
   expect(wrapper.find('[data-role="marqueur"]').exists()).toBe(false)
+})
+
+// Le branchement : la frise doit vraiment poser l'écartement calculé sur le DOM.
+test('la frise étale ses gares sur la largeur de l’écran', async () => {
+  window.innerWidth = 1280
+  const { wrapper } = await monter()
+  const style = wrapper.get('nav.frise').attributes('style') ?? ''
+  expect(style).toContain(`--ecart: ${ecartFrise(1280, garesVisibles(1280))}px`)
+  expect(style).toContain(`--ancre: ${ANCRE_FRISE}px`)
+})
+
+test('sur un téléphone, la frise se resserre et ne vise plus que deux gares', async () => {
+  window.innerWidth = 390
+  const { wrapper } = await monter()
+  const style = wrapper.get('nav.frise').attributes('style') ?? ''
+  expect(garesVisibles(390)).toBe(2)
+  expect(style).toContain(`--ecart: ${ecartFrise(390, 2)}px`)
+  expect(style).toContain(`--ancre: ${ANCRE_FRISE_MOBILE}px`)
+  window.innerWidth = 1024
+})
+
+test('la frise suit un redimensionnement', async () => {
+  window.innerWidth = 1280
+  const { wrapper } = await monter()
+  const avant = wrapper.get('nav.frise').attributes('style')
+  window.innerWidth = 1920
+  window.dispatchEvent(new Event('resize'))
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('nav.frise').attributes('style')).not.toBe(avant)
+  window.innerWidth = 1024
 })
