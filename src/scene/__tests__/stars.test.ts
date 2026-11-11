@@ -103,6 +103,20 @@ test('tirerPlace s’éloigne des places déjà prises', () => {
   expect(avecChoix / 30).toBeGreaterThan(0.45)
 })
 
+test('tirerPlace pèse x par le rapport : à distance normalisée égale, pas à distance écran égale', () => {
+  const prises = [{ x: 0.5, y: 0.5 }]
+  // Two candidates at the same normalised distance (0.1) from the taken place.
+  const tirages = () => {
+    const suite = [0.6, 0.5, 0.5, 0.6]
+    let i = 0
+    return () => suite[i++]
+  }
+  // Wide band (10x): the x offset is far on screen, the y offset is not.
+  expect(tirerPlace(prises, tirages(), 2, 10)).toEqual({ x: 0.6, y: 0.5 })
+  // Tall band (0.1x): the y offset is the far one.
+  expect(tirerPlace(prises, tirages(), 2, 0.1)).toEqual({ x: 0.5, y: 0.6 })
+})
+
 test('tirerPlace est déterministe à alea égal', () => {
   const prises = [{ x: 0.2, y: 0.3 }]
   expect(tirerPlace(prises, graine(7))).toEqual(tirerPlace(prises, graine(7)))

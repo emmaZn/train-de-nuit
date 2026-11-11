@@ -43,13 +43,22 @@ export function projeter(
 /**
  * Where a new star goes: of `tirages` random candidates, the one farthest from
  * every taken place (best candidate). `alea` is injected to stay deterministic.
+ *
+ * Places are normalised, but a unit in x is much longer on screen than a unit
+ * in y: `rapport` (band width over band height, in pixels) weights x so that
+ * « far » means far on screen. The default 1 measures in the normalised square.
  */
-export function tirerPlace(prises: Place[], alea: () => number, tirages = 40): Place {
+export function tirerPlace(
+  prises: Place[],
+  alea: () => number,
+  tirages = 40,
+  rapport = 1,
+): Place {
   let meilleure: Place = { x: alea(), y: alea() }
-  let distanceMax = plusProche(meilleure, prises)
+  let distanceMax = plusProche(meilleure, prises, rapport)
   for (let i = 1; i < tirages; i++) {
     const candidate = { x: alea(), y: alea() }
-    const d = plusProche(candidate, prises)
+    const d = plusProche(candidate, prises, rapport)
     if (d > distanceMax) {
       meilleure = candidate
       distanceMax = d
@@ -58,9 +67,9 @@ export function tirerPlace(prises: Place[], alea: () => number, tirages = 40): P
   return meilleure
 }
 
-function plusProche(p: Place, prises: Place[]): number {
+function plusProche(p: Place, prises: Place[], rapport: number): number {
   let min = Infinity
-  for (const q of prises) min = Math.min(min, Math.hypot(p.x - q.x, p.y - q.y))
+  for (const q of prises) min = Math.min(min, Math.hypot((p.x - q.x) * rapport, p.y - q.y))
   return min
 }
 
