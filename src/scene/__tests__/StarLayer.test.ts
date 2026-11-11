@@ -1,10 +1,21 @@
 import { Container } from 'pixi.js'
+import { afterEach, beforeEach, vi } from 'vitest'
 import { Stars } from '@/scene/StarLayer'
 import { limiteEtoiles, projeter } from '@/scene/stars'
 import type { Trace } from '@/scene/types'
 
 const JOUR = 86_400_000
 const MAINTENANT = 1_800_000_000_000
+
+// `Stars` reads the system clock when it places a star: freeze it, so the
+// tests do not depend on the day they run.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(MAINTENANT)
+})
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 function trace(i: number, extra: Partial<Trace> = {}): Trace {
   return {
