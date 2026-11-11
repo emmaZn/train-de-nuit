@@ -137,14 +137,14 @@ test('le massif ne sort pas par le haut du cadre à l’échelle retenue', () =>
 // Sur un nuage de points, fondre une image dans la suivante dedouble chaque
 // point en fantome : on voit les deux jeux a demi-opacite. Et c'est inutile,
 // puisque d'une image a l'autre les points ne bougent pas d'un pixel.
-test('le fondu est coupé pour un nuage de points', () => {
-  expect(fonduApplique(0.5)).toBe(0.5 * FONDU_MONTAGNES)
-  expect(FONDU_MONTAGNES).toBeGreaterThanOrEqual(0)
+test('la dissolution est active et bornée', () => {
+  expect(FONDU_MONTAGNES).toBeGreaterThan(0)
   expect(FONDU_MONTAGNES).toBeLessThanOrEqual(1)
 })
 
-test('fondu coupé : aucune image fantôme, quel que soit le mélange', () => {
-  if (FONDU_MONTAGNES === 0) {
-    for (const m of [0, 0.25, 0.5, 0.99]) expect(fonduApplique(m)).toBe(0)
+test('la bascule suit la position entre les deux images', () => {
+  for (const m of [0, 0.25, 0.5, 0.99]) {
+    expect(fonduApplique(m)).toBeCloseTo(m * FONDU_MONTAGNES, 6)
+    expect(fonduApplique(m)).toBeLessThanOrEqual(1)
   }
 })

@@ -17,13 +17,14 @@ export const SWEEP_LEGS = 8
 /**
  * How much of one mountain frame dissolves into the next, 0 to 1.
  *
- * 0 means a hard cut, and that is what a point cloud needs: blending two
- * frames shows both sets of points at half opacity, so every point ghosts
- * into a double. On dense grain the dissolve smoothed a low frame rate out;
- * on isolated points it spoils them. It is not needed either — between two
- * neighbouring frames the points do not move by even a pixel.
+ * Not a blend: a *dissolve*. Blending two frames of a point cloud shows both
+ * sets at half opacity and ghosts every point. Cutting instead makes all the
+ * points jump at once, every 267 ms — a hole in the motion. The shader picks
+ * one frame or the other per pixel, on a stable draw: each point keeps its
+ * full opacity and switches at its own moment, so the change is spread
+ * through time instead of landing all at once.
  */
-export const FONDU_MONTAGNES = 0
+export const FONDU_MONTAGNES = 1
 
 export function fonduApplique(melange: number): number {
   return melange * FONDU_MONTAGNES
@@ -93,10 +94,18 @@ out vec4 finalColor;
 uniform sampler2D uTexture;
 uniform float uMelange;
 
+/* Tirage stable par pixel d'ecran : c'est lui qui etale la bascule. */
+float grain(vec2 p)
+{
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
 void main(void)
 {
     vec4 texel = texture(uTexture, vTextureCoord);
-    float a = mix(texel.r, texel.g, uMelange);
+    // Dissolution, pas melange : chaque pixel prend l'une OU l'autre image,
+    // donc un point garde toute son opacite au lieu de se dedoubler.
+    float a = grain(gl_FragCoord.xy) < uMelange ? texel.g : texel.r;
     finalColor = vec4(vec3(${GRIS.toFixed(6)}) * a, a);
 }
 `
