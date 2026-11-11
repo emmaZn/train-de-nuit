@@ -43,6 +43,13 @@ export type Grain = { x: number; y: number; a: number }
 /** De quoi placer les grains sur l'écran : un `DOMRect` en est un. */
 export type Rect = Pick<DOMRect, 'left' | 'top' | 'width' | 'height'>
 
+/**
+ * **Il faut appeler `land` ou `revert`.** Une poignée abandonnée laisse le
+ * nœud de grains à l'écran, sa timeline en vie et la dissolution dans la
+ * scène : c'est le §9 qui l'exige, l'appelant doit toujours conclure, au pire
+ * par `revert` passé son délai. La première des deux l'emporte ; la seconde
+ * est sans effet et rend la même fin, déjà tenue.
+ */
 export type Poignee = {
   /** L'écriture a abouti : le grain monte, l'étoile s'allume. */
   land(trace: Trace): Promise<void>
@@ -177,11 +184,9 @@ export class Dissolve implements Poignee {
   private issue: 'land' | 'revert' | null = null
   private trace: Trace | null = null
   private allumee = false
-  private enVol: Place | null
 
   constructor(opts: DissolveOptions) {
     this.opts = opts
-    this.enVol = opts.place
     const vise = projeter(opts.place, opts.viewportW, opts.viewportH)
     this.cible = { x: vise.px, y: vise.py }
     this.centre = {
@@ -209,16 +214,6 @@ export class Dissolve implements Poignee {
   /** Vraie dès que la dissolution a joué sa fin : la scène peut l'oublier. */
   get fini(): boolean {
     return this.phase === 'fini'
-  }
-
-  /**
-   * La place que le grain vise, tant que l'étoile n'est pas allumée. La scène
-   * s'en sert pour retenir l'étoile : le magasin confirme la trace au moment
-   * où le grain décolle, et sans ça elle s'allumerait deux secondes et demie
-   * trop tôt.
-   */
-  get placeEnVol(): Place | null {
-    return this.enVol
   }
 
   land(trace: Trace): Promise<void> {
@@ -268,10 +263,24 @@ export class Dissolve implements Poignee {
     }
   }
 
+  /**
+   * L'écran a changé de taille : la place vise des pixels, pas une fraction.
+   * Sur un téléphone, Entrée referme le clavier — la fenêtre change donc de
+   * taille à l'instant même où la dissolution commence, et sans ce rappel le
+   * grain se poserait là où l'étoile ne sera pas.
+   */
+  resize(viewportW: number, viewportH: number): void {
+    if (this.phase === 'fini') return
+    const vise = projeter(this.opts.place, viewportW, viewportH)
+    this.cible.x = vise.px
+    this.cible.y = vise.py
+    this.controle = this.controleVers(this.centre)
+    this.dessiner()
+  }
+
   /** Idempotent : la fin se tient une fois, qu'elle vienne du temps ou de la scène. */
   destroy(): void {
     this.phase = 'fini'
-    this.enVol = null
     this.tl.kill()
     if (!this.gfx.destroyed) this.gfx.destroy()
     this.resoudre()
@@ -285,14 +294,14 @@ export class Dissolve implements Poignee {
 
   private poserEtoile(): void {
     this.allumee = true
-    // La place cesse d'être « en vol » avant l'allumage : la scène peut alors
-    // pousser l'étoile sans la retenir.
-    this.enVol = null
     if (this.trace) this.opts.allumer(this.trace)
   }
 
   private recevoir(grains: Grain[]): void {
-    if (this.phase === 'fini' || grains.length === 0) return
+    if (grains.length === 0) return
+    // Passé la convergence, le centre et la courbe sont en service : les
+    // réécrire ferait sauter le grain en plein vol.
+    if (this.phase !== 'defait' && this.phase !== 'attente') return
     this.grains = grains
     let xmin = Infinity
     let xmax = -Infinity
@@ -313,6 +322,10 @@ export class Dissolve implements Poignee {
       y: this.opts.depuis.top + (ymin + ymax) / 2,
     }
     this.controle = this.controleVers(this.centre)
+    // L'attente ne redessine rien d'elle-même. Sans ce rappel, des grains
+    // arrivés après la convergence — police lente, première visite — ne
+    // paraîtraient qu'à la montée, et l'attente montrerait un ciel vide.
+    if (this.phase === 'attente') this.dessiner()
   }
 
   /** Le point de contrôle qui courbe la montée : droit d'abord, penché ensuite. */

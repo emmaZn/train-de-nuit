@@ -191,8 +191,11 @@ export class Scene {
     }
 
     this.sky?.resize(STAGE.width, STAGE.height, width < 720)
-    this.pousserEtoiles()
+    this.stars?.setStars(this.traces, width, height)
     this.stars?.resize(width, height)
+    // La place d'une étoile est une fraction, sa cible des pixels : une
+    // dissolution en cours doit suivre l'écran.
+    for (const d of this.dissolutions) d.resize(width, height)
     this.relief?.cadrer(frame, width, height, this.app.renderer.resolution)
 
     this.refletTexture?.destroy(true)
@@ -220,35 +223,27 @@ export class Scene {
   /** The visitors' stars. Called again whenever the store changes. */
   setStars(traces: Trace[]): void {
     this.traces = traces
-    this.pousserEtoiles()
-  }
-
-  /**
-   * Les étoiles à poser : celles qu'on nous donne, moins celles dont le grain
-   * monte encore. Le magasin confirme la trace à l'instant du décollage ;
-   * sans ce retrait, son étoile s'allumerait avant que le grain n'arrive.
-   */
-  private pousserEtoiles(): void {
     if (!this.vivante) return
-    const enVol: Place[] = []
-    for (const d of this.dissolutions) if (d.placeEnVol) enVol.push(d.placeEnVol)
-    const visibles =
-      enVol.length === 0
-        ? this.traces
-        : this.traces.filter((t) => !enVol.some((p) => p.x === t.x && p.y === t.y))
     const { width, height } = this.app.screen
-    this.stars?.setStars(visibles, width, height)
+    this.stars?.setStars(traces, width, height)
   }
 
   /**
    * La phrase se défait en grains (CONCEPT.md §4.3). L'écriture est déjà
    * partie : la poignée dit comment elle a fini — `land` allume l'étoile,
    * `revert` reforme la phrase —, et la première des deux l'emporte.
+   *
+   * **L'appelant doit toujours conclure**, par `land` ou par `revert` passé
+   * son délai : une poignée abandonnée laisse ses grains à l'écran jusqu'au
+   * `dispose` de la scène.
+   *
+   * `land` pose l'étoile lui-même. Le magasin qui pousse ensuite la même
+   * trace par `setStars` ne la repose pas : `Stars.setStars` est idempotent
+   * par `id`.
    */
   beginDissolve(phrase: string, from: DOMRect, place: Place): Poignee {
     const allumer = (trace: Trace) => {
-      this.traces = [trace, ...this.traces.filter((t) => t.id !== trace.id)]
-      this.pousserEtoiles()
+      this.setStars([trace, ...this.traces.filter((t) => t.id !== trace.id)])
     }
     // Mouvement réduit, ou pas de WebGL : l'horloge de la scène ne tourne
     // pas, une dissolution animée ne finirait jamais. L'étoile se pose.

@@ -1,6 +1,7 @@
 import { Container, Graphics } from 'pixi.js'
 import {
   DUREE_DEFAIT,
+  DUREE_ECLAT,
   DUREE_MONTEE,
   DUREE_TOTALE,
   Dissolve,
@@ -17,6 +18,8 @@ import type { Trace } from '@/scene/types'
 
 const VP_W = 1000
 const VP_H = 800
+/** La fenêtre d'un téléphone dont le clavier vient de se refermer. */
+const VP_H2 = 500
 const PLACE: Place = { x: 0.4, y: 0.25 }
 const DEPUIS = new DOMRect(600, 300, 240, 24)
 const IMAGE = 1 / 60
@@ -46,7 +49,7 @@ function grains(): Grain[] {
   ]
 }
 
-function monter() {
+function monter(source: Promise<Grain[]> = Promise.resolve(grains())) {
   const parent = new Container()
   const ciel = new Container()
   const stars = new Stars(ciel, { reducedMotion: false })
@@ -57,7 +60,7 @@ function monter() {
     parent,
     viewportW: VP_W,
     viewportH: VP_H,
-    grains: Promise.resolve(grains()),
+    grains: source,
     allumer: (t) => {
       posees.push(t)
       stars.setStars(posees, VP_W, VP_H)
@@ -77,9 +80,39 @@ function souffler(): Promise<void> {
   return new Promise((r) => setTimeout(r, 0))
 }
 
-function dessin(parent: Container): number {
+/**
+ * Les cercles que la dissolution vient de dessiner. Pixi garde la géométrie
+ * telle quelle tant qu'elle n'est pas rendue : c'est la seule fenêtre sur ce
+ * qu'on verrait, là où il n'y a pas d'écran.
+ */
+function cercles(parent: Container): Array<{ x: number; y: number }> {
   const gfx = parent.children[0] as Graphics | undefined
-  return gfx ? gfx.context.instructions.length : 0
+  if (!gfx) return []
+  type Chemin = { action: string; data: number[] }
+  type Remplissage = { data: { path: { instructions: Chemin[] } } }
+  const vus: Array<{ x: number; y: number }> = []
+  for (const i of gfx.context.instructions) {
+    // Pixi préfixe d'un `moveTo` tout chemin qui suit un premier remplissage :
+    // c'est le cercle qu'on cherche, pas la première instruction.
+    const cercle = (i as unknown as Remplissage).data.path.instructions.find(
+      (c) => c.action === 'circle',
+    )
+    if (cercle) vus.push({ x: cercle.data[0], y: cercle.data[1] })
+  }
+  return vus
+}
+
+function dessin(parent: Container): number {
+  return cercles(parent).length
+}
+
+/** Une promesse de grains qu'on tient quand on veut : la police est lente. */
+function enRetard(): { source: Promise<Grain[]>; livrer: (g: Grain[]) => void } {
+  let livrer: (g: Grain[]) => void = () => {}
+  const source = new Promise<Grain[]>((r) => {
+    livrer = r
+  })
+  return { source, livrer }
 }
 
 test('grainsDepuisAlpha ne rend que les pixels au-dessus du seuil', () => {
@@ -196,6 +229,79 @@ test('revert avant la fin de la dissolution attend qu’elle soit finie', async 
   expect(parent.children).toHaveLength(0)
   await expect(second).resolves.toBeUndefined()
   await fin
+})
+
+test('après l’attente, revert reforme la phrase et tient sa promesse', async () => {
+  // C'est le chemin de production : la tâche 7 renonce au bout de 10 s, donc
+  // toujours bien après les 0,6 s de la dissolution. Un revert qui ne
+  // réveillerait pas l'attente laisserait la scène figée et le formulaire
+  // absent pour de bon.
+  const { d, parent, posees } = monter()
+  await souffler()
+  jouer(d, 20)
+
+  let finie = false
+  const fin = d.revert().then(() => {
+    finie = true
+  })
+  await souffler()
+  expect(finie).toBe(false)
+
+  jouer(d, DUREE_DEFAIT)
+  await souffler()
+  expect(finie).toBe(true)
+  expect(posees).toHaveLength(0)
+  expect(parent.children).toHaveLength(0)
+  await fin
+})
+
+test('des grains en retard paraissent quand même pendant l’attente', async () => {
+  // À la première visite la police n'est pas en cache : `document.fonts.ready`
+  // peut tenir plus longtemps que les 0,6 s de la dissolution.
+  const { source, livrer } = enRetard()
+  const { d, parent } = monter(source)
+  jouer(d, DUREE_DEFAIT * 2)
+  expect(dessin(parent)).toBe(0)
+
+  livrer(grains())
+  await souffler()
+  const vus = cercles(parent)
+  expect(vus).toHaveLength(grains().length)
+  // Ils paraissent convergés, au nœud, et non étalés sur la phrase.
+  const etalement = Math.max(...vus.map((c) => c.x)) - Math.min(...vus.map((c) => c.x))
+  expect(etalement).toBeLessThan(DEPUIS.width / 4)
+})
+
+test('des grains arrivés en pleine montée sont ignorés', async () => {
+  const { source, livrer } = enRetard()
+  const { d, parent } = monter(source)
+  void d.land(trace())
+  jouer(d, DUREE_DEFAIT + 1)
+  const avant = JSON.stringify(cercles(parent))
+
+  livrer(grains())
+  await souffler()
+  // Une image de plus, sans temps : seule une reprise des grains pourrait
+  // bouger quoi que ce soit — et elle ferait sauter le grain en plein vol.
+  d.update(0)
+  expect(JSON.stringify(cercles(parent))).toBe(avant)
+})
+
+test('un redimensionnement en vol déplace la cible du grain', async () => {
+  // Sur un téléphone, Entrée referme le clavier : la fenêtre change de taille
+  // à l'instant même où la dissolution commence.
+  const { d, parent } = monter()
+  await souffler()
+  void d.land(trace())
+  d.resize(VP_W, VP_H2)
+  jouer(d, DUREE_DEFAIT + DUREE_MONTEE + DUREE_ECLAT / 2)
+
+  const vise = projeter(PLACE, VP_W, VP_H2)
+  expect(vise.py).not.toBeCloseTo(projeter(PLACE, VP_W, VP_H).py)
+  // Le halo de l'éclat, dessiné en dernier, se pose là où l'étoile sera.
+  const halo = cercles(parent).at(-1)
+  expect(halo?.x).toBeCloseTo(vise.px)
+  expect(halo?.y).toBeCloseTo(vise.py)
 })
 
 test('en mouvement réduit, land pose l’étoile sans animer', async () => {
