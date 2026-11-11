@@ -3,7 +3,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /traces/{id} {
-      allow read: if resource.data.approuvee == true;
+      // Reading one document: only an approved one, whoever asks.
+      allow get: if resource.data.approuvee == true;
+
+      // Listing: the sky's one query, and nothing wider. The approval clause
+      // still has to be provable from the query itself; the bound is what the
+      // design doc promises — « le site ne télécharge jamais plus de N
+      // phrases ». 120 is the desktop limit, 50 the phone one (scene/stars.ts),
+      // so both pass and an unbounded read does not.
+      allow list: if resource.data.approuvee == true
+                  && request.query.limit <= 120;
 
       // Length is checked with matches(), not size(): size() counts UTF-16 code
       // units (an emoji weighs 2), while the form counts code points. RE2's `.`

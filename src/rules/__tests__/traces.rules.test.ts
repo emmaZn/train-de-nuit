@@ -5,8 +5,10 @@ import {
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
 import { readFileSync } from 'node:fs'
-import { addDoc, collection, deleteDoc, doc, getDoc, serverTimestamp, setDoc, Timestamp, updateDoc } from 'firebase/firestore'
-import { afterAll, beforeAll, beforeEach, describe, test } from 'vitest'
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, limit, orderBy, query, serverTimestamp, setDoc, Timestamp, updateDoc, where } from 'firebase/firestore'
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'vitest'
+// Chemin relatif : la configuration des tests de règles n'a pas l'alias `@`.
+import { ETOILES_MAX_BUREAU, ETOILES_MAX_MOBILE } from '../../scene/stars'
 
 let env: RulesTestEnvironment
 
@@ -87,6 +89,56 @@ describe('traces rules', () => {
   test('création refusée : une phrase faite uniquement d’espaces', async () => {
     await assertFails(create({ ...valid(), phrase: '   ' }))
   })
+  /* ---- La requête du ciel : la seule lecture de la production ---- */
+
+  /** `charger()` mot pour mot : approuvées, les plus récentes d'abord, bornées. */
+  const requeteDuCiel = (n: number) =>
+    getDocs(
+      query(
+        collection(db(), 'traces'),
+        where('approuvee', '==', true),
+        orderBy('creeLe', 'desc'),
+        limit(n),
+      ),
+    )
+
+  test('la requête du ciel passe, bornée à 120 (grand écran)', async () => {
+    await seed('t1', true)
+    await assertSucceeds(requeteDuCiel(ETOILES_MAX_BUREAU))
+  })
+
+  test('la requête du ciel passe aussi bornée à 50 (téléphone)', async () => {
+    await seed('t1', true)
+    await assertSucceeds(requeteDuCiel(ETOILES_MAX_MOBILE))
+  })
+
+  test('une requête sans borne est refusée, même sur les approuvées', async () => {
+    await seed('t1', true)
+    // Le §8 promet que le site ne télécharge jamais plus de N phrases : sans
+    // borne dans les règles, un client lit toute la collection d'un coup.
+    await assertFails(
+      getDocs(
+        query(collection(db(), 'traces'), where('approuvee', '==', true), orderBy('creeLe', 'desc')),
+      ),
+    )
+  })
+
+  test('une requête bornée au-delà de 120 est refusée', async () => {
+    await seed('t1', true)
+    await assertFails(requeteDuCiel(ETOILES_MAX_BUREAU + 1))
+  })
+
+  test('lire la collection entière, sans filtre, est refusé', async () => {
+    await seed('t1', true)
+    await seed('t2', false)
+    await assertFails(getDocs(collection(db(), 'traces')))
+  })
+
+  test('la borne des règles est celle du ciel, et non un nombre à part', async () => {
+    const regles = readFileSync('firestore.rules', 'utf8')
+    expect(regles).toContain(`request.query.limit <= ${ETOILES_MAX_BUREAU}`)
+  })
+
   test('mise à jour et suppression toujours refusées', async () => {
     await seed('t1', true)
     await assertFails(updateDoc(doc(db(), 'traces', 't1'), { phrase: 'autre' }))
