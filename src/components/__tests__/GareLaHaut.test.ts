@@ -87,9 +87,16 @@ function fausseScene() {
 
 let ecriture: Differe
 
-function monter(avecScene = true) {
+/**
+ * `attache` branche le composant sur le document : jsdom n'applique
+ * l'algorithme de soumission qu'à un formulaire connecté, et un clic sur le
+ * bouton ne lèverait rien sur un arbre détaché. Les tests qui s'en servent
+ * démontent à la fin.
+ */
+function monter(avecScene = true, attache = false) {
   const scene = fausseScene()
   const wrapper = mount(GareLaHaut, {
+    ...(attache ? { attachTo: document.body } : {}),
     global: {
       provide: {
         [SCENE_KEY]: shallowRef(avecScene ? (scene as unknown as Scene) : null),
@@ -490,6 +497,23 @@ test('tant que l’écriture n’est pas réglée, les deux champs sont en lectu
   expect(prenom.attributes('readonly')).toBeUndefined()
 })
 
+test('pendant la montée du grain, les deux champs restent verrouillés', async () => {
+  const { wrapper, champ, scene } = monter()
+  await champ.setValue('une phrase')
+  await champ.trigger('keydown.enter')
+  ecriture.resoudre()
+  await souffler()
+
+  // L'écriture est acceptée, mais le champ ne se videra qu'au bout de la
+  // montée : entre les deux, il serait modifiable pour rien.
+  expect(champ.attributes('readonly')).toBeDefined()
+  expect(wrapper.get('[data-champ="prenom"]').attributes('readonly')).toBeDefined()
+
+  scene.poignees[0].finir()
+  await souffler()
+  expect(champ.attributes('readonly')).toBeUndefined()
+})
+
 test('un échec rend aussitôt les deux champs au visiteur', async () => {
   const { wrapper, champ } = monter()
   await champ.setValue('une phrase')
@@ -512,6 +536,42 @@ test('Entrée rend la main au clavier, mais seulement une fois le champ mesuré'
   // Sur un téléphone, le clavier qui se referme redimensionne la fenêtre :
   // mesurer après coup prendrait le champ déjà déplacé.
   expect(mesure.mock.invocationCallOrder[0]).toBeLessThan(rendre.mock.invocationCallOrder[0])
+})
+
+/* ---- « laisser ↵ » est un vrai bouton : au doigt comme au clavier ---- */
+
+test('le doigt peut laisser une trace sans clavier', async () => {
+  const { wrapper, champ, scene } = monter(true, true)
+  const bouton = wrapper.get('[data-role="laisser"]')
+  expect(bouton.element.tagName).toBe('BUTTON')
+  expect(bouton.text()).toBe('laisser ↵')
+
+  await champ.setValue('une phrase')
+  await bouton.trigger('click')
+  expect(m.setDoc).toHaveBeenCalledTimes(1)
+  expect(scene.beginDissolve).toHaveBeenCalledTimes(1)
+  wrapper.unmount()
+})
+
+test('après le délai, le bouton rattache l’envoi en cours au lieu d’en écrire un second', async () => {
+  const { wrapper, champ, scene, traces } = monter(true, true)
+  await champ.setValue('une phrase')
+  await champ.trigger('keydown.enter')
+  await passerLeDelai()
+
+  // Le champ est en lecture seule et sans le focus : sur un téléphone, le
+  // clavier ne remonte pas. Sans ce bouton, plus aucun geste n'est possible.
+  expect(champ.attributes('readonly')).toBeDefined()
+  await wrapper.get('[data-role="laisser"]').trigger('click')
+  expect(m.setDoc).toHaveBeenCalledTimes(1)
+  expect(scene.beginDissolve).toHaveBeenCalledTimes(2)
+
+  ecriture.resoudre()
+  await souffler()
+  scene.poignees[1].finir()
+  await souffler()
+  expect(traces.etoiles).toHaveLength(1)
+  wrapper.unmount()
 })
 
 /* ---- La gare n’est à l’écran qu’une fois le train à quai ---- */

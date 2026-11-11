@@ -165,9 +165,12 @@ function laisser(): void {
  */
 async function reussir(parti: Envoi): Promise<void> {
   arreter()
-  envoi.value = null
   const p = reprendre()
   if (p) await p.land(parti.trace)
+  // Le verrou se lève avec l'effacement, pas avant : entre la réponse et la
+  // fin de la montée, les champs seraient modifiables pendant deux secondes
+  // et demie, pour un texte effacé juste après.
+  envoi.value = null
   traces.confirmer(parti.trace)
   // Temps 5 : le formulaire revient vide.
   phrase.value = ''
@@ -225,7 +228,7 @@ onBeforeUnmount(() => {
         v-if="!enRoute"
         class="trace"
         :data-envoi="enVol"
-        @submit.prevent
+        @submit.prevent="laisser"
         @keydown.enter.prevent="laisser"
       >
         <h2 class="titre">Laisser une trace ?</h2>
@@ -254,7 +257,10 @@ onBeforeUnmount(() => {
         />
         <p class="meta">
           <span data-role="compteur">{{ compte }} / {{ MAX_PHRASE }}</span>
-          <span>laisser ↵</span>
+          <!-- Un vrai bouton, pas une mention : un champ en lecture seule ne
+               fait pas remonter le clavier d'un téléphone, et après le délai
+               ce serait le seul geste encore possible. -->
+          <button type="submit" class="laisser" data-role="laisser">laisser ↵</button>
         </p>
         <p v-if="message" class="dit" data-role="dit" aria-live="polite">{{ message }}</p>
       </form>
@@ -346,6 +352,18 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: space-between;
   margin: 12px 0 0;
+}
+
+/* Un bouton qui ne se voit pas comme tel : le §4.3 ne montre que la mention.
+   Son contour au clavier, lui, est laissé au navigateur. */
+.laisser {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
 }
 
 /* La ligne n'est posée qu'une fois le formulaire revenu : elle ne s'efface
