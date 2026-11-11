@@ -97,13 +97,14 @@ Le nom et le titre sont en haut à gauche (comme sur la maquette). La phrase app
   - titre `Laisser une trace ?` (Inter Light 17 px)
   - champ phrase, 80 caractères max, placeholder `une phrase, un mot, une pensée…`, simple trait dessous qui s'éclaire au focus
   - champ prénom facultatif, plus petit : `un prénom, si vous voulez`
-  - ligne méta en mono 10,5 px : compteur `0 / 80` à gauche, `laisser ↵` à droite (Entrée suffit)
-- **Animation à l'envoi** (~5 s) :
+  - ligne méta en mono 10,5 px : compteur `0 / 80` à gauche, `laisser ↵` à droite : un vrai bouton, qu'un doigt peut atteindre, et que le clavier double (Entrée suffit)
+- **Animation à l'envoi** (~3,5 s) :
   1. le formulaire s'efface ;
   2. la phrase se défait **de gauche à droite** en grains qui se resserrent vers le centre du texte en s'éteignant ;
   3. **un seul grain** (avec un petit halo et une traîne) monte en courbe vers une place libre du ciel (~2,5 s) ;
   4. l'étoile s'allume avec un éclat (halo qui grossit puis se pose) : c'est la plus brillante du ciel ;
   5. le formulaire revient vide.
+- **Tant qu'un envoi n'est pas réglé**, les deux champs sont en `readonly` : c'est ce qui garantit que le texte enregistré est celui qu'on a vu se défaire, et non une version retouchée entre-temps. Le prix est à dire franchement : hors ligne, l'écriture reste en attente, et les champs peuvent rester verrouillés tant que l'onglet vit. On a préféré cela à une phrase affichée qui ne serait pas celle qui part.
 - Rien n'annonce ce qui va se passer : on comprend en le voyant.
 
 ### 4.4 ailleurs — le poteau indicateur
@@ -128,8 +129,9 @@ const eclat = Math.max(0.16, Math.exp(-age / 18))   // 1 = neuve, 0.16 = très a
 ```
 
 - **Survol** : la phrase apparaît doucement à côté de l'étoile (Inter Light 14 px), puis une ligne mono 10 px : prénom (si donné) · âge relatif (`à l'instant`, `aujourd'hui`, `hier`, `il y a 3 jours`, `il y a 2 mois`). Elle s'efface quand on s'éloigne.
-- Les étoiles très anciennes ne s'éteignent jamais : elles se fondent dans la poussière d'étoiles du fond.
-- Position d'une nouvelle étoile : une place libre (la plus éloignée des autres parmi ~40 tirages), dans la moitié haute du ciel, hors de la frise.
+- **Le ciel a une capacité** : au plus 120 étoiles sur un écran de bureau, 50 sur un téléphone. Les plus anciennes le quittent, et c'est la lecture qui tranche — elle ne ramène que les plus récentes. Une étoile ancienne ne s'éteint pas : elle s'estompe jusqu'à l'éclat plancher (0,16), puis, quand le ciel est plein, elle cède sa place à une plus récente.
+- Position d'une nouvelle étoile : une place libre (la plus éloignée des autres parmi ~40 tirages), dans la moitié haute du ciel, hors de la frise. **La place se tire une seule fois, à la création**, puis voyage avec la trace (`x`, `y`) : tout le monde voit l'étoile au même endroit, et la phrase qui se défait monte vers la place où elle s'allumera vraiment.
+- **Repère des coordonnées** : `x` est normalisé sur la largeur de la fenêtre ; `y` sur la **bande du ciel**, 0 juste sous la frise, 1 à mi-hauteur de la fenêtre. La frise est une bande fixe de 116 px, qui mange 30 % d'un téléphone en paysage : normaliser sur la hauteur entière aurait glissé des étoiles derrière elle.
 - Au lancement, le ciel est presque vide : les premiers visiteurs allument les premières étoiles.
 
 ## 6. Décor et mouvements
@@ -206,19 +208,23 @@ src/
     Scene.ts                canvas, boucle de rendu, redimensionnement, grain global
     Massif.ts               le massif en Three.js : grille déplacée, tramage en shader
     Relief.ts               le pont Three → Pixi, et le cadrage du massif sur la scène
-    Sky.ts                  poussière d'étoiles + étoiles-voyageurs, éclat, survol
+    Sky.ts                  poussière d'étoiles
+    StarLayer.ts            les étoiles-voyageurs (classe `Stars`) : éclat, survol. Pas `Stars.ts` :
+                            sur macOS il entrerait en collision avec `stars.ts`
+    stars.ts                limite du ciel, éclat, tirage de la place (fonctions pures)
     Train.ts                sprite sheets (rouler / démarrer / s'arrêter) + reflet
     Birds.ts                câbles, bouvreuils, chute, envol (gare « plus loin »)
     Dissolve.ts             phrase → grains → un grain qui monte → étoile
     events.ts               petit émetteur d'événements typé
   stores/
     voyage.ts               gare actuelle, cible, progression, enRoute / aQuai
-    traces.ts               phrases du ciel (lecture Firestore, ajout)
+    traces.ts               phrases du ciel (une lecture bornée, écriture, confirmation)
   composables/
     useScene.ts             le pont Vue ↔ scène
   components/
     NavFrise.vue            la frise en boucle
-    StarTooltip.vue         la phrase au survol d'une étoile
+    StarTooltip.vue         la phrase au survol (ou à l'appui) d'une étoile
+    EtoilesListe.vue        la liste des étoiles, masquée visuellement
     gares/
       GareIci.vue
       GarePlusLoin.vue      répliques des oiseaux (HTML), bouton clavier
@@ -238,14 +244,24 @@ class Scene {
   constructor(canvas: HTMLCanvasElement, opts: { reducedMotion: boolean })
   travelTo(gare: Gare): Promise<void>      // départ, trajet, arrivée (timeline GSAP)
   setStars(traces: Trace[]): void
-  addStar(trace: Trace, from: DOMRect): Promise<void>   // l'animation de dissolution
+  setPointerPx(px: number, py: number): void            // pixels CSS : quelle étoile, s'il y en a une
+  beginDissolve(phrase: string, from: DOMRect, place: Place): Poignee
   on(evt: 'starHover', cb: (t: Trace | null, x: number, y: number) => void): void
   on(evt: 'birdFell', cb: (x: number, y: number) => void): void
   on(evt: 'progress', cb: (p: number) => void): void    // pour la frise
   dispose(): void
 }
 type Gare = 'ici' | 'plus-loin' | 'la-haut' | 'ailleurs'
+
+// La poignée rendue par beginDissolve. `land` et `revert` sont terminaux et
+// s'excluent : l'un ou l'autre, une seule fois.
+type Poignee = {
+  land(trace: Trace): Promise<void>   // le grain atteint sa place, l'étoile s'allume
+  revert(): void                      // l'envoi a échoué : la phrase se recompose
+}
 ```
+
+`addStar` n'existe plus : la dissolution commence **avant** que l'on sache si l'écriture réussira, et ne peut donc pas porter la trace. La poignée sépare ce qui se joue tout de suite (la phrase se défait) de ce qui attend l'issue (l'étoile). L'appelant doit **attendre `land` avant `confirmer`** : l'étoile ne devient « la sienne » dans le store qu'une fois allumée. Si la poignée est déjà partie en `revert` quand l'écriture finit par réussir, c'est le store, que `useScene` surveille, qui fait entrer l'étoile dans le ciel.
 
 Store du voyage :
 
@@ -261,28 +277,33 @@ Collection `traces` :
 
 ```ts
 {
-  phrase: string      // 1 à 80 caractères
+  phrase: string      // 1 à 80 caractères (points de code, pas unités UTF-16)
   prenom?: string     // 0 à 24 caractères
+  x: number           // 0 à 1, sur la largeur de la fenêtre
+  y: number           // 0 à 1, sur la bande du ciel (voir §5)
   creeLe: Timestamp   // serverTimestamp()
   approuvee: boolean  // false à la création ; Emmanuelle valide depuis la console
 }
 ```
 
-Règles (à affiner) :
+Règles (le fichier de référence est `firestore.rules`, testé par `npm run test:rules`) :
 
 ```
 match /traces/{id} {
   allow read: if resource.data.approuvee == true;
-  allow create: if request.resource.data.approuvee == false
-                && request.resource.data.phrase is string
-                && request.resource.data.phrase.size() > 0
-                && request.resource.data.phrase.size() <= 80
-                && (!('prenom' in request.resource.data) || request.resource.data.prenom.size() <= 24)
-                && request.resource.data.creeLe == request.time;
+  allow create: if request.resource.data.keys().hasOnly(['phrase','prenom','creeLe','approuvee','x','y'])
+                && request.resource.data.phrase.matches('(?s).{1,80}')
+                && request.resource.data.x >= 0 && request.resource.data.x <= 1
+                && request.resource.data.y >= 0 && request.resource.data.y <= 1
+                && request.resource.data.approuvee == false
+                && request.resource.data.creeLe == request.time;   // et le reste, voir le fichier
   allow update, delete: if false;
 }
 ```
 
+- **La longueur se borne par `matches`, pas par `size()`** : `size()` compte des unités UTF-16, où un émoji pèse 2, alors que le formulaire compte des points de code. Avec `size() <= 80`, une phrase de 80 points de code contenant un émoji serait refusée. `.` en RE2 vaut un point de code : 80 passent toujours, 81 jamais.
+- **Les champs inconnus sont refusés** (`hasOnly`) ; **`update` et `delete` le sont toujours** : une trace s'écrit une fois.
+- **La lecture est une seule requête bornée** — `approuvee == true`, `creeLe` décroissant, `limit(N)` avec N la capacité du ciel (§5) — qui demande un **index composite** (`firestore.indexes.json`). **Aucun abonnement en direct** : une phrase approuvée pendant une visite s'allume au chargement suivant. C'est voulu : le ciel est un décor, pas un flux, et un écouteur ouvert coûterait une lecture par modification pour un gain que personne ne verrait.
 - **App Check** activé sur Firestore (reCAPTCHA) contre le spam.
 - Modération : à la main dans la console au début. Option plus tard : notification par mail à chaque nouvelle phrase (nécessite le plan Blaze).
 - Le visiteur voit **sa** nouvelle étoile tout de suite (côté client), même avant validation ; les autres la verront une fois approuvée.
@@ -291,6 +312,7 @@ match /traces/{id} {
 
 - **Mouvement réduit** (`prefers-reduced-motion`) : train à l'arrêt, gares en fondu, pas de dissolution (l'étoile apparaît simplement), pas de scintillement.
 - **Mobile** : moins de particules, scène recadrée, frise réduite (gare actuelle + prochaine), formulaires pleine largeur avec une marge de 16 px.
+- **Appui au doigt** : sur un écran tactile, il n'y a pas de survol. Un appui sur une étoile en révèle la phrase, un appui ailleurs la referme.
 - **Clavier** : la frise est une vraie navigation (`<nav>` + liens) ; focus visibles ; les étoiles récentes sont accessibles via une liste masquée visuellement.
 - **Poids** : réglé pour les montagnes — le massif ne pèse plus que sa carte de relief (3 Mo) au lieu d'une séquence. Les séquences du train sont converties en WebP et chargées progressivement : la gare actuelle d'abord.
 - **Textes** de l'interface en français ; code, noms de fichiers et commentaires techniques en anglais (sauf les noms de gares).

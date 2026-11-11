@@ -3,6 +3,7 @@ import type { InjectionKey, Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Scene } from '@/scene/Scene'
 import { loadFond, saveFond } from '@/scene/palette'
+import { useTraces } from '@/stores/traces'
 import { useVoyage } from '@/stores/voyage'
 
 /**
@@ -23,6 +24,8 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   const fond = ref<string>(loadFond())
   const voyage = useVoyage()
   const { enRoute, etapesRestantes, legs } = storeToRefs(voyage)
+  const traces = useTraces()
+  const { etoiles } = storeToRefs(traces)
 
   const detacher: Array<() => void> = []
 
@@ -37,6 +40,16 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     const x = (event.clientX / window.innerWidth) * 2 - 1
     const y = (event.clientY / window.innerHeight) * 2 - 1
     scene.value?.setPointer(x, y)
+    scene.value?.setPointerPx(event.clientX, event.clientY)
+  }
+
+  /**
+   * A finger never moves over a star before it lands: the touch is the whole
+   * gesture. The scene answers with `starHover`, a star or `null`, so a tap
+   * that hits nothing closes the bubble by the same road.
+   */
+  function surAppui(event: PointerEvent) {
+    scene.value?.setPointerPx(event.clientX, event.clientY)
   }
 
   onMounted(async () => {
@@ -55,10 +68,16 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     instance.setFond(fond.value)
     instance.setVoyage(enRoute.value, etapesRestantes.value)
     instance.setLegs(legs.value)
+    instance.setStars(etoiles.value)
+
+    // The sky is decoration: it must never hold the scene back. `charger`
+    // already swallows a read that fails; the catch is for what it might not.
+    traces.charger(window.innerWidth).catch(() => {})
 
     // Pas d'écouteur `resize` ici : le renderer Pixi recadre lui-même, à la
     // frame où il connaît vraiment ses nouvelles dimensions.
     window.addEventListener('pointermove', surPointeur, { passive: true })
+    window.addEventListener('pointerdown', surAppui, { passive: true })
   })
 
   watch([enRoute, etapesRestantes], ([route, restantes]) => {
@@ -69,8 +88,15 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     scene.value?.setLegs(valeur)
   })
 
+  // The only road by which a star confirmed late joins the sky: its handle
+  // has long since gone to `revert`, the store is what remains.
+  watch(etoiles, (valeur) => {
+    scene.value?.setStars(valeur)
+  })
+
   onBeforeUnmount(() => {
     window.removeEventListener('pointermove', surPointeur)
+    window.removeEventListener('pointerdown', surAppui)
     for (const off of detacher) off()
     scene.value?.dispose()
     scene.value = null

@@ -140,4 +140,18 @@ Une seule règle gouverne les couleurs : **dans tous les assets, le noir devient
 
 L'**étape 1** du §13 de `CONCEPT.md` est faite : squelette, scène, montagnes, voie, train qui démarre, roule, freine et s'arrête, reflet, frise en boucle et quatre routes, trajet toujours vers l'avant.
 
-Restent les étapes 2 à 5 : le ciel des voyageurs et Firebase, les oiseaux de « plus loin », les textes d'« ici » et le poteau d'« ailleurs », puis les finitions.
+L'**étape 2** l'est aussi : le ciel des voyageurs et « là-haut ». Une phrase se défait en grains, un seul monte jusqu'à sa place et s'allume ; chaque étoile se lit au survol, à l'appui du doigt ou au clavier ; et le ciel, borné à 120 étoiles sur un bureau et 50 sur un téléphone, se lit en une seule requête Firestore.
+
+Restent les étapes 3 à 5 : les oiseaux de « plus loin », les textes d'« ici » et le poteau d'« ailleurs », puis les finitions.
+
+### Lancer le ciel en local
+
+Le ciel parle à Firestore, mais jamais à la production pendant le développement : l'émulateur suffit.
+
+```bash
+npm run emulators    # l'émulateur Firestore
+npm run seed         # sème 200 traces approuvées, pour juger du ciel plein
+npm run test:rules   # les règles de sécurité, contre l'émulateur
+```
+
+L'émulateur est un programme Java : il faut **Java 21 ou plus** (la CLI Firebase v15 a retiré les versions antérieures). `mise.toml` l'épingle, comme Node : `mise install` suffit. Le projet s'appelle `demo-train-de-nuit`, et le préfixe `demo-` rend la production **inatteignable par construction** : ni le script de semis ni l'émulateur ne peuvent y écrire, quoi qu'on oublie de configurer.
