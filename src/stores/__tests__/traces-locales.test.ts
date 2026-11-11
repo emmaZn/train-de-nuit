@@ -41,3 +41,16 @@ test('saveMienne puis loadMiennes rend la trace, x et y compris', () => {
   saveMienne(t)
   expect(loadMiennes()).toEqual([t])
 })
+
+test('seules les 20 plus récentes sont gardées, à l’écriture comme à la lecture', () => {
+  for (let i = 0; i < 25; i++) saveMienne({ ...t, id: `t${i}`, creeLe: i })
+  const lues = loadMiennes()
+  expect(lues).toHaveLength(20)
+  expect(lues[0].id).toBe('t24')
+  expect(lues.map((m) => m.id)).not.toContain('t4')
+  localStorage.setItem(
+    'train-de-nuit:mes-traces',
+    JSON.stringify(Array.from({ length: 30 }, (_, i) => ({ ...t, id: `u${i}`, creeLe: i }))),
+  )
+  expect(loadMiennes()).toHaveLength(20)
+})

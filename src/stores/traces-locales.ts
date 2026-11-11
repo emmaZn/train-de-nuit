@@ -5,6 +5,11 @@ import type { Trace } from '@/scene/types'
 // private windows, blocked cookies, full quota.
 const CLE = 'train-de-nuit:mes-traces'
 
+/** The reserve is bounded like the sky itself: only the most recent are kept. */
+const MAX_MIENNES = 20
+
+const plusRecentesD = (a: Trace, b: Trace) => b.creeLe - a.creeLe
+
 function estUneTrace(v: unknown): v is Trace {
   if (typeof v !== 'object' || v === null) return false
   const t = v as Record<string, unknown>
@@ -23,7 +28,9 @@ function lire(): Trace[] {
     const brut = localStorage.getItem(CLE)
     if (brut === null) return []
     const valeur: unknown = JSON.parse(brut)
-    return Array.isArray(valeur) ? valeur.filter(estUneTrace) : []
+    return Array.isArray(valeur)
+      ? valeur.filter(estUneTrace).sort(plusRecentesD).slice(0, MAX_MIENNES)
+      : []
   } catch {
     return []
   }
@@ -36,7 +43,7 @@ export function loadMiennes(): Trace[] {
 export function saveMienne(t: Trace): void {
   try {
     const autres = lire().filter((m) => m.id !== t.id)
-    localStorage.setItem(CLE, JSON.stringify([...autres, t]))
+    localStorage.setItem(CLE, JSON.stringify([...autres, t].sort(plusRecentesD).slice(0, MAX_MIENNES)))
   } catch {
     // Repli silencieux : la trace est dans la base, retrouver sa propre étoile est un confort.
   }

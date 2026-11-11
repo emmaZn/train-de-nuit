@@ -20,6 +20,29 @@ export type Envoi = { trace: Trace; promesse: Promise<void> }
 
 const recentesDAbord = (a: Trace, b: Trace) => b.creeLe - a.creeLe
 
+/** Remote data is not trusted: anything malformed yields null. */
+function versTrace(id: string, data: Record<string, unknown>): Trace | null {
+  const creeLe = data.creeLe as { toMillis?: unknown } | null | undefined
+  if (!creeLe || typeof creeLe.toMillis !== 'function') return null
+  const ms: unknown = creeLe.toMillis()
+  if (
+    typeof ms !== 'number' ||
+    typeof data.phrase !== 'string' ||
+    typeof data.x !== 'number' ||
+    typeof data.y !== 'number' ||
+    (data.prenom !== undefined && typeof data.prenom !== 'string')
+  )
+    return null
+  return {
+    id,
+    phrase: data.phrase,
+    ...(data.prenom !== undefined ? { prenom: data.prenom } : {}),
+    creeLe: ms,
+    x: data.x,
+    y: data.y,
+  }
+}
+
 export const useTraces = defineStore('traces', {
   state: () => ({
     etoiles: [] as Trace[],
@@ -29,6 +52,7 @@ export const useTraces = defineStore('traces', {
     async charger(viewportW: number): Promise<void> {
       const max = limiteEtoiles(viewportW)
       const miennes = loadMiennes()
+      const distantes: Trace[] = []
       try {
         const res = await getDocs(
           query(
@@ -38,28 +62,23 @@ export const useTraces = defineStore('traces', {
             limit(max),
           ),
         )
-        const distantes: Trace[] = []
         for (const d of res.docs) {
-          const data = d.data()
-          // Just written: the server stamp has not landed yet, so there is no
-          // date to place it by. Skipped; the next read will have it.
-          if (!data.creeLe) continue
-          distantes.push({
-            id: d.id,
-            phrase: data.phrase,
-            prenom: data.prenom,
-            creeLe: data.creeLe.toMillis(),
-            x: data.x,
-            y: data.y,
-          })
+          const t = versTrace(d.id, d.data())
+          // Invalid (or not yet stamped by the server): skip this one document,
+          // never the whole sky.
+          if (t) distantes.push(t)
         }
-        const parId = new Map<string, Trace>()
-        for (const t of [...miennes, ...distantes]) parId.set(t.id, t)
-        this.etoiles = [...parId.values()].sort(recentesDAbord).slice(0, max)
       } catch {
         // The sky is decoration: if it cannot be read, show only what we hold.
-        this.etoiles = miennes.sort(recentesDAbord).slice(0, max)
       }
+      // The visitor's own stars are always kept; only the remote ones are cut,
+      // to what room is left.
+      const ids = new Set(miennes.map((t) => t.id))
+      const autres = distantes
+        .filter((t) => !ids.has(t.id))
+        .sort(recentesDAbord)
+        .slice(0, Math.max(0, max - miennes.length))
+      this.etoiles = [...miennes, ...autres].sort(recentesDAbord)
     },
 
     /**

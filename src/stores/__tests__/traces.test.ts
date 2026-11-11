@@ -82,11 +82,49 @@ test('charger ignore un document dont le creeLe n’est pas encore posé', async
   expect(s.etoiles.map((e) => e.id)).toEqual(['b'])
 })
 
-test('charger rend une liste vide, sans lever, quand la requête échoue', async () => {
+test('charger garde ses étoiles locales quand la requête échoue', async () => {
+  localStorage.setItem(
+    'train-de-nuit:mes-traces',
+    JSON.stringify([{ id: 'mienne', phrase: 'en attente', creeLe: 50, x: 0.2, y: 0.2 }]),
+  )
+  m.getDocs.mockRejectedValue(new Error('offline'))
+  const s = useTraces()
+  await expect(s.charger(1280)).resolves.toBeUndefined()
+  expect(s.etoiles.map((e) => e.id)).toEqual(['mienne'])
+})
+
+test('charger rend une liste vide, sans lever, quand la requête échoue et rien en local', async () => {
   m.getDocs.mockRejectedValue(new Error('offline'))
   const s = useTraces()
   await expect(s.charger(1280)).resolves.toBeUndefined()
   expect(s.etoiles).toEqual([])
+})
+
+test('charger saute un document mal formé sans jeter le reste du ciel', async () => {
+  m.getDocs.mockResolvedValue({
+    docs: [
+      snap('bon', 20),
+      { id: 'sans-toMillis', data: () => ({ phrase: 'x', x: 0.1, y: 0.1, creeLe: {} }) },
+      { id: 'sans-phrase', data: () => ({ x: 0.1, y: 0.1, creeLe: { toMillis: () => 30 } }) },
+    ],
+  })
+  const s = useTraces()
+  await s.charger(1280)
+  expect(s.etoiles.map((e) => e.id)).toEqual(['bon'])
+})
+
+test('charger garde l’étoile locale même quand le ciel est plein de plus récentes', async () => {
+  localStorage.setItem(
+    'train-de-nuit:mes-traces',
+    JSON.stringify([{ id: 'mienne', phrase: 'ancienne', creeLe: 1, x: 0.2, y: 0.2 }]),
+  )
+  const docs = Array.from({ length: 50 }, (_, i) => snap(`d${i}`, 100 + i))
+  m.getDocs.mockResolvedValue({ docs })
+  const s = useTraces()
+  await s.charger(390)
+  expect(s.etoiles).toHaveLength(50)
+  expect(s.etoiles.map((e) => e.id)).toContain('mienne')
+  expect(s.etoiles.map((e) => e.id)).not.toContain('d0')
 })
 
 test('ecrire rend tout de suite une trace avec un id, avant que l’écriture aboutisse', () => {
