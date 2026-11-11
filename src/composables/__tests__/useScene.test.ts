@@ -22,6 +22,8 @@ function monterLeJoint(reducedMotion = false) {
   interne.vivante = true
 
   const arrivees: number[] = []
+  /** La distance telle que le rendu la lit : dans le tick, avant tout relais. */
+  const distances: number[] = []
   let temps = 0
 
   scene.on('progress', (p) => voyage.setProgression(p))
@@ -35,13 +37,14 @@ function monterLeJoint(reducedMotion = false) {
     for (let i = 0; i < Math.round(secondes / DT); i += 1) {
       temps += DT
       interne.tick(DT)
+      distances.push(interne.legsParcourues)
       // Le pont relaie l'état du store après chaque changement.
       scene.setVoyage(voyage.enRoute, voyage.etapesRestantes)
       scene.setLegs(voyage.legs)
     }
   }
 
-  return { voyage, scene, interne, arrivees, avancer }
+  return { voyage, scene, interne, arrivees, distances, avancer }
 }
 
 test('un voyage d’une étape arrive après la durée d’une étape', () => {
@@ -98,4 +101,23 @@ test('à quai, la distance poussée aux montagnes ne bouge plus', () => {
   const a = interne.legsParcourues
   avancer(2)
   expect(interne.legsParcourues).toBe(a)
+})
+
+// Le massif tourne avec la distance parcourue : un bond entre deux images se
+// voit comme un saut du relief. C'est ce qu'on observait en arrivant en gare.
+test('la distance parcourue n’a aucun à-coup, arrivées comprises', () => {
+  const { voyage, distances, avancer } = monterLeJoint()
+  voyage.partirVers('ailleurs') // trois étapes depuis « ici »
+  avancer(4 * DUREE_ETAPE)
+
+  const pas = DT / DUREE_ETAPE
+  let pire = 0
+  for (let i = 1; i < distances.length; i += 1) {
+    pire = Math.max(pire, Math.abs(distances[i] - distances[i - 1]))
+  }
+  // Une image d'avance, pas davantage, et jamais en arrière.
+  expect(pire).toBeLessThan(pas * 2)
+  for (let i = 1; i < distances.length; i += 1) {
+    expect(distances[i]).toBeGreaterThanOrEqual(distances[i - 1])
+  }
 })

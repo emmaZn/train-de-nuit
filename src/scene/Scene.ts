@@ -264,10 +264,16 @@ export class Scene {
         // La scène décompte elle-même : le store ne la rafraîchit qu'au tick
         // suivant, et s'en remettre à lui ferait franchir deux étapes d'affilée.
         this.etapesRestantes = Math.max(0, this.etapesRestantes - 1)
-        this.legsBase += 1
-        // Sur la dernière étape la phase reste à 1 : la remettre à zéro
-        // relancerait la voie à pleine vitesse le temps d'une image.
-        this.phase = this.etapesRestantes <= 0 ? 1 : 0
+        if (this.etapesRestantes <= 0) {
+          // Dernière étape : la phase reste à 1, sans quoi la voie repartirait
+          // à pleine vitesse le temps d'une image. La distance vaut donc déjà
+          // `legsBase + 1` — l'incrémenter en plus compterait l'étape deux
+          // fois, et le massif sauterait d'une étape entière sur une image.
+          this.phase = 1
+        } else {
+          this.legsBase += 1
+          this.phase = 0
+        }
         this.emitter.emit('arrived')
       } else {
         this.emitter.emit('progress', this.phase)
