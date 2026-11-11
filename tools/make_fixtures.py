@@ -50,7 +50,19 @@ def rails_frame(path: Path) -> None:
     im.save(path)
 
 
+def carte_relief(path: Path) -> None:
+    """Une carte de hauteurs 16 bits, lisse, comme celle que produit erosion.py."""
+    import numpy as np
+    n = 128
+    y, x = np.mgrid[0:n, 0:n] / n
+    h = np.exp(-(((x - .5) ** 2 + (y - .5) ** 2) * 9)) * 60000 + 300
+    Image.fromarray(h.astype(np.uint16), 'I;16').save(path)
+
+
 def main(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    carte_relief(root / 'massif-carte.png')
+
     montagne = root / 'montagne'
     montagne.mkdir(parents=True, exist_ok=True)
     for i in (1, 2, 3, 4):

@@ -27,24 +27,73 @@ npm run dev
 
 ## Les assets
 
-Les images sources sont **hors du dépôt**, dans `~/projet_zero/` : 160 PNG de montagnes (554 Mo) et six séquences de train (52 Mo). Le dépôt ne contient que leurs sorties WebP, dans `public/assets/` (≈ 20 Mo), décrites par `public/assets/manifest.json`.
-
-Pour les régénérer :
+Les sources sont **hors du dépôt**, dans `~/projet_zero/`. Le dépôt ne contient que leurs
+sorties, dans `public/assets/`, décrites par `public/assets/manifest.json` : la carte de
+relief du massif, et les six séquences WebP du train.
 
 ```bash
-python3 tools/build_assets.py --src ~/projet_zero --out public/assets
+python3 tools/build_assets.py --src ~/projet_zero --out public/assets \
+  --carte montagne_hd/tramage/massif-carte.png \
+  --train-src PTITRAIN_grain_blanc --train-scale 0.75
 ```
 
-Options : `--mountain-width` (1600), `--train-scale` (0.5), `--quality` (80), `--jobs`, `--base` (`/assets`).
+Options : `--carte` (aucune), `--train-src` (`PTITRAIN_grain_vivant`), `--train-scale` (0.5),
 
-Deux mesures expliquent ce que fait ce script :
+`--quality` (80), `--jobs`, `--base` (`/assets`), et pour la séquence de montagnes
+— qui ne sert plus, voir plus bas — `--mountain-src` (aucune), `--mountain-step`,
+`--mountain-width` (1918), `--mountain-lossless`.
 
-- **Les montagnes n'ont aucune couleur.** Tout leur relief est dans le canal alpha, sur un seul gris. On ne stocke donc que l'alpha, en WebP niveaux de gris : 75 Ko par image à 1600 px, contre 190 Ko en RGBA à la même largeur. Un shader refait l'opération inverse à l'affichage.
+`--train-src` peut désigner un dossier sans `01_rails` : la voie est alors prise dans
+`PTITRAIN_grain_vivant`, la seule à en contenir une.
 
-  La source ne fait que 1918 px de large, alors que le massif s'affiche sur plus de 3500 px sur un écran Retina : il reste donc un étirement d'environ 1,9×. Le seul vrai remède serait de re-rendre la séquence source plus grande.
-- **Les six séquences du train partagent le cadre 2320 × 1217 des rails.** Rogner chaque image sur sa propre boîte englobante casserait l'alignement entre images : le rognage utilise la boîte englobante **de la séquence entière**, et le manifeste en note l'origine.
+Trois mesures expliquent ce que fait ce script :
 
-Les chemins du manifeste sont **absolus** (`/assets/…`) : les gares sont servies sur `/ici`, `/plus-loin`, … et un chemin relatif serait résolu contre la route courante.
+- **Le massif n'est plus une image.** Il était rendu dans Blender en 180 images de
+  3840 × 944 (`blender/massif.py`), et même cette largeur-là était agrandie d'environ 1,4×
+  sur un écran Retina — c'est ce qui le rendait brouillon. Il est maintenant calculé dans le
+  navigateur (`src/scene/Massif.ts`), à la résolution réelle de l'écran, et tourne en continu
+  au lieu d'avancer de 3,8 images par seconde.
+
+  Pour régénérer malgré tout la séquence et comparer, ajouter :
+  `--mountain-src montagne_hd/tramage/webp --mountain-width 3840 --mountain-lossless`.
+- **`--carte` publie la carte de relief**, qui est tout ce dont le massif a besoin : c'est
+  une grille déplacée par cette carte, pas un maillage sculpté. Un PNG 16 bits est ramené à
+  8 bits par le navigateur, soit 256 niveaux au lieu de 65 536, et un relief lisse se
+  couvrirait de marches ; la hauteur voyage donc sur deux canaux, l'octet fort dans le rouge
+  et le faible dans le vert.
+- **Les six séquences du train partagent le cadre 2320 × 1217 des rails.** Rogner chaque
+  image sur sa propre boîte englobante casserait l'alignement entre images : le rognage
+  utilise la boîte englobante **de la séquence entière**, et le manifeste en note l'origine.
+- **`--train-scale 0.75` n'est pas un confort.** Le train est dessiné à `ECHELLE_TRAIN` du
+  cadre, lui-même mis à l'échelle de l'écran : à 0.5, il était agrandi 1,68× sur un iPhone
+  et 1,89× sur un 27 pouces 5K — le défaut même qui rendait le massif brouillon, invisible
+  sur un MacBook où il tombe à 1,09×. À 0.75 le facteur ne dépasse plus 1,26×.
+
+  Le prix est en poids, et le grain l'aggrave parce que le bruit ne compresse pas : les
+  séquences du train passent de 9,8 à 15 Mo. C'est la tension propre à un grain **cuit** —
+  le massif y échappe en se recalculant à la résolution de l'écran.
+
+Les chemins du manifeste sont **absolus** (`/assets/…`) : les gares sont servies sur `/ici`,
+`/plus-loin`, … et un chemin relatif serait résolu contre la route courante.
+
+## Le massif
+
+`src/scene/Massif.ts` est le portage en GLSL du rendu Blender : même grille 14 × 14 déplacée
+de 3,1, même caméra orthographique presque à l'horizontale, même chaîne d'ombrage, et le
+même « holdout » — un point éteint reste opaque pour la profondeur, ce qui fait qu'une crête
+proche cache celles du fond.
+
+Ce que le script Blender ne disait pas, parce que les options du rendu n'ont été notées
+nulle part, a été retrouvé en comparant la densité de points avec la séquence, par blocs de
+32 px : échelle 2/3, soleil `(-1, -0.5, 0.35)`, ombre 0.45, contraste 2.2. Le signe du
+soleil est le réglage à ne pas perdre — l'inverser fait tomber la ressemblance de 0.76 à
+0.18. Les tests figent ce qui peut se vérifier sans GPU.
+
+`src/scene/Relief.ts` est le pont : Three calcule dans son propre canvas, Pixi le consomme
+comme une texture ordinaire. C'est ce qui permet au reflet de le refléter, au filtre de
+recoloration de le recolorer et à la poussière d'étoiles de rester derrière, sans rien
+changer d'autre. Le canvas ne couvre que la partie visible du cadre, arrêtée à la voie :
+couvrir tout le cadre demanderait plus de 4000 px de large sur un téléphone en portrait.
 
 ## L'organisation du code
 

@@ -40,7 +40,8 @@ export type RailsSpec = Omit<SequenceSpec, 'count'>
 
 export type Manifest = {
   stage: { width: number; height: number }
-  mountains: { count: number; width: number; height: number; path: string }
+  /** La carte de relief, dont le massif est calculé. */
+  carte?: { path: string; width: number; height: number; max: number }
   rails: RailsSpec
   train: Record<TrainSequence, SequenceSpec>
 }

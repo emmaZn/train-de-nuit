@@ -1,5 +1,20 @@
-import { ATTELAGE, ancrageRame, emprise, frameIndex, nextTrainState, sequenceFor, trainSpeed, wagonX } from '@/scene/Train'
-import { DECALAGE_RAME, ECHELLE_TRAIN, HORIZON, STAGE } from '@/scene/layout'
+import { readFileSync } from 'node:fs'
+
+import {
+  ATTELAGE,
+  FPS,
+  IMAGES_TRANSITION,
+  PHASE_FREINAGE,
+  PHASE_ROULE,
+  ancrageRame,
+  emprise,
+  frameIndex,
+  nextTrainState,
+  sequenceFor,
+  trainSpeed,
+  wagonX,
+} from '@/scene/Train'
+import { DECALAGE_RAME, DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE } from '@/scene/layout'
 
 test('le train quitte l’arrêt par le démarrage', () => {
   expect(nextTrainState('arret', 0, true)).toBe('demarrage')
@@ -10,7 +25,7 @@ test('le démarrage passe au roulement une fois lancé', () => {
 })
 
 test('le train freine longuement avant la gare', () => {
-  expect(nextTrainState('roule', 0.75, true)).toBe('freinage')
+  expect(nextTrainState('roule', 0.9, true)).toBe('freinage')
 })
 
 test('il ne freine pas encore en milieu d’étape', () => {
@@ -171,4 +186,28 @@ test('à échelle réduite, la rame tient dans le cadre', () => {
   const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN)
   expect(a.x + ECHELLE_TRAIN * gauche).toBeGreaterThanOrEqual(0)
   expect(a.x + ECHELLE_TRAIN * droite).toBeLessThanOrEqual(STAGE.width)
+})
+
+// La longueur des transitions est écrite dans le code mais vient des assets.
+// Ce test la confronte au manifeste réel : s'ils changent, il casse, au lieu
+// de laisser les roues se figer pendant que la voie défile encore.
+test('les séquences de transition font le nombre d’images annoncé', () => {
+  const manifeste = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8'))
+  for (const cle of ['loco-start', 'wagon-start', 'loco-stop', 'wagon-stop']) {
+    expect(manifeste.train[cle].count).toBe(IMAGES_TRANSITION)
+  }
+})
+
+test('la montée en vitesse dure exactement la séquence de démarrage', () => {
+  expect(PHASE_ROULE * DUREE_ETAPE).toBeCloseTo(IMAGES_TRANSITION / FPS, 9)
+})
+
+test('le freinage dure exactement la séquence d’arrêt', () => {
+  expect((1 - PHASE_FREINAGE) * DUREE_ETAPE).toBeCloseTo(IMAGES_TRANSITION / FPS, 9)
+})
+
+// Et il reste du roulage entre les deux : une étape trop courte ferait
+// freiner le train avant d'avoir fini de démarrer.
+test('le train roule un moment entre le démarrage et le freinage', () => {
+  expect(PHASE_FREINAGE).toBeGreaterThan(PHASE_ROULE)
 })

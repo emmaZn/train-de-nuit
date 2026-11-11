@@ -2,8 +2,16 @@ import gsap from 'gsap'
 import { Application, BlurFilter, Container, FillGradient, Graphics, RenderTexture, Sprite } from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
-import { DEGRADE_HAUTEUR, DEGRADE_OPACITE, HORIZON, STAGE, cadreDegrade, fitStage } from './layout'
-import { Mountains } from './Mountains'
+import {
+  DEGRADE_HAUTEUR,
+  DEGRADE_OPACITE,
+  DUREE_ETAPE,
+  HORIZON,
+  STAGE,
+  cadreDegrade,
+  fitStage,
+} from './layout'
+import type { Relief } from './Relief'
 import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Train } from './Train'
@@ -12,8 +20,6 @@ import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
 import type { Manifest } from './types'
 
-/** Seconds per leg. « Lents, comme un souffle » (CONCEPT.md §6). */
-const DUREE_ETAPE = 6
 /** The reflection is rendered at half resolution: it is blurred anyway. */
 const REFLET_RESOLUTION = 0.5
 const REFLET_OPACITE = 0.16
@@ -34,7 +40,7 @@ export class Scene {
   private refletTexture: RenderTexture | null = null
 
   private sky: Sky | null = null
-  private mountains: Mountains | null = null
+  private relief: Relief | null = null
   private train: Train | null = null
   private recolor: Filter | null = null
 
@@ -94,22 +100,45 @@ export class Scene {
     this.app.ticker.add((ticker) => this.tick(ticker.deltaMS / 1000))
 
     const manifest = await loadManifest()
-    // Sans `await` : 396 images ne doivent pas retarder la couleur mémorisée,
-    // le parallax ni le premier cadrage.
+    // Sans `await` : le chargement des assets ne doit retarder ni la couleur
+    // mémorisée, ni le parallax, ni le premier cadrage.
     if (manifest) void this.peupler(manifest)
   }
 
   private async peupler(manifest: Manifest): Promise<void> {
-    // Les montagnes portent leur propre conteneur et leur propre filtre :
-    // c'est lui qui fond chaque image dans la suivante.
-    this.mountains = new Mountains(this.decor, manifest)
+    // L'ordre des plans se réserve d'abord, et en entier : le massif arrive
+    // plus tard, mais sa place est prise. S'il ne peut pas se construire, le
+    // voile et le train sont là quand même.
+    const fondDuDecor = new Container()
+    this.decor.addChild(fondDuDecor)
     // Entre le massif et le train : c'est ce qui détache le trait blanc.
     this.decor.addChild(this.voileDuPied())
     this.train = new Train(this.decor, manifest)
 
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
     await this.train.load()
-    await this.mountains.load()
+
+    let relief: Relief | null = null
+    try {
+      // Three n'est chargé qu'ici : il pèse 130 Ko compressés, dont la
+      // couleur mémorisée, le parallax et le premier cadrage n'ont que faire.
+      const { Relief } = await import('./Relief')
+      relief = new Relief(fondDuDecor)
+      this.relief = relief
+      await relief.charger(manifest)
+      // Le relief n'existait pas au premier cadrage : sans ce rappel, il
+      // rendrait à la taille du cadre et non à celle de l'écran, c'est-à-dire
+      // agrandi — précisément ce qu'on vient de supprimer.
+      this.cadrer()
+    } catch (erreur) {
+      // Three demande WebGL 2 ; Pixi se contente de moins. La scène garde
+      // alors sa voie et son train plutôt que de ne rien montrer — mais on
+      // le dit : une retombée silencieuse cache un bug aussi bien qu'une
+      // limite du navigateur.
+      console.error('[scène] le massif n’a pas pu être construit :', erreur)
+      relief?.detruire()
+      this.relief = null
+    }
   }
 
   /**
@@ -143,6 +172,7 @@ export class Scene {
     }
 
     this.sky?.resize(STAGE.width, STAGE.height, width < 720)
+    this.relief?.cadrer(frame, width, height, this.app.renderer.resolution)
 
     this.refletTexture?.destroy(true)
     this.refletTexture = RenderTexture.create({
@@ -199,7 +229,8 @@ export class Scene {
 
   setLegs(legs: number): void {
     this.legsBase = legs
-    this.mountains?.setLegs(this.legsParcourues)
+    // Appelé par le store, hors rendu : on retient, on ne dessine pas.
+    this.relief?.setLegs(this.legsParcourues)
   }
 
   /** Fades the colour of the night over about a second (CONCEPT.md §6). */
@@ -243,8 +274,9 @@ export class Scene {
       }
     }
 
-    // Les montagnes tournent pendant l'étape, pas d'un cran à chaque gare.
-    this.mountains?.setLegs(this.legsParcourues)
+    // Le massif tourne pendant l'étape, pas d'un cran à chaque gare.
+    this.relief?.setLegs(this.legsParcourues)
+    this.relief?.dessiner()
     this.sky?.update()
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
     this.rendreReflet()
@@ -260,7 +292,7 @@ export class Scene {
   dispose(): void {
     this.emitter.clear()
     this.refletTexture?.destroy(true)
-    this.mountains?.destroy()
+    this.relief?.detruire()
     this.train?.destroy()
     this.sky?.destroy()
     if (this.vivante) this.app.destroy(true, { children: true })

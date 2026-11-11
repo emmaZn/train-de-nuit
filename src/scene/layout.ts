@@ -30,9 +30,9 @@ export function fitStage(viewportW: number, viewportH: number): Frame {
 export const HORIZON = 921
 
 /**
- * Source frame of the mountain band, before the pipeline resizes it. Only its
- * aspect ratio matters here: the band is always drawn STAGE.width wide, times
- * ECHELLE_MONTAGNES.
+ * The frame the massif is rendered in, inherited from blender/massif.py. The
+ * sequence it produced is gone; the frame stays, because it is what places
+ * the massif on the stage.
  */
 export const MOUNTAIN_SOURCE = { width: 3840, height: 944 } as const
 
@@ -51,7 +51,7 @@ export const MOUNTAIN_CONTENU = { left: 667, top: 346, right: 3125, bottom: 869 
  * value: the track and the scroll speed follow it, so changing this one number
  * keeps the whole rolling stock consistent.
  */
-export const ECHELLE_TRAIN = 0.44
+export const ECHELLE_TRAIN = 0.4
 
 /**
  * How much bigger than the frame the mountain range is drawn.
@@ -59,7 +59,7 @@ export const ECHELLE_TRAIN = 0.44
  * 1 fits its width exactly; above that it climbs higher and spills off both
  * sides, which is what a nearer ridge does. A visual value, like the train's.
  */
-export const ECHELLE_MONTAGNES = 1.8
+export const ECHELLE_MONTAGNES = 2.2
 
 /**
  * How far left of the middle of the frame the train sits, in stage pixels.
@@ -129,4 +129,121 @@ export function ecartFrise(largeur: number, visibles: number): number {
   const marge = mobile ? MARGE_FRISE_MOBILE : MARGE_FRISE
   const intervalles = Math.max(1, visibles - 1)
   return Math.max(ECART_MINIMUM, (largeur - ancre - marge) / intervalles)
+}
+
+
+/** Ouverture de la caméra orthographique du massif, en unités de scène. */
+export const ORTHO = 16.5
+
+/**
+ * Taille du massif dans cette ouverture. Retrouvée en mesurant la séquence
+ * Blender : le massif y fait 2081 px de large sur 3840.
+ */
+export const ECHELLE_MASSIF = 2 / 3
+
+/**
+ * Secondes par étape. « Lents, comme un souffle » (CONCEPT.md §6) : le train
+ * roule un moment avant de freiner, et on a le temps de regarder dehors.
+ */
+export const DUREE_ETAPE = 7.5
+
+/**
+ * Étapes pour un tour complet du massif.
+ *
+ * La boucle fait quatre gares : le massif met donc cinq boucles de train à
+ * faire son tour, soit plus de deux minutes. Un relief lointain ne défile
+ * pas, il se découvre.
+ *
+ * Les deux constantes se multiplient : allonger l'étape ralentit déjà la
+ * rotation en temps réel, celle-ci ne règle que l'angle parcouru par étape.
+ */
+export const SWEEP_LEGS = 20
+
+/**
+ * Tours de massif pour une distance parcourue, en étapes. **Négatif** : le
+ * massif tourne à l'inverse de la marche. Vu depuis un train qui va vers la
+ * droite, un relief lointain découvre peu à peu sa face gauche ; le faire
+ * tourner dans l'autre sens donnerait un train qui recule.
+ */
+export function toursMassif(legs: number): number {
+  return -legs / SWEEP_LEGS
+}
+
+export type Cadre = { x: number; y: number; width: number; height: number }
+
+/** How many stage pixels one pixel of the source frame covers. */
+function facteurMontagnes(echelle: number): number {
+  return (STAGE.width / MOUNTAIN_SOURCE.width) * echelle
+}
+
+/**
+ * Where the massif itself lands on the stage — not its frame. Whatever the
+ * scale, its foot rests on the rail line and it stays centred: growing it
+ * makes it climb higher and spill off both sides, never lift off the ground.
+ */
+export function cadreMassif(echelle: number): Cadre {
+  const f = facteurMontagnes(echelle)
+  const width = (MOUNTAIN_CONTENU.right - MOUNTAIN_CONTENU.left) * f
+  const height = (MOUNTAIN_CONTENU.bottom - MOUNTAIN_CONTENU.top) * f
+  return { x: (STAGE.width - width) / 2, y: HORIZON - height, width, height }
+}
+
+/**
+ * Where the whole Blender frame goes, so the massif inside it lands exactly
+ * where `cadreMassif` says. This is what the camera reproduces.
+ */
+export function cadreMontagnes(echelle: number): Cadre {
+  const f = facteurMontagnes(echelle)
+  const massif = cadreMassif(echelle)
+  return {
+    x: massif.x - MOUNTAIN_CONTENU.left * f,
+    y: massif.y - MOUNTAIN_CONTENU.top * f,
+    width: MOUNTAIN_SOURCE.width * f,
+    height: MOUNTAIN_SOURCE.height * f,
+  }
+}
+
+function borner(v: number, min: number, max: number): number {
+  return Math.min(Math.max(v, min), max)
+}
+
+/**
+ * La part du cadre qu'on voit vraiment, arrêtée à la voie.
+ *
+ * Le massif est désormais calculé, pas dessiné : son canvas n'a aucune raison
+ * de couvrir ce qui est hors écran. Le cadrage « cover » rogne beaucoup en
+ * portrait, et couvrir toute la largeur demanderait là plus de 4000 px, au-delà
+ * de ce que beaucoup de GPU mobiles acceptent.
+ */
+export function fenetreVisible(frame: Frame, viewportW: number, viewportH: number): Cadre {
+  const x0 = borner(-frame.offsetX / frame.scale, 0, STAGE.width)
+  const x1 = borner((viewportW - frame.offsetX) / frame.scale, 0, STAGE.width)
+  const y0 = borner(-frame.offsetY / frame.scale, 0, HORIZON)
+  const y1 = borner((viewportH - frame.offsetY) / frame.scale, 0, HORIZON)
+  return { x: x0, y: y0, width: Math.max(x1 - x0, 1), height: Math.max(y1 - y0, 1) }
+}
+
+export type Bornes = { left: number; right: number; top: number; bottom: number }
+
+/**
+ * Le frustum qui fait tomber le cadre Blender exactement là où la séquence
+ * était dessinée. On ne réinvente pas de cadrage : c'est ce qui avait
+ * désaligné le massif la dernière fois.
+ */
+export function bornesFenetre(fenetre: Cadre, echelle: number): Bornes {
+  const c = cadreMontagnes(echelle)
+  const s = ORTHO / ECHELLE_MASSIF / c.width
+  const cx = c.x + c.width / 2
+  const cy = c.y + c.height / 2
+  return {
+    left: (fenetre.x - cx) * s,
+    right: (fenetre.x + fenetre.width - cx) * s,
+    top: (cy - fenetre.y) * s,
+    bottom: (cy - (fenetre.y + fenetre.height)) * s,
+  }
+}
+
+/** Largeur du cadre Blender, en parts de la fenêtre : c'est l'échelle du grain. */
+export function facteurCadre(fenetre: Cadre, echelle: number): number {
+  return cadreMontagnes(echelle).width / fenetre.width
 }

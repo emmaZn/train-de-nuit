@@ -19,7 +19,7 @@ beforeAll(() => {
   execFileSync('python3', [
     '-I', 'tools/build_assets.py',
     '--src', src, '--out', out,
-    '--mountain-width', '64', '--train-scale', '0.1',
+    '--mountain-src', 'montagne', '--mountain-width', '64', '--train-scale', '0.1',
   ])
   manifest = JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8'))
 }, 60_000)
@@ -103,7 +103,7 @@ describe('une autre version du train', () => {
       '-I', 'tools/build_assets.py',
       '--src', src, '--out', sortie,
       '--train-src', 'PTITRAIN_traits',
-      '--mountain-width', '64', '--train-scale', '0.1',
+      '--mountain-src', 'montagne', '--mountain-width', '64', '--train-scale', '0.1',
     ])
     autre = JSON.parse(readFileSync(join(sortie, 'manifest.json'), 'utf8'))
   }, 60_000)
@@ -137,7 +137,7 @@ describe('une autre source de montagnes', () => {
       '--src', src, '--out', sortie,
       '--mountain-src', 'montagne_hd',
       '--mountain-step', '2',
-      '--mountain-width', '64', '--train-scale', '0.1',
+      '--mountain-src', 'montagne', '--mountain-width', '64', '--train-scale', '0.1',
     ])
     autre = JSON.parse(readFileSync(join(sortie, 'manifest.json'), 'utf8'))
   }, 60_000)
@@ -192,5 +192,53 @@ describe('une source en nuage de points', () => {
     expect(avant).toBeGreaterThan(3000)
     expect(apres).toBe(avant)
     expect(identique).toBe(1)
+  })
+})
+
+
+// Le navigateur ramene un PNG 16 bits a 8 bits, soit 256 niveaux au lieu de
+// 65 536 : sur un relief lisse, ca ferait des marches. On decoupe donc la
+// hauteur sur deux canaux, rouge pour l'octet fort et vert pour le faible.
+describe('la carte de relief', () => {
+  let sortie: string
+  let src: string
+
+  beforeAll(() => {
+    const tmp = mkdtempSync(join(tmpdir(), 'train-carte-'))
+    src = join(tmp, 'src')
+    sortie = join(tmp, 'out')
+    execFileSync('python3', ['-I', 'tools/make_fixtures.py', src])
+    execFileSync('python3', [
+      '-I', 'tools/build_assets.py',
+      '--src', src, '--out', sortie,
+      '--carte', 'massif-carte.png',
+      '--mountain-src', 'montagne', '--mountain-width', '64', '--train-scale', '0.1',
+    ])
+  }, 60_000)
+
+  test('le manifeste annonce la carte', () => {
+    const m = JSON.parse(readFileSync(join(sortie, 'manifest.json'), 'utf8'))
+    expect(m.carte).toBeDefined()
+    expect(m.carte.path).toBe('/assets/massif-carte.png')
+    expect(m.carte.width).toBeGreaterThan(0)
+  })
+
+  test('la hauteur survit au découpage sur deux canaux, à un cran près', () => {
+    const code =
+      'import sys\n' +
+      'import numpy as np\n' +
+      'from PIL import Image\n' +
+      'a = np.array(Image.open(sys.argv[1]), dtype=np.float64)\n' +
+      'b = np.array(Image.open(sys.argv[2]).convert("RGB"), dtype=np.float64)\n' +
+      'refait = b[...,0]*256 + b[...,1]\n' +
+      'print(float(np.abs(a - refait).max()))\n'
+    const ecart = Number(
+      execFileSync('python3', [
+        '-I', '-c', code,
+        join(src, 'massif-carte.png'),
+        join(sortie, 'massif-carte.png'),
+      ]).toString().trim(),
+    )
+    expect(ecart).toBeLessThanOrEqual(1)
   })
 })

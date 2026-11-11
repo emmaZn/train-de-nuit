@@ -1,4 +1,5 @@
 import { createPinia, setActivePinia } from 'pinia'
+import { DUREE_ETAPE } from '@/scene/layout'
 import { Scene } from '@/scene/Scene'
 import { useVoyage } from '@/stores/voyage'
 
@@ -8,7 +9,7 @@ import { useVoyage } from '@/stores/voyage'
  * une horloge. On remplace donc l'horloge et on force `vivante`, ce que le
  * navigateur ferait en posant un contexte.
  */
-const DUREE_ETAPE = 6
+// La vraie constante, pas une copie : une copie se désynchronise en silence.
 const DT = 1 / 60
 
 type Interne = { vivante: boolean; tick(dt: number): void; legsParcourues: number }

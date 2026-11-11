@@ -116,6 +116,34 @@ def build_mountains(src: Path, out: Path, width: int, quality: int, jobs: int, b
     }
 
 
+def build_carte(src: Path, out: Path, nom: str, base: str):
+    """Le relief, reecrit sur deux canaux.
+
+    Un PNG 16 bits, le navigateur le ramene a 8 bits : 256 niveaux au lieu de
+    65 536, et un relief lisse se couvre de marches. On met donc l'octet fort
+    dans le rouge et le faible dans le vert, et le shader recompose la hauteur.
+    `max` permet de la ramener a 0..1 exactement comme le fait Blender.
+    """
+    import numpy as np
+    chemin = src / nom
+    if not chemin.is_file():
+        return None
+    nom = Path(nom).name
+    a = np.array(Image.open(chemin))
+    if a.ndim > 2:
+        a = a[..., 0]
+    a = a.astype(np.uint32)
+    rgb = np.zeros((*a.shape, 3), dtype=np.uint8)
+    rgb[..., 0] = (a >> 8) & 0xFF
+    rgb[..., 1] = a & 0xFF
+    Image.fromarray(rgb, 'RGB').save(out / nom, optimize=True)
+    return {
+        'path': f'{base}/{nom}',
+        'width': int(a.shape[1]), 'height': int(a.shape[0]),
+        'max': int(a.max()),
+    }
+
+
 def build_sequence(files, folder: Path, scale: float, quality: int, jobs: int, path: str):
     box = union_bbox(files)
     folder.mkdir(parents=True, exist_ok=True)
@@ -141,14 +169,19 @@ def main() -> None:
     parser.add_argument('--out', required=True, type=Path)
     # 1918 : la largeur native de la source. Le massif est dessine bien plus
     # large que le cadre, donc tout ce qui manque ici se voit sur le grain.
-    parser.add_argument('--mountain-src', default='montagne',
-                        help='folder holding the mountain frames, inside --src')
+    # Plus de sequence par defaut : le massif est calcule dans le navigateur,
+    # depuis --carte. L'option reste, pour regenerer la sequence de reference.
+    parser.add_argument('--mountain-src', default=None,
+                        help='folder holding the mountain frames, inside --src; '
+                             'left out, no sequence is published')
     parser.add_argument('--mountain-step', type=int, default=1,
                         help='keep one frame out of N; the renderer dissolves between them')
     parser.add_argument('--mountain-width', type=int, default=1918)
     parser.add_argument('--mountain-lossless', action='store_true',
                         help='store the mountains without loss; needed for a dithered '
                              'point cloud, where it is also far lighter')
+    parser.add_argument('--carte', default=None,
+                        help='height map to publish for the Three.js massif, inside --src')
     parser.add_argument('--train-src', default='PTITRAIN_grain_vivant',
                         help='folder holding the train sequences, inside --src')
     parser.add_argument('--train-scale', type=float, default=0.5)
@@ -163,11 +196,19 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     manifest = {'stage': dict(STAGE)}
 
-    mountains = build_mountains(args.src, out, args.mountain_width, args.quality, args.jobs,
-                                args.base, args.mountain_src, args.mountain_step,
-                                args.mountain_lossless)
-    if mountains:
-        manifest['mountains'] = mountains
+    if args.mountain_src:
+        mountains = build_mountains(args.src, out, args.mountain_width, args.quality, args.jobs,
+                                    args.base, args.mountain_src, args.mountain_step,
+                                    args.mountain_lossless)
+        if mountains:
+            manifest['mountains'] = mountains
+
+    if args.carte:
+        carte = build_carte(args.src, out, args.carte, args.base)
+        if carte:
+            manifest['carte'] = carte
+        else:
+            print(f'no height map at {args.src / args.carte}')
 
     train_src = args.src / args.train_src
     rails_dir = train_src / RAILS_DIR

@@ -3,18 +3,18 @@
     "width": 2320,
     "height": 1217
   },
-  "mountains": {
-    "count": 160,
-    "width": 1600,
-    "height": 394,
-    "path": "/assets/mountains/{i}.webp"
+  "carte": {
+    "path": "/assets/massif-carte.png",
+    "width": 1536,
+    "height": 1536,
+    "max": 65535
   },
   "rails": {
     "x": 770,
     "y": 921,
     "width": 1127,
     "height": 38,
-    "scale": 0.5,
+    "scale": 0.75,
     "path": "/assets/train/rails.webp"
   },
   "train": {
@@ -24,7 +24,7 @@
       "y": 277,
       "width": 1341,
       "height": 666,
-      "scale": 0.5,
+      "scale": 0.75,
       "path": "/assets/train/loco/{i}.webp"
     },
     "wagon": {
@@ -33,7 +33,7 @@
       "y": 494,
       "width": 1119,
       "height": 446,
-      "scale": 0.5,
+      "scale": 0.75,
       "path": "/assets/train/wagon/{i}.webp"
     },
     "loco-start": {
@@ -42,7 +42,7 @@
       "y": 277,
       "width": 1341,
       "height": 665,
-      "scale": 0.5,
+      "scale": 0.75,
       "path": "/assets/train/loco-start/{i}.webp"
     },
     "wagon-start": {
@@ -51,7 +51,7 @@
       "y": 494,
       "width": 1119,
       "height": 445,
-      "scale": 0.5,
+      "scale": 0.75,
       "path": "/assets/train/wagon-start/{i}.webp"
     },
     "loco-stop": {
@@ -60,7 +60,7 @@
       "y": 277,
       "width": 1341,
       "height": 665,
-      "scale": 0.5,
+      "scale": 0.75,
       "path": "/assets/train/loco-stop/{i}.webp"
     },
     "wagon-stop": {
@@ -69,7 +69,7 @@
       "y": 494,
       "width": 1119,
       "height": 445,
-      "scale": 0.5,
+      "scale": 0.75,
       "path": "/assets/train/wagon-stop/{i}.webp"
     }
   }

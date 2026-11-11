@@ -1,17 +1,33 @@
 import { Container, Sprite, Texture, TilingSprite } from 'pixi.js'
 import { loadSequence, loadTexture } from './assets'
-import { DECALAGE_RAME, ECHELLE_TRAIN, HORIZON, STAGE } from './layout'
+import { DECALAGE_RAME, DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE } from './layout'
 import type { Manifest, SequenceSpec, TrainSequence } from './types'
 
 export type TrainState = 'arret' | 'demarrage' | 'roule' | 'freinage'
 
-/** End of the start-up ramp, as a share of the leg: 1.8 s, the 43 frames at 24 fps. */
-export const PHASE_ROULE = 0.3
-/** « Il ralentit longuement à l'approche d'une gare » (CONCEPT.md §6). */
-export const PHASE_FREINAGE = 0.7
-
 /** Images per second of the sprite sequences. */
-const FPS = 24
+export const FPS = 24
+
+/**
+ * Longueur des séquences de démarrage et de freinage, en images.
+ *
+ * Elle vit ici mais appartient aux assets : un test la confronte au
+ * manifeste, pour qu'il casse si le pipeline en produit d'autres plutôt que
+ * de laisser la valeur mentir en silence.
+ */
+export const IMAGES_TRANSITION = 43
+
+/**
+ * Fin de la montée en vitesse, en part d'étape : exactement le temps que dure
+ * la séquence de démarrage.
+ *
+ * Les deux étaient figées à 0.3 et 0.7, ce qui tombait juste pour une étape
+ * de 6 s. Allonger l'étape laissait alors les roues immobiles sur la dernière
+ * image pendant que la voie défilait encore.
+ */
+export const PHASE_ROULE = IMAGES_TRANSITION / FPS / DUREE_ETAPE
+/** « Il ralentit longuement à l'approche d'une gare » (CONCEPT.md §6). */
+export const PHASE_FREINAGE = 1 - PHASE_ROULE
 
 function borne(v: number): number {
   return Math.min(1, Math.max(0, v))
