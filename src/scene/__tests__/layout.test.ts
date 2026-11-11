@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs'
+
 import { GARES } from '@/stores/voyage'
 
 import {
   ANCRE_FRISE,
+  HAUTEUR_FRISE,
+  HAUT_VOIE,
+  bandeCiel,
   ANCRE_FRISE_MOBILE,
   DEGRADE_HAUTEUR,
   DUREE_ETAPE,
@@ -231,4 +236,26 @@ test('la marge ne mord jamais sur l’ancre', () => {
 
 test('sur téléphone, la marge se réduit au lieu de cacher le marqueur', () => {
   expect(margeVoie(390)).toBeLessThan(margeVoie(1512))
+})
+
+describe('la bande du ciel', () => {
+  test('commence sous la frise et finit à mi-hauteur', () => {
+    const bande = bandeCiel(900)
+    expect(bande.top).toBe(HAUTEUR_FRISE)
+    expect(bande.top + bande.height).toBe(450)
+  })
+
+  test('garde une hauteur positive sur une fenêtre très basse', () => {
+    expect(bandeCiel(100).height).toBeGreaterThan(0)
+  })
+
+  test('HAUTEUR_FRISE est la somme des deux morceaux de CSS qui la font', () => {
+    const base = readFileSync('src/styles/base.css', 'utf8')
+    const frise = readFileSync('src/components/NavFrise.vue', 'utf8')
+    const voie = Number(/--haut-voie:\s*(\d+)px/.exec(base)?.[1])
+    const marge = Number(/height:\s*calc\(var\(--haut-voie\)\s*\+\s*(\d+)px\)/.exec(frise)?.[1])
+    expect(voie).toBe(HAUT_VOIE)
+    expect(Number.isFinite(marge)).toBe(true)
+    expect(voie + marge).toBe(HAUTEUR_FRISE)
+  })
 })

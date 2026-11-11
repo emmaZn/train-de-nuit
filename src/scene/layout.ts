@@ -274,3 +274,24 @@ export function bornesFenetre(fenetre: Cadre, echelle: number): Bornes {
 export function facteurCadre(fenetre: Cadre, echelle: number): number {
   return cadreMontagnes(echelle).width / fenetre.width
 }
+
+/* ---- Le ciel des visiteurs ---- */
+
+/** Hauteur de la voie dans la frise, en pixels (`--haut-voie` de base.css). */
+export const HAUT_VOIE = 64
+
+/**
+ * Hauteur de la frise, fixe en pixels : `--haut-voie` (64) plus les 52 px que
+ * NavFrise.vue y ajoute. Un test lit les deux fichiers et vérifie la somme.
+ */
+export const HAUTEUR_FRISE = 116
+
+/**
+ * La bande où vivent les étoiles des visiteurs : du bas de la frise jusqu'à
+ * mi-hauteur de la fenêtre. `y` est normalisé sur cette bande, pas sur la
+ * fenêtre, sans quoi la frise (fixe) en cacherait une part variable.
+ */
+export function bandeCiel(viewportH: number): { top: number; height: number } {
+  const top = HAUTEUR_FRISE
+  return { top, height: Math.max(viewportH / 2 - top, 1) }
+}
