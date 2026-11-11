@@ -1,6 +1,6 @@
 import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 export default defineConfig({
   plugins: [vue()],
@@ -12,5 +12,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['src/__tests__/setup.ts'],
     include: ['src/**/*.test.ts', 'tools/**/*.test.ts'],
+    // Rules tests need the Firestore emulator: they run under `npm run test:rules`.
+    exclude: [...configDefaults.exclude, 'src/rules/**'],
   },
 })
