@@ -3,7 +3,7 @@
  * remembered for the next visit, and every read and write falls back silently
  * when storage is unavailable — private windows, blocked cookies, full quota.
  */
-export const PALETTE = ['#151517', '#0a1728', '#0c1c12', '#2f1b0c'] as const
+export const PALETTE = ['#151517', '#000', '#2f1b0c'] as const
 
 export type Fond = (typeof PALETTE)[number]
 
