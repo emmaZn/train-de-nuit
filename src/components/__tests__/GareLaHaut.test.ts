@@ -87,11 +87,14 @@ function fausseScene() {
 
 let ecriture: Differe
 
+/** Ce qui est posé sur le document, et qu'il faut retirer quoi qu'il arrive. */
+const attaches: Array<{ unmount: () => void }> = []
+
 /**
  * `attache` branche le composant sur le document : jsdom n'applique
  * l'algorithme de soumission qu'à un formulaire connecté, et un clic sur le
- * bouton ne lèverait rien sur un arbre détaché. Les tests qui s'en servent
- * démontent à la fin.
+ * bouton ne lèverait rien sur un arbre détaché. Le démontage est pris en
+ * charge par l'`afterEach` : une assertion qui tombe ne laisse rien derrière.
  */
 function monter(avecScene = true, attache = false) {
   const scene = fausseScene()
@@ -103,6 +106,7 @@ function monter(avecScene = true, attache = false) {
       },
     },
   })
+  if (attache) attaches.push(wrapper)
   const champ = wrapper.get('[data-champ="phrase"]')
   const valeur = () => (champ.element as HTMLInputElement).value
   const ligne = () => wrapper.find('[data-role="dit"]')
@@ -138,6 +142,10 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  // Démonté ici et pas en fin de test : une assertion qui tombe laisserait
+  // sinon son DOM sur `document.body`, et le test suivant hériterait de deux
+  // formulaires.
+  while (attaches.length) attaches.pop()?.unmount()
   // Toute écriture laissée en l'air est réglée, sinon sa promesse survit au test.
   ecriture.resoudre()
   vi.useRealTimers()
@@ -550,7 +558,6 @@ test('le doigt peut laisser une trace sans clavier', async () => {
   await bouton.trigger('click')
   expect(m.setDoc).toHaveBeenCalledTimes(1)
   expect(scene.beginDissolve).toHaveBeenCalledTimes(1)
-  wrapper.unmount()
 })
 
 test('après le délai, le bouton rattache l’envoi en cours au lieu d’en écrire un second', async () => {
@@ -571,7 +578,6 @@ test('après le délai, le bouton rattache l’envoi en cours au lieu d’en éc
   scene.poignees[1].finir()
   await souffler()
   expect(traces.etoiles).toHaveLength(1)
-  wrapper.unmount()
 })
 
 /* ---- La gare n’est à l’écran qu’une fois le train à quai ---- */

@@ -355,7 +355,11 @@ onBeforeUnmount(() => {
 }
 
 /* Un bouton qui ne se voit pas comme tel : le §4.3 ne montre que la mention.
-   Son contour au clavier, lui, est laissé au navigateur. */
+   Son contour au clavier, lui, est laissé au navigateur.
+
+   `font` ne couvre ni l'interlettrage ni la casse, et la feuille du navigateur
+   les impose aux boutons : sans ces deux lignes, « laisser ↵ » se resserrerait
+   à côté du compteur qui, lui, garde les 0,04 em de la ligne méta. */
 .laisser {
   margin: 0;
   padding: 0;
@@ -363,6 +367,8 @@ onBeforeUnmount(() => {
   background: none;
   color: inherit;
   font: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
   cursor: pointer;
 }
 
