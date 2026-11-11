@@ -1,6 +1,6 @@
 import { Container, Sprite, Texture, TilingSprite } from 'pixi.js'
 import { loadSequence, loadTexture } from './assets'
-import { DECALAGE_RAME, DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE } from './layout'
+import { DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE, TETE_LOCO } from './layout'
 import type { Manifest, SequenceSpec, TrainSequence } from './types'
 
 export type TrainState = 'arret' | 'demarrage' | 'roule' | 'freinage'
@@ -81,6 +81,9 @@ export function sequenceFor(state: TrainState): [TrainSequence, TrainSequence] {
  */
 export const ATTELAGE = 70
 
+/** Nombre de wagons attelés derrière la locomotive. Une valeur d'œil. */
+export const WAGONS = 2
+
 /** Which sequence pairs with which, so a wagon is placed against its own loco. */
 const LOCO_DE: Record<TrainSequence, TrainSequence> = {
   loco: 'loco',
@@ -100,29 +103,32 @@ const LOCO_DE: Record<TrainSequence, TrainSequence> = {
  * there stacks the carriage on the locomotive, and its roof cuts a bar straight
  * across the boiler, above the chimney. The carriage is coupled behind instead.
  */
-export function wagonX(loco: SequenceSpec, wagon: SequenceSpec): number {
-  return loco.x - wagon.width + ATTELAGE
+export function wagonX(loco: SequenceSpec, wagon: SequenceSpec, rang = 1): number {
+  return loco.x - rang * (wagon.width - ATTELAGE)
 }
 
 /** Left and right edge of the coupled train, in stage pixels at full size. */
-export function emprise(loco: SequenceSpec, wagon: SequenceSpec): { gauche: number; droite: number } {
-  return { gauche: wagonX(loco, wagon), droite: loco.x + loco.width }
+export function emprise(
+  loco: SequenceSpec, wagon: SequenceSpec, wagons = 1,
+): { gauche: number; droite: number } {
+  return { gauche: wagonX(loco, wagon, wagons), droite: loco.x + loco.width }
 }
 
 /**
  * Where to place the scaled rolling stock. Two things must hold whatever the
- * scale: the wheels stay on the rail line, and the train keeps its place
- * across the frame. A point at the rail line maps to itself; the middle of the
- * train maps to the middle of the stage, shifted by DECALAGE_RAME.
+ * scale and however long the train: the wheels stay on the rail line, and the
+ * head of the locomotive stays put. A point at the rail line maps to itself;
+ * the nose lands at TETE_LOCO of the frame.
  */
 export function ancrageRame(
   loco: SequenceSpec,
   wagon: SequenceSpec,
   echelle: number,
+  wagons = 1,
 ): { x: number; y: number } {
-  const { gauche, droite } = emprise(loco, wagon)
+  const { droite } = emprise(loco, wagon, wagons)
   return {
-    x: STAGE.width / 2 + DECALAGE_RAME - echelle * ((gauche + droite) / 2),
+    x: STAGE.width * TETE_LOCO - echelle * droite,
     y: HORIZON * (1 - echelle),
   }
 }
@@ -135,7 +141,8 @@ export class Train {
   /** Loco and carriage together: this is what the scale applies to. */
   private readonly rame = new Container()
   private readonly loco = new Sprite()
-  private readonly wagon = new Sprite()
+  /** Du plus proche de la locomotive au plus éloigné. */
+  private readonly wagons = Array.from({ length: WAGONS }, () => new Sprite())
   private rails: TilingSprite | null = null
   private readonly sequences = new Map<TrainSequence, Texture[]>()
   private readonly manifest: Manifest
@@ -145,11 +152,14 @@ export class Train {
   constructor(parent: Container, manifest: Manifest) {
     this.manifest = manifest
     const spec = manifest.train
-    this.wagon.position.set(wagonX(spec.loco, spec.wagon), spec.wagon.y)
+    this.wagons.forEach((wagon, i) => {
+      wagon.position.set(wagonX(spec.loco, spec.wagon, i + 1), spec.wagon.y)
+    })
     this.loco.position.set(spec.loco.x, spec.loco.y)
-    this.rame.addChild(this.wagon, this.loco)
+    // Du fond vers l'avant : les tampons se recouvrent dans le bon sens.
+    this.rame.addChild(...[...this.wagons].reverse(), this.loco)
 
-    const ancre = ancrageRame(spec.loco, spec.wagon, ECHELLE_TRAIN)
+    const ancre = ancrageRame(spec.loco, spec.wagon, ECHELLE_TRAIN, WAGONS)
     this.rame.scale.set(ECHELLE_TRAIN)
     this.rame.position.set(ancre.x, ancre.y)
 
@@ -221,17 +231,21 @@ export class Train {
   private appliquer(): void {
     const [cleLoco, cleWagon] = sequenceFor(this.etat)
     this.poser(this.loco, cleLoco)
-    this.poser(this.wagon, cleWagon)
+    // Les wagons partagent leur séquence et leur image : des voitures
+    // identiques, dont les roues tournent ensemble.
+    this.wagons.forEach((wagon, i) => this.poser(wagon, cleWagon, i + 1))
   }
 
-  private poser(sprite: Sprite, cle: TrainSequence): void {
+  private poser(sprite: Sprite, cle: TrainSequence, rang = 1): void {
     const textures = this.sequences.get(cle)
     if (!textures || !textures.length) return
     const spec = this.manifest.train[cle]
     const boucle = cle === 'loco' || cle === 'wagon'
     sprite.texture = textures[frameIndex(this.etat, this.image, textures.length, boucle)]
     // Le fichier est réduit ; on le redessine à sa taille dans le cadre.
-    const x = cle.startsWith('wagon') ? wagonX(this.manifest.train[LOCO_DE[cle]], spec) : spec.x
+    const x = cle.startsWith('wagon')
+      ? wagonX(this.manifest.train[LOCO_DE[cle]], spec, rang)
+      : spec.x
     sprite.position.set(x, spec.y)
     sprite.setSize(spec.width, spec.height)
   }

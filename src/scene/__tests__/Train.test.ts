@@ -6,6 +6,7 @@ import {
   IMAGES_TRANSITION,
   PHASE_FREINAGE,
   PHASE_ROULE,
+  WAGONS,
   ancrageRame,
   emprise,
   frameIndex,
@@ -14,7 +15,7 @@ import {
   trainSpeed,
   wagonX,
 } from '@/scene/Train'
-import { DECALAGE_RAME, DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE } from '@/scene/layout'
+import { DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
 
 test('le train quitte l’arrêt par le démarrage', () => {
   expect(nextTrainState('arret', 0, true)).toBe('demarrage')
@@ -147,22 +148,32 @@ test('la voie reste exactement à sa place quand le train rétrécit', () => {
   expect(a.y + 0.5 * HORIZON).toBeCloseTo(HORIZON, 6)
 })
 
-test('la rame se tient à gauche du centre, du décalage demandé', () => {
-  const { gauche, droite } = emprise(LOCO, WAGON)
+test('la tête de la locomotive se pose au milieu du cadre', () => {
+  const { droite } = emprise(LOCO, WAGON)
   const a = ancrageRame(LOCO, WAGON, 0.5)
-  expect(a.x + 0.5 * ((gauche + droite) / 2)).toBeCloseTo(STAGE.width / 2 + DECALAGE_RAME, 6)
+  expect(a.x + 0.5 * droite).toBeCloseTo(STAGE.width * TETE_LOCO, 6)
 })
 
-test('le décalage va bien vers la gauche', () => {
-  expect(DECALAGE_RAME).toBeLessThan(0)
+test('la rame s’étend vers l’arrière de la tête, jamais devant', () => {
+  const { gauche, droite } = emprise(LOCO, WAGON, WAGONS)
+  expect(gauche).toBeLessThan(droite)
 })
 
-test('le décalage ne dépend pas de l’échelle : il ne recentre pas la rame en rétrécissant', () => {
-  const { gauche, droite } = emprise(LOCO, WAGON)
-  const centre = (gauche + droite) / 2
+test('la tête ne bouge pas quand l’échelle change', () => {
+  const { droite } = emprise(LOCO, WAGON)
   for (const e of [0.3, 0.44, 0.8]) {
     const a = ancrageRame(LOCO, WAGON, e)
-    expect(a.x + e * centre).toBeCloseTo(STAGE.width / 2 + DECALAGE_RAME, 6)
+    expect(a.x + e * droite).toBeCloseTo(STAGE.width * TETE_LOCO, 6)
+  }
+})
+
+// C'était le piège de l'ancien décalage en pixels : atteler un wagon
+// déplaçait toute la rame, puisqu'on centrait son milieu.
+test('la tête ne bouge pas quand on attelle un wagon de plus', () => {
+  const { droite } = emprise(LOCO, WAGON)
+  for (const n of [1, 2, 3]) {
+    const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, n)
+    expect(a.x + ECHELLE_TRAIN * droite).toBeCloseTo(STAGE.width * TETE_LOCO, 6)
   }
 })
 
@@ -210,4 +221,42 @@ test('le freinage dure exactement la séquence d’arrêt', () => {
 // freiner le train avant d'avoir fini de démarrer.
 test('le train roule un moment entre le démarrage et le freinage', () => {
   expect(PHASE_FREINAGE).toBeGreaterThan(PHASE_ROULE)
+})
+
+// Les wagons se chaînent : chacun recule d'une longueur de wagon moins
+// l'attelage, pour que les tampons se touchent comme sur le premier.
+test('le deuxième wagon se pose derrière le premier, même recouvrement', () => {
+  const premier = wagonX(LOCO, WAGON, 1)
+  const second = wagonX(LOCO, WAGON, 2)
+  expect(premier - second).toBe(WAGON.width - ATTELAGE)
+  expect(second + WAGON.width - premier).toBe(ATTELAGE)
+})
+
+test('sans rang, on retrouve le wagon unique d’avant', () => {
+  expect(wagonX(LOCO, WAGON)).toBe(wagonX(LOCO, WAGON, 1))
+})
+
+test('allonger la rame étend son emprise vers l’arrière, pas vers l’avant', () => {
+  const un = emprise(LOCO, WAGON, 1)
+  const deux = emprise(LOCO, WAGON, 2)
+  expect(deux.droite).toBe(un.droite)
+  expect(deux.gauche).toBeLessThan(un.gauche)
+})
+
+// La rame déborde maintenant à gauche, volontairement : la tête tient le
+// milieu et le reste du train sort du champ, comme s'il continuait.
+// Ce qui ne doit jamais arriver, c'est qu'elle dépasse à droite.
+test('la rame retenue ne dépasse pas à droite et pose sa tête au milieu', () => {
+  const { droite } = emprise(LOCO, WAGON, WAGONS)
+  const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, WAGONS)
+  const nez = a.x + ECHELLE_TRAIN * droite
+  expect(nez).toBeCloseTo(STAGE.width * TETE_LOCO, 6)
+  expect(nez).toBeLessThanOrEqual(STAGE.width)
+})
+
+test('les roues restent sur la voie quelle que soit la longueur de la rame', () => {
+  for (const n of [1, 2, 3]) {
+    const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, n)
+    expect(a.y + ECHELLE_TRAIN * HORIZON).toBeCloseTo(HORIZON, 6)
+  }
 })

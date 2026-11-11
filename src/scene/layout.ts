@@ -62,13 +62,16 @@ export const ECHELLE_TRAIN = 0.4
 export const ECHELLE_MONTAGNES = 2.2
 
 /**
- * How far left of the middle of the frame the train sits, in stage pixels.
+ * Où se pose la tête de la locomotive, en part de la largeur du cadre.
  *
- * The locomotive faces right, so leaving room ahead of it reads as a train
- * arriving rather than one parked in the middle. A visual value; it is applied
- * after the scale, so shrinking the train never drifts it back to the centre.
+ * C'est elle qu'on vise, et non le centre de la rame : la locomotive regarde
+ * à droite, c'est son nez qui tient la composition. Dit ainsi, le cadrage ne
+ * bouge plus quand on change l'échelle du train ou qu'on lui attelle un
+ * wagon — la rame s'allonge vers l'arrière, jamais vers l'avant. En
+ * contrepartie, elle déborde du cadre à gauche, et c'est voulu : le train
+ * continue hors champ.
  */
-export const DECALAGE_RAME = -200
+export const TETE_LOCO = 0.5
 
 /**
  * Height of the veil that puts out the foot of the mountain range, in stage
@@ -150,14 +153,20 @@ export const DUREE_ETAPE = 7.5
 /**
  * Étapes pour un tour complet du massif.
  *
- * La boucle fait quatre gares : le massif met donc cinq boucles de train à
- * faire son tour, soit plus de deux minutes. Un relief lointain ne défile
- * pas, il se découvre.
+ * La boucle fait quatre gares : le massif met donc seize boucles de train à
+ * faire son tour, soit huit minutes, et six degrés par étape. Un relief
+ * lointain ne défile pas, il se découvre.
+ *
+ * Un tour dure `SWEEP_LEGS × DUREE_ETAPE` secondes et chaque étape en fait
+ * tourner `360 / SWEEP_LEGS` degrés : de quoi viser une valeur directement
+ * plutôt que de l'approcher.
  *
  * Les deux constantes se multiplient : allonger l'étape ralentit déjà la
  * rotation en temps réel, celle-ci ne règle que l'angle parcouru par étape.
+ * Et agrandir le massif la rend plus visible sans la changer — les points
+ * parcourent plus de chemin à l'écran pour le même angle.
  */
-export const SWEEP_LEGS = 20
+export const SWEEP_LEGS = 64
 
 /**
  * Tours de massif pour une distance parcourue, en étapes. **Négatif** : le
