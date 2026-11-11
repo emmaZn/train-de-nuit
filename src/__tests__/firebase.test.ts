@@ -23,6 +23,10 @@ beforeEach(() => {
   connectFirestoreEmulator.mockClear()
   // The HMR guard lives on globalThis; start each test from a fresh page session.
   delete (globalThis as Record<string, unknown>).__trainDeNuitFirebase
+  // Vitest loads `.env.local` exactly as Vite does. Without this, the day a
+  // real project id lands there, every test that assumes the emulator fails —
+  // at the worst moment to understand why. Each test states its own id.
+  vi.stubEnv('VITE_FIREBASE_PROJECT_ID', '')
 })
 
 afterEach(() => {

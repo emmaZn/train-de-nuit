@@ -155,3 +155,44 @@ npm run test:rules   # les règles de sécurité, contre l'émulateur
 ```
 
 L'émulateur est un programme Java : il faut **Java 21 ou plus** (la CLI Firebase v15 a retiré les versions antérieures). `mise.toml` l'épingle, comme Node : `mise install` suffit. Le projet s'appelle `demo-train-de-nuit`, et le préfixe `demo-` rend la production **inatteignable par construction** : ni le script de semis ni l'émulateur ne peuvent y écrire, quoi qu'on oublie de configurer.
+
+### Passer au vrai projet
+
+L'émulateur suffit à tout, sauf à être vu. Le jour où le ciel doit recevoir de vraies
+phrases, il faut un projet Firebase — qu'Emmanuelle crée depuis son compte Google, personne
+ne peut le faire à sa place — et cinq variables d'environnement. Elles vivent dans un
+`.env.local` à la racine, que `.gitignore` tient déjà à l'écart par sa règle `*.local` ;
+`.env.example` en donne la liste exacte et ce que chacune commande.
+
+```bash
+cp .env.example .env.local   # puis remplir
+```
+
+La bascule tient à une seule d'entre elles. `src/firebase.ts` ne regarde que
+`VITE_FIREBASE_PROJECT_ID` : tant qu'elle est vide, l'application se connecte à l'émulateur
+sous `demo-train-de-nuit` ; dès qu'elle porte un vrai identifiant, `npm run dev` lui-même
+parle à la production. Ce n'est donc pas un réglage à laisser à moitié fait : un `.env.local`
+rempli pour un essai envoie dans la vraie base les phrases écrites en développement.
+
+Les règles et l'index, eux, ne partent pas tout seuls. `.firebaserc` ne connaît que
+`demo-train-de-nuit` : un `firebase deploy` lancé tel quel viserait le projet de
+démonstration, sans prévenir. Il faut d'abord lui apprendre le vrai projet, puis déposer les
+deux fichiers que le dépôt tient à jour.
+
+```bash
+firebase use --add                                        # une fois, pour nommer le vrai projet
+firebase deploy --only firestore:rules,firestore:indexes
+```
+
+L'index n'est pas une précaution. La lecture du ciel croise `approuvee` et `creeLe`, ce qui
+demande un index composite que l'émulateur n'exige pas et que la production réclame : sans ce
+dépôt, le ciel marche en local et reste noir en vrai, sans que rien ne l'explique. Les règles,
+de leur côté, bornent la requête à 120 phrases — la limite du ciel sur grand écran — et c'est
+tout ce qu'un client peut lire d'un coup.
+
+Reste App Check, qui est la seule chose entre cette collection et un script de spam. Le code
+l'initialise déjà si `VITE_RECAPTCHA_KEY` est présente, mais **l'initialiser côté client ne
+protège rien** : il faut, dans la console Firebase, enregistrer le site avec sa clé reCAPTCHA
+v3 puis **armer l'application des règles pour Firestore**. Tant que ce dernier bouton n'est
+pas mis, les jetons partent et personne ne les lit ; `firestore.rules` continue de borner ce
+qu'on peut écrire et lire, mais rien ne limite le nombre d'écritures.
