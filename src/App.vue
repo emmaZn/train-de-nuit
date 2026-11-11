@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { provide, ref } from 'vue'
 import EyeButton from '@/components/EyeButton.vue'
+import EtoilesListe from '@/components/EtoilesListe.vue'
 import NavFrise from '@/components/NavFrise.vue'
+import StarTooltip from '@/components/StarTooltip.vue'
 import { SCENE_KEY, useScene } from '@/composables/useScene'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -15,6 +17,8 @@ provide(SCENE_KEY, scene)
   <canvas ref="canvas" class="scene"></canvas>
   <NavFrise />
   <RouterView />
+  <StarTooltip />
+  <EtoilesListe />
   <EyeButton :fond="fond" @change="changerFond" />
 </template>
 
