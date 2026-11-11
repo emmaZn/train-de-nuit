@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, inject, onBeforeUnmount, ref, shallowRef } from 'vue'
+import { computed, inject, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { SCENE_KEY } from '@/composables/useScene'
 import type { Poignee } from '@/scene/Dissolve'
 import type { Scene } from '@/scene/Scene'
+import type { Trace } from '@/scene/types'
 import { bandeCiel } from '@/scene/layout'
 import { tirerPlace } from '@/scene/stars'
 import { useTraces } from '@/stores/traces'
@@ -33,59 +34,150 @@ const DELAI = 10_000
 const MESSAGE = "on n'a pas pu confirmer"
 
 const traces = useTraces()
+/**
+ * L'envoi parti et non réglé, et la phrase dont on n'a pas pu confirmer le
+ * sort. Ils vivent dans le magasin et non ici, parce qu'ils **survivent au
+ * formulaire** : le visiteur peut quitter « là-haut » pendant que l'écriture
+ * vole. Un `ref` de composant laisserait le formulaire remonté en tirer un
+ * second identifiant — un doublon à modérer — et un refus arrivé entre-temps
+ * s'écrirait dans une référence morte : la phrase aurait quitté l'écran avec
+ * le composant, sans un mot.
+ *
+ * `envoi` tient aussi les champs en lecture seule : tant que cette écriture-là
+ * court, c'est elle qu'on redéfait et c'est elle qu'on effacera. Un texte
+ * corrigé entre-temps ne partirait jamais, et serait effacé sans un mot.
+ */
+const { envoi, nonConfirmee } = storeToRefs(traces)
 const { enRoute } = storeToRefs(useVoyage())
 const scene = inject(SCENE_KEY, shallowRef<Scene | null>(null))
 
 const phrase = ref('')
 const prenom = ref('')
-const message = ref('')
 /** Verrou d'envoi : un second appui ne relance ni l'écriture ni la dissolution. */
 const enVol = ref(false)
 const champ = ref<HTMLInputElement | null>(null)
 
 /**
- * L'envoi parti et non réglé. Entrée s'y rattache au lieu de rappeler
- * `ecrire` : les règles interdisent l'`update`, un second appel tirerait un
- * nouvel identifiant et laisserait un doublon à modérer.
+ * Ce que dit la ligne. Une région live doit exister dans le DOM **avant** que
+ * son contenu change : insérée avec son texte, elle n'est souvent annoncée ni
+ * par NVDA, ni par JAWS, ni par VoiceOver — et c'est le seul canal par lequel
+ * « on n'a pas pu confirmer » se dit à un lecteur d'écran.
  *
- * Il tient aussi les champs en lecture seule, et c'est le même fait qui le
- * veut : tant que cette écriture-là court, c'est elle qu'on redéfait et c'est
- * elle qu'on effacera. Un texte corrigé entre-temps ne partirait jamais, et
- * serait effacé sans un mot — on montrerait une phrase en en enregistrant une
- * autre. Le verrou se lève de lui-même dès que l'écriture est réglée.
+ * Deux chemins insèrent la région déjà pleine : le formulaire remonté sur une
+ * phrase restée en souffrance, et le retour à quai (le `<p>` vit sous le
+ * `v-if` du formulaire). Sur ceux-là seulement, le texte est posé après un
+ * vrai tour de boucle d'événements. `nextTick` n'y suffirait pas : il se règle
+ * dans la tâche qui insère, et l'arbre d'accessibilité se construit après
+ * elle — le lecteur verrait encore la région apparaître avec son texte.
+ * Le délai est une heuristique, pas une garantie : rien, dans jsdom, ne peut
+ * vérifier ce qu'une aide technique annonce vraiment.
  */
-const envoi = shallowRef<Envoi | null>(null)
+const DELAI_REGION = 120
+const dit = ref('')
+let posePid: ReturnType<typeof setTimeout> | null = null
+/** La région était-elle déjà dans le DOM au tour précédent ? */
+let regionEnPlace = false
+
+function annulerPose(): void {
+  if (posePid !== null) clearTimeout(posePid)
+  posePid = null
+}
+
+watch(
+  [nonConfirmee, enRoute],
+  ([souci, route]) => {
+    annulerPose()
+    const etaitLa = regionEnPlace
+    regionEnPlace = !route
+    if (route || !souci) {
+      dit.value = ''
+      return
+    }
+    // Déjà en place : son texte peut changer tout de suite, c'est bien un
+    // changement de contenu dans une région qui existait.
+    if (etaitLa) {
+      dit.value = MESSAGE
+      return
+    }
+    // Fraîchement insérée, et déjà quelque chose à dire : on attend.
+    posePid = setTimeout(() => {
+      posePid = null
+      dit.value = MESSAGE
+    }, DELAI_REGION)
+  },
+  { immediate: true },
+)
+
 /** La dissolution à l'écran. **Il faut toujours la conclure** (Dissolve.ts). */
 let poignee: Poignee | null = null
 let minuteur: ReturnType<typeof setTimeout> | null = null
 
 const compte = computed(() => [...phrase.value].length)
 
-function borner(valeur: string, max: number): string {
-  const points = [...valeur]
-  return points.length > max ? points.slice(0, max).join('') : valeur
-}
-
 /**
  * La saisie est bornée en points de code, jamais par `maxlength` : celui-ci
  * compte en unités UTF-16, où un emoji pèse deux, et une phrase affichée
- * « 40 / 80 » serait coupée.
+ * « 40 / 80 » serait coupée. On en reprend en revanche le geste exact, qui est
+ * le seul honnête : **c'est l'insertion qu'on rogne, jamais ce qui est déjà
+ * écrit**. Couper par la fin effacerait le dernier point de code de la phrase
+ * — pas celui qu'on vient de taper au milieu — et renverrait le curseur au
+ * bout : une phrase amputée, sans que le visiteur voie ce qu'il a perdu.
+ *
+ * D'où la petite différence entre l'ancienne et la nouvelle valeur : préfixe
+ * commun, suffixe commun, et entre les deux ce que le geste a remplacé par ce
+ * qu'il insère. La place restante est ce que le remplacement libère.
+ *
+ * Cette différence est **ancrée sur le curseur**, qui est le seul témoin de
+ * l'endroit où le visiteur a tapé. Sans lui, dans une suite de lettres
+ * identiques — « aaaa… », mais aussi « bonne », « elle » — une comparaison
+ * gourmande par le début croit que la saisie s'est faite au bout, et y renvoie
+ * le curseur. C'est le symptôme même qu'on corrige. Le suffixe se mesure donc
+ * d'abord, borné par ce qui suit le curseur ; le préfixe vient ensuite.
  */
-function saisir(event: Event, max: number): string {
+function saisir(event: Event, max: number, avant: string): string {
   const el = event.target as HTMLInputElement
-  const borne = borner(el.value, max)
+  const apres = [...el.value]
   // Vue ne repose pas une valeur qu'il croit inchangée : au quatre-vingt-unième
   // point de code le modèle ne bouge pas, et le champ garderait le surplus.
-  if (el.value !== borne) el.value = borne
+  if (apres.length <= max) return el.value
+
+  const ancien = [...avant]
+  // Le curseur, en points de code : `selectionStart` compte en unités UTF-16.
+  const curseur = [...el.value.slice(0, el.selectionStart ?? el.value.length)].length
+
+  // Le suffixe d'abord, et jamais au-delà du curseur : ce qui le suit n'a pas
+  // été touché par la saisie.
+  const maxQueue = Math.min(ancien.length, apres.length - curseur)
+  let queue = 0
+  while (
+    queue < maxQueue &&
+    ancien[ancien.length - 1 - queue] === apres[apres.length - 1 - queue]
+  )
+    queue += 1
+
+  const maxTete = Math.min(ancien.length - queue, apres.length - queue)
+  let tete = 0
+  while (tete < maxTete && ancien[tete] === apres[tete]) tete += 1
+
+  const remplaces = ancien.length - tete - queue
+  const place = Math.max(0, max - (ancien.length - remplaces))
+  const insere = apres.slice(tete, apres.length - queue).slice(0, place)
+  const borne = [...ancien.slice(0, tete), ...insere, ...ancien.slice(tete + remplaces)].join('')
+
+  el.value = borne
+  // Le curseur au bout de ce qui est vraiment entré : à zéro place, il ne
+  // bouge pas, et l'insertion est refusée comme `maxlength` la refuse.
+  const position = [...borne].slice(0, tete + insere.length).join('').length
+  el.setSelectionRange(position, position)
   return borne
 }
 
 function saisirPhrase(event: Event): void {
-  phrase.value = saisir(event, MAX_PHRASE)
+  phrase.value = saisir(event, MAX_PHRASE, phrase.value)
 }
 
 function saisirPrenom(event: Event): void {
-  prenom.value = saisir(event, MAX_PRENOM)
+  prenom.value = saisir(event, MAX_PRENOM, prenom.value)
 }
 
 /**
@@ -118,19 +210,14 @@ function demarrer(texte: string): Envoi {
   // les étoiles se posent les unes sur les autres.
   const place = tirerPlace(prises, Math.random, TIRAGES, window.innerWidth / bande.height)
   const nom = prenom.value.trim()
-  const parti = traces.ecrire({
+  // C'est le magasin qui tient l'envoi et qui, seul, conclut l'écriture : une
+  // promesse écoutée d'ici mourrait avec le composant.
+  return traces.envoyer({
     phrase: texte,
     ...(nom ? { prenom: nom } : {}),
     x: place.x,
     y: place.y,
   })
-  // Une seule conclusion par envoi, quelle que soit sa fin : c'est elle qui
-  // garantit qu'on ne confirme jamais deux fois, ni jamais trop tôt.
-  void parti.promesse.then(
-    () => reussir(parti),
-    () => echouer(),
-  )
-  return parti
 }
 
 function laisser(): void {
@@ -140,9 +227,8 @@ function laisser(): void {
   if (texte.length === 0 || [...texte].length > MAX_PHRASE) return
 
   enVol.value = true
-  message.value = ''
+  traces.signaler(null)
   const courant = envoi.value ?? demarrer(texte)
-  envoi.value = courant
   // Mesuré avant de rendre la main au clavier : sur un téléphone, Entrée le
   // referme et la fenêtre change de taille à l'instant même. C'est
   // `Dissolve.resize` qui rattrape la place ; le cadre de départ, lui, doit
@@ -161,32 +247,37 @@ function laisser(): void {
 /**
  * L'écriture est acceptée. **`land` d'abord, et attendu** : c'est lui qui pose
  * l'étoile, au bout de la montée. `confirmer` la poserait par le magasin, deux
- * secondes et demie trop tôt, en plein vol du grain.
+ * secondes et demie trop tôt, en plein vol du grain. Le magasin attend donc ce
+ * retour-là, et appelle le formulaire qui est à l'écran — s'il y en a un.
  */
-async function reussir(parti: Envoi): Promise<void> {
+async function poser(t: Trace): Promise<void> {
   arreter()
   const p = reprendre()
-  if (p) await p.land(parti.trace)
-  // Le verrou se lève avec l'effacement, pas avant : entre la réponse et la
-  // fin de la montée, les champs seraient modifiables pendant deux secondes
-  // et demie, pour un texte effacé juste après.
-  envoi.value = null
-  traces.confirmer(parti.trace)
-  // Temps 5 : le formulaire revient vide.
-  phrase.value = ''
-  prenom.value = ''
-  message.value = ''
-  enVol.value = false
+  if (p) await p.land(t)
 }
 
-/** L'écriture est refusée : rien n'a été écrit, un renvoi peut repartir à neuf. */
-function echouer(): void {
+/**
+ * L'envoi est réglé — par ce formulaire ou par un autre, puisque l'écriture
+ * survit au démontage. C'est ici, et nulle part ailleurs, que l'écran reprend
+ * sa place. Le verrou se lève avec l'effacement, pas avant : entre la réponse
+ * et la fin de la montée, les champs seraient modifiables deux secondes et
+ * demie, pour un texte effacé juste après.
+ */
+watch(envoi, (valeur) => {
+  if (valeur !== null) return
   arreter()
-  envoi.value = null
-  reprendre()?.revert()
-  message.value = MESSAGE
+  const p = reprendre()
   enVol.value = false
-}
+  if (nonConfirmee.value) {
+    // Refusée : les grains se reforment, le texte reste au visiteur.
+    p?.revert()
+    return
+  }
+  // Acceptée : `poser` a déjà conclu la dissolution. Temps 5, le formulaire
+  // revient vide.
+  phrase.value = ''
+  prenom.value = ''
+})
 
 /**
  * Le délai ne coupe pas l'écriture — Firestore réessaie tant que l'onglet est
@@ -195,7 +286,8 @@ function echouer(): void {
 function surDelai(): void {
   minuteur = null
   reprendre()?.revert()
-  message.value = MESSAGE
+  const courant = envoi.value
+  if (courant) traces.signaler(courant.trace)
   enVol.value = false
 }
 
@@ -211,9 +303,24 @@ function arreter(): void {
   minuteur = null
 }
 
+// Une écriture partie avec une instance précédente du formulaire se reprend
+// telle quelle — même document, même phrase, même place —, et une phrase dont
+// on n'a pas pu confirmer le sort revient dans le champ. Sans cela, le visiteur
+// qui revient trouverait un champ vide et verrouillé, et sa phrase nulle part.
+const repris = envoi.value?.trace ?? nonConfirmee.value
+if (repris) {
+  phrase.value = repris.phrase
+  prenom.value = repris.prenom ?? ''
+}
+
+// C'est ce formulaire-ci qui fait monter le grain, tant qu'il est à l'écran.
+traces.suivre(poser)
+
 // Une poignée abandonnée laisserait son nœud de grains à l'écran, et sa
 // timeline en vie, jusqu'au `dispose` de la scène.
 onBeforeUnmount(() => {
+  traces.oublier(poser)
+  annulerPose()
   arreter()
   reprendre()?.revert()
 })
@@ -262,7 +369,10 @@ onBeforeUnmount(() => {
                ce serait le seul geste encore possible. -->
           <button type="submit" class="laisser" data-role="laisser">laisser ↵</button>
         </p>
-        <p v-if="message" class="dit" data-role="dit" aria-live="polite">{{ message }}</p>
+        <!-- Toujours là, même muette : une région live insérée en même temps
+             que son texte n'est souvent pas annoncée, et c'est par elle seule
+             que « on n'a pas pu confirmer » se dit. -->
+        <p class="dit" data-role="dit" aria-live="polite">{{ dit }}</p>
       </form>
     </Transition>
   </div>
@@ -377,6 +487,12 @@ onBeforeUnmount(() => {
 .dit {
   margin: 10px 0 0;
   opacity: var(--moyen);
+}
+
+/* Muette, elle ne doit pas écarter la ligne méta du bas du formulaire : un
+   bloc vide ne fait pas de ligne, mais sa marge, elle, tiendrait. */
+.dit:empty {
+  margin: 0;
 }
 
 /* Tout ce qui apparaît ou disparaît le fait par dissolution (CONCEPT.md §2). */

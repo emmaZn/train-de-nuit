@@ -127,6 +127,62 @@ test('charger garde l’étoile locale même quand le ciel est plein de plus ré
   expect(s.etoiles.map((e) => e.id)).not.toContain('d0')
 })
 
+/* ---- Une étoile confirmée pendant que la requête volait ---- */
+
+/** Une lecture qu'on fait répondre à la main, pour tenir la fenêtre ouverte. */
+function lectureEnVol(): (docs: ReturnType<typeof snap>[]) => void {
+  let repondre!: (v: { docs: ReturnType<typeof snap>[] }) => void
+  m.getDocs.mockReturnValue(
+    new Promise((ok) => {
+      repondre = ok
+    }),
+  )
+  return (docs) => repondre({ docs })
+}
+
+test('charger n’efface pas une étoile confirmée pendant que la requête volait', async () => {
+  const repondre = lectureEnVol()
+  const s = useTraces()
+  const lecture = s.charger(1280)
+  // L'animation d'envoi dure 3,5 s : une lecture plus lente suffit, et c'est
+  // précisément le réseau lent pour lequel toute la séquence a été écrite.
+  const { trace } = s.ecrire({ phrase: 'pendant la lecture', x: 0.3, y: 0.4 })
+  s.confirmer(trace)
+  repondre([snap('a', 20), snap('b', 10)])
+  await lecture
+  expect(s.etoiles.map((e) => e.id)).toContain('nouvel-id')
+})
+
+test('… même en fenêtre privée, où le stockage local se tait', async () => {
+  const ecrit = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+    throw new Error('stockage indisponible')
+  })
+  try {
+    const repondre = lectureEnVol()
+    const s = useTraces()
+    const lecture = s.charger(1280)
+    const { trace } = s.ecrire({ phrase: 'pendant la lecture', x: 0.3, y: 0.4 })
+    s.confirmer(trace)
+    expect(loadMiennes()).toEqual([]) // rien n'a pu être gardé chez le visiteur
+    repondre([snap('a', 20)])
+    await lecture
+    expect(s.etoiles.map((e) => e.id)).toContain('nouvel-id')
+  } finally {
+    ecrit.mockRestore()
+  }
+})
+
+test('charger deux fois ne fige pas le ciel sur la lecture précédente', async () => {
+  m.getDocs.mockResolvedValue({ docs: Array.from({ length: 120 }, (_, i) => snap(`d${i}`, i)) })
+  const s = useTraces()
+  await s.charger(1280)
+  expect(s.etoiles).toHaveLength(120)
+  // Les étoiles d'une lecture précédente ne sont pas « les siennes » : la
+  // limite du téléphone les coupe comme les autres.
+  await s.charger(390)
+  expect(s.etoiles).toHaveLength(50)
+})
+
 test('ecrire rend tout de suite une trace avec un id, avant que l’écriture aboutisse', () => {
   m.setDoc.mockReturnValue(new Promise(() => {})) // never settles
   const { trace } = useTraces().ecrire({ phrase: 'salut', x: 0.3, y: 0.4 })
