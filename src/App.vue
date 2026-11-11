@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { provide, ref } from 'vue'
 import EyeButton from '@/components/EyeButton.vue'
 import NavFrise from '@/components/NavFrise.vue'
-import { useScene } from '@/composables/useScene'
+import { SCENE_KEY, useScene } from '@/composables/useScene'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
-const { fond, changerFond } = useScene(canvas)
+const { scene, fond, changerFond } = useScene(canvas)
+
+// La scène descend aux gares, qui lui demandent une dissolution.
+provide(SCENE_KEY, scene)
 </script>
 
 <template>

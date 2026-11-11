@@ -1,16 +1,25 @@
-import { markRaw, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { Ref } from 'vue'
+import { markRaw, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import type { InjectionKey, Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Scene } from '@/scene/Scene'
 import { loadFond, saveFond } from '@/scene/palette'
 import { useVoyage } from '@/stores/voyage'
 
 /**
+ * How a component reaches the scene: `App.vue` provides it, a station injects
+ * it. `null` until the canvas is mounted — a component asks for the scene, it
+ * never builds one.
+ */
+export const SCENE_KEY: InjectionKey<Ref<Scene | null>> = Symbol('scene')
+
+/**
  * The one bridge between Vue and the scene. The scene knows nothing of Vue:
  * it is told what the store holds, and it reports back through events.
  */
 export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
-  const scene = ref<Scene | null>(null)
+  // `shallowRef` : la scène est déjà `markRaw`, et c'est elle qu'on partage —
+  // une référence profonde en rendrait un type que `SCENE_KEY` ne reconnaît pas.
+  const scene = shallowRef<Scene | null>(null)
   const fond = ref<string>(loadFond())
   const voyage = useVoyage()
   const { enRoute, etapesRestantes, legs } = storeToRefs(voyage)
