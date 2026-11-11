@@ -37,6 +37,14 @@ export const HORIZON = 921
 export const MOUNTAIN_SOURCE = { width: 3840, height: 944 } as const
 
 /**
+ * Where the massif actually sits inside that frame, measured across the whole
+ * sequence. The render leaves 37% of empty sky above the summit and a margin
+ * each side, so framing on the image rather than on the massif would both
+ * float its foot above the track and stop it growing far too early.
+ */
+export const MOUNTAIN_CONTENU = { left: 667, top: 346, right: 3125, bottom: 869 } as const
+
+/**
  * How much smaller the train is drawn than its source frame.
  *
  * CONCEPT.md §6 wants it « environ 3 fois plus petit que les PNG ». A visual
@@ -51,7 +59,7 @@ export const ECHELLE_TRAIN = 0.44
  * 1 fits its width exactly; above that it climbs higher and spills off both
  * sides, which is what a nearer ridge does. A visual value, like the train's.
  */
-export const ECHELLE_MONTAGNES = 1.4
+export const ECHELLE_MONTAGNES = 1.8
 
 /**
  * How far left of the middle of the frame the train sits, in stage pixels.

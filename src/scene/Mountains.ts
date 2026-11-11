@@ -1,6 +1,6 @@
 import { Container, Filter, GlProgram, Sprite, Texture, UniformGroup, defaultFilterVert } from 'pixi.js'
 import { loadSequence } from './assets'
-import { ECHELLE_MONTAGNES, HORIZON, MOUNTAIN_SOURCE, STAGE } from './layout'
+import { ECHELLE_MONTAGNES, HORIZON, MOUNTAIN_CONTENU, MOUNTAIN_SOURCE, STAGE } from './layout'
 import type { Manifest } from './types'
 
 /**
@@ -133,21 +133,39 @@ export function setMountainMelange(filter: Filter, melange: number): void {
   uniforms.update()
 }
 
+type Cadre = { x: number; y: number; width: number; height: number }
+
+/** How many stage pixels one pixel of the source frame covers. */
+function facteurMontagnes(echelle: number): number {
+  return (STAGE.width / MOUNTAIN_SOURCE.width) * echelle
+}
+
 /**
- * Where the mountain band goes, in stage pixels. Whatever the scale, its foot
- * rests on the rail line and the range stays centred: growing it makes it
- * climb higher and spill off both sides, never lift off the ground.
+ * Where the massif itself lands on the stage — not its image. Whatever the
+ * scale, its foot rests on the rail line and it stays centred: growing it
+ * makes it climb higher and spill off both sides, never lift off the ground.
  */
-export function cadreMontagnes(echelle: number): {
-  x: number
-  y: number
-  width: number
-  height: number
-} {
-  const facteur = (STAGE.width / MOUNTAIN_SOURCE.width) * echelle
-  const width = MOUNTAIN_SOURCE.width * facteur
-  const height = MOUNTAIN_SOURCE.height * facteur
+export function cadreMassif(echelle: number): Cadre {
+  const f = facteurMontagnes(echelle)
+  const width = (MOUNTAIN_CONTENU.right - MOUNTAIN_CONTENU.left) * f
+  const height = (MOUNTAIN_CONTENU.bottom - MOUNTAIN_CONTENU.top) * f
   return { x: (STAGE.width - width) / 2, y: HORIZON - height, width, height }
+}
+
+/**
+ * Where the whole source frame goes, so the massif inside it lands exactly
+ * where `cadreMassif` says. The sprite is drawn from this, the massif is what
+ * we reason about.
+ */
+export function cadreMontagnes(echelle: number): Cadre {
+  const f = facteurMontagnes(echelle)
+  const massif = cadreMassif(echelle)
+  return {
+    x: massif.x - MOUNTAIN_CONTENU.left * f,
+    y: massif.y - MOUNTAIN_CONTENU.top * f,
+    width: MOUNTAIN_SOURCE.width * f,
+    height: MOUNTAIN_SOURCE.height * f,
+  }
 }
 
 export class Mountains {
