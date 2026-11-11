@@ -6,6 +6,7 @@ import {
   DEGRADE_HAUTEUR,
   DUREE_ETAPE,
   MARGE_FRISE,
+  MARGE_VOIE,
   MARGE_FRISE_MOBILE,
   ecartFrise,
   garesVisibles,
@@ -15,6 +16,7 @@ import {
   HORIZON,
   MOUNTAIN_SOURCE,
   ORTHO,
+  SEUIL_MOBILE,
   STAGE,
   SWEEP_LEGS,
   bornesFenetre,
@@ -22,6 +24,7 @@ import {
   cadreMontagnes,
   fenetreVisible,
   fitStage,
+  margeVoie,
   toursMassif,
 } from '@/scene/layout'
 
@@ -210,4 +213,22 @@ test('le massif met plusieurs boucles de train à faire un tour', () => {
 // réellement vue. Le massif doit mettre plus d'une minute à faire son tour.
 test('un tour de massif dure plus d’une minute', () => {
   expect(SWEEP_LEGS * DUREE_ETAPE).toBeGreaterThan(60)
+})
+
+// La voie s'arrête avant le bord de l'écran, mais jamais au point d'avaler
+// l'ancre : un marqueur pris dans le fondu ne se verrait plus.
+test('sur grand écran, la voie garde la marge demandée', () => {
+  expect(margeVoie(1512)).toBe(MARGE_VOIE)
+})
+
+test('la marge ne mord jamais sur l’ancre', () => {
+  for (const l of [320, 390, 600, 719, 720, 1024, 1512, 2560]) {
+    const ancre = l < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
+    expect(margeVoie(l)).toBeLessThan(ancre)
+    expect(margeVoie(l)).toBeGreaterThanOrEqual(0)
+  }
+})
+
+test('sur téléphone, la marge se réduit au lieu de cacher le marqueur', () => {
+  expect(margeVoie(390)).toBeLessThan(margeVoie(1512))
 })

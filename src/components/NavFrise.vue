@@ -6,6 +6,7 @@ import {
   ANCRE_FRISE_MOBILE,
   SEUIL_MOBILE,
   ecartFrise,
+  margeVoie,
   garesVisibles,
 } from '@/scene/layout'
 import type { Gare } from '@/scene/types'
@@ -47,6 +48,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', mesurer))
 
 const ancre = computed(() => (largeur.value < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE))
 const ecart = computed(() => ecartFrise(largeur.value, garesVisibles(largeur.value)))
+const marge = computed(() => margeVoie(largeur.value))
 
 /**
  * Position de la frise, en crans, fractionnaire pendant le trajet : c'est elle
@@ -88,7 +90,7 @@ const entrees = computed(() => {
   <nav
     class="frise"
     aria-label="Les gares du voyage"
-    :style="{ '--ecart': `${ecart}px`, '--ancre': `${ancre}px` }"
+    :style="{ '--ecart': `${ecart}px`, '--ancre': `${ancre}px`, '--marge': `${marge}px` }"
   >
     <div class="piste" :class="{ 'en-route': enRoute }" :style="{ '--legs': position }">
       <span class="voie" aria-hidden="true"></span>
@@ -111,6 +113,7 @@ const entrees = computed(() => {
 
     </div>
 
+    <span class="halo" aria-hidden="true"></span>
     <span v-if="enRoute" class="marqueur" data-role="marqueur" aria-hidden="true"></span>
   </nav>
 </template>
@@ -121,16 +124,23 @@ const entrees = computed(() => {
   top: 0;
   left: 0;
   right: 0;
-  height: 96px;
+  height: calc(var(--haut-voie) + 52px);
   z-index: 2;
   overflow: hidden;
-  /* Les gares qui sortent s'estompent des deux côtés. */
-  mask-image: linear-gradient(to right, transparent, #000 60px, #000 calc(100% - 60px), transparent);
+  /* Les gares qui sortent s'estompent des deux côtés, après une marge où la
+     voie ne va pas du tout : c'est elle qui décolle la frise des bords. */
+  mask-image: linear-gradient(
+    to right,
+    transparent var(--marge),
+    #000 calc(var(--marge) + 48px),
+    #000 calc(100% - var(--marge) - 48px),
+    transparent calc(100% - var(--marge))
+  );
 }
 
 .piste {
   position: absolute;
-  top: 44px;
+  top: var(--haut-voie);
   left: 0;
   height: 1px;
   transform: translateX(calc(var(--ancre) - var(--legs) * var(--ecart)));
@@ -234,11 +244,26 @@ const entrees = computed(() => {
   opacity: 0.7;
 }
 
+/* La voie s'éclaircit là où l'on se trouve. Le halo tient l'ancre comme le
+   marqueur, donc il ne défile pas avec les gares : c'est le lieu qui est
+   éclairé, pas une portion de voie. */
+.halo {
+  position: absolute;
+  top: var(--haut-voie);
+  left: var(--ancre);
+  width: 260px;
+  height: 1px;
+  margin-left: -130px;
+  background: linear-gradient(to right, transparent, var(--trait), transparent);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
 /* Le marqueur tient l'ancre : le train est toujours « ici », ce sont les gares
    qui défilent dessous. Hors de la piste, donc rien à recalculer par image. */
 .marqueur {
   position: absolute;
-  top: 40px;
+  top: calc(var(--haut-voie) - 4px);
   left: var(--ancre);
   width: 7px;
   height: 7px;

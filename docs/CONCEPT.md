@@ -153,8 +153,7 @@ const eclat = Math.max(0.16, Math.exp(-age / 18))   // 1 = neuve, 0.16 = très a
   | Nom | Couleur |
   |---|---|
   | encre (par défaut) | `#151517` |
-  | bleu nuit | `#0a1728` |
-  | sapin | `#0c1c12` |
+  | noir | `#000` |
   | vieille photo | `#2f1b0c` |
 
 - **Couleurs** : fond `#151517` par défaut ; blanc légèrement grisé `#ececf0` pour le texte, opacités pour la hiérarchie (0.95 / 0.6 / 0.42 / 0.2), traits `#e6e6ea`, corps noirs `#0b0b0c`.

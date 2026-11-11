@@ -1,4 +1,4 @@
-import { DEFAUT, PALETTE, loadFond, nextFond, saveFond } from '@/scene/palette'
+import { DEFAUT, PALETTE, fondToHex, loadFond, nextFond, saveFond } from '@/scene/palette'
 
 /**
  * Ces tests ne figent aucune couleur : la palette est un choix visuel
@@ -9,7 +9,9 @@ import { DEFAUT, PALETTE, loadFond, nextFond, saveFond } from '@/scene/palette'
 const TEXTE = '#ececf0'
 
 function luminance(hex: string): number {
-  const n = Number.parseInt(hex.slice(1), 16)
+  // Le même analyseur que la scène, pas une copie : une copie lirait la forme
+  // courte autrement, et ce test validerait une couleur qu'on ne verra jamais.
+  const n = fondToHex(hex)
   const canal = (v: number) => {
     const c = v / 255
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
@@ -35,8 +37,18 @@ test('la palette a de quoi tourner', () => {
   expect(PALETTE.length).toBeGreaterThanOrEqual(2)
 })
 
-test('chaque couleur est un hexadécimal à six chiffres', () => {
-  for (const couleur of PALETTE) expect(couleur).toMatch(/^#[0-9a-fA-F]{6}$/)
+test('chaque couleur est un hexadécimal, en forme courte ou longue', () => {
+  for (const couleur of PALETTE) {
+    expect(couleur).toMatch(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
+  }
+})
+
+// Le piège : parseInt lit « abc » comme 0x000abc. Seuls les gris y échappent,
+// ce qui laisserait passer #000 et trahirait toutes les autres.
+test('la forme courte vaut exactement sa forme longue', () => {
+  expect(fondToHex('#000')).toBe(fondToHex('#000000'))
+  expect(fondToHex('#abc')).toBe(fondToHex('#aabbcc'))
+  expect(fondToHex('#2f1b0c')).toBe(0x2f1b0c)
 })
 
 // CONCEPT.md §6 : « toutes sombres, contraste > 12:1 avec le texte #ececf0 »

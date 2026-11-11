@@ -110,6 +110,19 @@ export const ANCRE_FRISE_MOBILE = 24
 export const MARGE_FRISE = 150
 export const MARGE_FRISE_MOBILE = 150
 
+/** Ce que la voie laisse libre de chaque côté de l'écran, en pixels. */
+export const MARGE_VOIE = 40
+
+/**
+ * Marge effective, qui ne mord jamais sur l'ancre : sur un téléphone celle-ci
+ * n'est qu'à 24 px du bord, et un marqueur noyé dans le fondu de la voie ne
+ * se verrait plus. On lui garde 16 px de dégagement.
+ */
+export function margeVoie(largeur: number): number {
+  const ancre = largeur < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
+  return Math.max(0, Math.min(MARGE_VOIE, ancre - 16))
+}
+
 /** Écartement minimal : en dessous, deux gares se chevaucheraient. */
 const ECART_MINIMUM = 80
 

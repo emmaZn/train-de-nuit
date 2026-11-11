@@ -8,6 +8,11 @@
   --fort: 0.95;
   --moyen: 0.6;
   --faible: 0.42;
+
+  /* Mise en page partagée par la frise et l'œil : la hauteur de la voie et
+     la marge des bords. Deux composants s'y alignent, donc une seule source. */
+  --haut-voie: 64px;
+  --marge-ecran: 40px;
   --murmure: 0.2;
 
   --police-texte: 'Inter', system-ui, sans-serif;

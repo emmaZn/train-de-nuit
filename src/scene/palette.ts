@@ -41,5 +41,10 @@ export function saveFond(fond: string): void {
 
 /** The colour as the shader wants it: 0xRRGGBB. */
 export function fondToHex(fond: string): number {
-  return Number.parseInt(fond.replace('#', ''), 16)
+  const brut = fond.replace('#', '')
+  // La forme courte vaut sa forme longue : #abc, c'est #aabbcc. Sans cette
+  // expansion, parseInt le lirait comme #000abc — une tout autre couleur, et
+  // en silence. Seuls les gris comme #000 survivaient par hasard.
+  const plein = brut.length === 3 ? [...brut].map((c) => c + c).join('') : brut
+  return Number.parseInt(plein, 16)
 }
