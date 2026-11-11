@@ -12,3 +12,15 @@ test('aucun fichier de src/scene n’importe vue, pinia ou vue-router', () => {
     expect(source, `${fichier} importe Vue`).not.toMatch(/from ['"](vue|pinia|vue-router)['"]/)
   }
 })
+
+/** Les données viennent du store : la scène ne connaît pas le réseau. */
+test('src/scene n’importe pas firebase', () => {
+  const racine = 'src/scene'
+  const fichiers = readdirSync(racine, { recursive: true, encoding: 'utf8' })
+    .filter((f) => f.endsWith('.ts') && !f.includes('__tests__'))
+  expect(fichiers.length).toBeGreaterThan(0)
+  for (const fichier of fichiers) {
+    const source = readFileSync(join(racine, fichier), 'utf8')
+    expect(source, `${fichier} importe firebase`).not.toMatch(/from ['"]firebase(\/[^'"]*)?['"]/)
+  }
+})

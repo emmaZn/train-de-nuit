@@ -14,11 +14,12 @@ import {
 import type { Relief } from './Relief'
 import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
+import { Stars } from './StarLayer'
 import { Train, avancement } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
-import type { Manifest } from './types'
+import type { Manifest, Trace } from './types'
 
 /** The reflection is rendered at half resolution: it is blurred anyway. */
 const REFLET_RESOLUTION = 0.5
@@ -40,6 +41,9 @@ export class Scene {
   private refletTexture: RenderTexture | null = null
 
   private sky: Sky | null = null
+  private stars: Stars | null = null
+  /** Kept so stars set before init, or between resizes, are not lost. */
+  private traces: Trace[] = []
   private relief: Relief | null = null
   private train: Train | null = null
   private recolor: Filter | null = null
@@ -89,6 +93,9 @@ export class Scene {
     this.vivante = true
     this.recolor = createRecolorFilter(fondToHex(this.fond))
 
+    // Stars live in screen space, behind the stage frame that covers the
+    // viewport: a phone shows only a quarter of that frame's width.
+    this.stars = new Stars(this.app.stage, { reducedMotion: this.reducedMotion })
     this.app.stage.addChild(this.monde)
     this.sky = new Sky(this.monde)
 
@@ -178,6 +185,8 @@ export class Scene {
     }
 
     this.sky?.resize(STAGE.width, STAGE.height, width < 720)
+    this.stars?.setStars(this.traces, width, height)
+    this.stars?.resize(width, height)
     this.relief?.cadrer(frame, width, height, this.app.renderer.resolution)
 
     this.refletTexture?.destroy(true)
@@ -200,6 +209,20 @@ export class Scene {
   setPointer(x: number, y: number): void {
     if (this.reducedMotion) return
     this.sky?.setPointer(x, y)
+  }
+
+  /** The visitors' stars. Called again whenever the store changes. */
+  setStars(traces: Trace[]): void {
+    this.traces = traces
+    if (!this.vivante) return
+    const { width, height } = this.app.screen
+    this.stars?.setStars(traces, width, height)
+  }
+
+  /** The pointer in CSS pixels: tells which star, if any, it is over. */
+  setPointerPx(px: number, py: number): void {
+    const trace = this.stars?.hit(px, py) ?? null
+    this.emitter.emit('starHover', trace, px, py)
   }
 
   /**
@@ -308,6 +331,7 @@ export class Scene {
     this.relief?.setLegs(this.legsParcourues)
     this.relief?.dessiner()
     this.sky?.update()
+    this.stars?.update(dt, Date.now())
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
     this.rendreReflet()
   }
@@ -325,6 +349,7 @@ export class Scene {
     this.relief?.detruire()
     this.train?.destroy()
     this.sky?.destroy()
+    this.stars?.destroy()
     if (this.vivante) this.app.destroy(true, { children: true })
     this.vivante = false
   }
