@@ -171,10 +171,9 @@ Tous dans `~/projet_zero/` (à copier ou convertir dans le dépôt, voir §10) :
 | `blender/erosion.py`, `blender/massif.py` | fabriquent la carte, puis la rendent. `massif.py` est la source du portage GLSL |
 | `PTITRAIN_blanc/` | traits blancs seuls, sans fond (non retenue) |
 | `PTITRAIN_plein/` | source du train, version pleine, corps noir : `02_locomotive`, `03_wagon`, `04_start_locomotive`, `05_start_wagon`, `06_stop_locomotive`, `07_stop_wagon` |
-| `PTITRAIN_grain_blanc/` | **séquences retenues** : `PTITRAIN_plein` passée au grain, trait laissé à pleine luminosité (`LINE_MIN = LINE_MAX = 1.0`, gris 237). Contient aussi `01_rails`, éclaircie au même gris |
-| `PTITRAIN_grain/` | le grain tel que l'outil le produit par défaut : trait gris, 90e centile à 190. Le train s'y efface dans la montagne — non retenue |
+| `PTITRAIN_grain_blanc/` | **séquences retenues** : `PTITRAIN_plein` passée au grain avec `--trait=1,1 --gris=#EDEDED`. Contient aussi `01_rails`, dont le grain vit dans l'alpha : on y aplatit la luminance au même gris. Les deux commandes sont dans le README du dépôt |
+| `outils/grain_train.py` | génère la version grain. Sans `--trait`, il assombrit chaque pixel du trait (0,65–0,90) : le train devient gris et s'efface dans la montagne. `--trait=1,1 --gris=#EDEDED` applique la règle du massif |
 | `PTITRAIN_grain_vivant/` | version pleine avec grain vivant, corps noir (non retenue ; on y prend seulement `01_rails`, la seule voie disponible) |
-| `outils/grain_train.py` | génère la version grain. Options : `--fond=#RRGGBB` (couleur du corps), `--vivant`. Gère aussi la version sans fond. Réglages en tête de fichier |
 | `oiseaux/bouvreuil-*.svg / .png` | 8 poses : `perche`, `perche-vers-la-gauche`, `perche-ebouriffe`, `sonne`, `vol-1-ailes-hautes` → `vol-4-ailes-repliees` (cycle de vol 1→2→3→4). SVG viewBox 120 × 90, pattes à `y = 82` |
 | `cables/cables-scene.svg / .png`, `cables/poteau.svg` | poteaux + fils, cadre 1280 × 832 |
 | `ailleurs/panneau-ailleurs.svg` | poteau indicateur, cadre 1280 × 832, une flèche = un groupe (`fleche-linkedin`, `fleche-cv`, `fleche-ecrire`) |

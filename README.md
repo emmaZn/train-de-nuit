@@ -46,6 +46,30 @@ Options : `--carte` (aucune), `--train-src` (`PTITRAIN_grain_vivant`), `--train-
 `--train-src` peut désigner un dossier sans `01_rails` : la voie est alors prise dans
 `PTITRAIN_grain_vivant`, la seule à en contenir une.
 
+Les sources du train ne sont pas livrées telles quelles : `PTITRAIN_grain_blanc` se
+fabrique depuis `PTITRAIN_plein`, et la voie depuis la seule qui en contienne une.
+
+```bash
+# le train : grain, mais trait laissé à pleine luminosité, au gris du massif
+python3 outils/grain_train.py PTITRAIN_plein PTITRAIN_grain_blanc --trait=1,1 --gris=#EDEDED
+
+# la voie : déjà grainée, et son grain est dans l'alpha ; la luminance ne
+# portait que l'assombrissement, plafonné à 203. On l'aplatit au même gris.
+python3 - <<'FIN'
+import numpy as np
+from PIL import Image
+from pathlib import Path
+a = np.array(Image.open('PTITRAIN_grain_vivant/01_rails/rails.png').convert('RGBA'))
+a[..., :3] = np.where((a[..., 3] > 0)[..., None], 237, a[..., :3])
+Path('PTITRAIN_grain_blanc/01_rails').mkdir(parents=True, exist_ok=True)
+Image.fromarray(a).save('PTITRAIN_grain_blanc/01_rails/rails.png', optimize=True)
+FIN
+```
+
+Sans `--trait`, l'outil assombrit chaque pixel du trait d'un facteur tiré entre 0,65 et
+0,90 : le train devient gris et s'efface dans la montagne. Le massif n'allume jamais un
+point à mi-teinte, et le train suit la même règle — blanc ou absent.
+
 Trois mesures expliquent ce que fait ce script :
 
 - **Le massif n'est plus une image.** Il était rendu dans Blender en 180 images de
