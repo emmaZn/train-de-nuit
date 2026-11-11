@@ -97,7 +97,7 @@ export const ANCRE_FRISE_MOBILE = 24
 
 /** Ce qu'on garde à droite, pour que la dernière mention ait sa place. */
 export const MARGE_FRISE = 150
-export const MARGE_FRISE_MOBILE = 110
+export const MARGE_FRISE_MOBILE = 150
 
 /** Écartement minimal : en dessous, deux gares se chevaucheraient. */
 const ECART_MINIMUM = 80
