@@ -64,6 +64,11 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     detacher.push(instance.on('progress', (p) => voyage.setProgression(p)))
     detacher.push(instance.on('arrived', () => voyage.finirEtape()))
 
+    // Registered before the first await: an unmount during `init` runs
+    // `onBeforeUnmount` at once, and would find nothing to remove.
+    window.addEventListener('pointermove', surPointeur, { passive: true })
+    window.addEventListener('pointerdown', surAppui, { passive: true })
+
     await instance.init()
     instance.setFond(fond.value)
     instance.setVoyage(enRoute.value, etapesRestantes.value)
@@ -76,8 +81,6 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
     // Pas d'écouteur `resize` ici : le renderer Pixi recadre lui-même, à la
     // frame où il connaît vraiment ses nouvelles dimensions.
-    window.addEventListener('pointermove', surPointeur, { passive: true })
-    window.addEventListener('pointerdown', surAppui, { passive: true })
   })
 
   watch([enRoute, etapesRestantes], ([route, restantes]) => {

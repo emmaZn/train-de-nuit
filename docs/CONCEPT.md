@@ -257,7 +257,7 @@ type Gare = 'ici' | 'plus-loin' | 'la-haut' | 'ailleurs'
 // s'excluent : l'un ou l'autre, une seule fois.
 type Poignee = {
   land(trace: Trace): Promise<void>   // le grain atteint sa place, l'étoile s'allume
-  revert(): void                      // l'envoi a échoué : la phrase se recompose
+  revert(): Promise<void>             // l'envoi a échoué : la phrase se recompose (inutile de l'attendre)
 }
 ```
 
