@@ -21,6 +21,14 @@ type Etat = 'passee' | 'a-quai' | 'prochain' | 'a-venir'
 const voyage = useVoyage()
 const { gare, enRoute, etapesRestantes, legs, progression } = storeToRefs(voyage)
 
+/**
+ * Position de la frise, en crans, fractionnaire pendant le trajet : c'est elle
+ * qui fait défiler les gares en continu au lieu de les faire sauter d'un cran
+ * une fois arrivé. Le marqueur, lui, ne bouge plus — il tient l'ancre, et ce
+ * sont les gares qui passent dessous.
+ */
+const position = computed(() => legs.value + (enRoute.value ? progression.value : 0))
+
 const entrees = computed(() => {
   const base = GARES.indexOf(gare.value)
   // En route, le prochain arrêt est la cible, pas une gare qu'on traverse.
@@ -51,7 +59,7 @@ const entrees = computed(() => {
 
 <template>
   <nav class="frise" aria-label="Les gares du voyage">
-    <div class="piste" :style="{ '--legs': legs }">
+    <div class="piste" :class="{ 'en-route': enRoute }" :style="{ '--legs': position }">
       <span class="voie" aria-hidden="true"></span>
 
       <RouterLink
@@ -70,16 +78,11 @@ const entrees = computed(() => {
         <span v-else-if="entree.etat === 'prochain'" class="mention">PROCHAIN ARRÊT</span>
       </RouterLink>
 
-      <span
-        v-if="enRoute"
-        class="marqueur"
-        data-role="marqueur"
-        aria-hidden="true"
-        :style="{ '--avancee': progression }"
-      >
-        <span class="loco"></span>
-      </span>
     </div>
+
+    <span v-if="enRoute" class="marqueur" data-role="marqueur" aria-hidden="true">
+      <span class="loco"></span>
+    </span>
   </nav>
 </template>
 
@@ -104,7 +107,14 @@ const entrees = computed(() => {
   left: 0;
   height: 1px;
   transform: translateX(calc(var(--ancre) - var(--legs) * var(--ecart)));
-  transition: transform 1.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+  /* En route, la position change à chaque image : une transition la ferait
+     traîner derrière le train. Elle ne sert qu'aux sauts, quand la scène ne
+     peut pas animer — mouvement réduit, ou pas de WebGL. */
+  transition: transform 1.2s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.piste.en-route {
+  transition: none;
 }
 
 .voie {
@@ -197,10 +207,12 @@ const entrees = computed(() => {
   opacity: 0.7;
 }
 
+/* Le marqueur tient l'ancre : le train est toujours « ici », ce sont les gares
+   qui défilent dessous. Hors de la piste, donc rien à recalculer par image. */
 .marqueur {
   position: absolute;
-  top: -4px;
-  left: calc((var(--legs) + var(--avancee)) * var(--ecart));
+  top: 40px;
+  left: var(--ancre);
   width: 7px;
   height: 7px;
   background: var(--trait);
