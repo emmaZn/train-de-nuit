@@ -125,10 +125,10 @@ test('près du bord haut, la bulle passe au-dessous du point', async () => {
   await wrapper.vm.$nextTick()
   const bulle = wrapper.get('[data-role="bulle"]')
   expect(bulle.attributes('data-sens')).toBe('dessous')
-  // 132 et non 34 : la bulle a un plancher, pour que son fond ne remonte pas
+  // 112 et non 34 : la bulle a un plancher, pour que son fond ne remonte pas
   // dans la frise. Un pointeur à 20 px ne se produit pas — le ciel commence à
-  // 116 et le survol porte à 14.
-  expect((bulle.element as HTMLElement).style.top).toBe('132px')
+  // 96 et le survol porte à 14.
+  expect((bulle.element as HTMLElement).style.top).toBe('112px')
 })
 
 test('la bulle disparaît quand starHover rend null', async () => {
@@ -197,7 +197,7 @@ test('sous la frise, la bulle descend au lieu de traverser la navigation', async
 test('assez bas, la bulle repasse au-dessus du point', async () => {
   const { scene, survol } = fausseScene()
   const { wrapper } = monter(scene)
-  survol(trace(), 300, 248)
+  survol(trace(), 300, 228)
   await wrapper.vm.$nextTick()
   expect(wrapper.get('[data-role="bulle"]').attributes('data-sens')).toBe('dessus')
 })
@@ -205,9 +205,9 @@ test('assez bas, la bulle repasse au-dessus du point', async () => {
 test('juste sous le seuil, la bulle reste au-dessous', async () => {
   const { scene, survol } = fausseScene()
   const { wrapper } = monter(scene)
-  survol(trace(), 300, 247)
+  survol(trace(), 300, 227)
   await wrapper.vm.$nextTick()
-  // Avec le test à 248, cette borne fixe le dégagement : 247 et 248 encadrent
+  // Avec le test à 228, cette borne fixe le dégagement : 227 et 228 encadrent
   // la seule valeur qui passe les deux.
   expect(wrapper.get('[data-role="bulle"]').attributes('data-sens')).toBe('dessous')
 })
@@ -216,12 +216,12 @@ test('au ras de la frise, le fond de la bulle ne mord pas sur la navigation', as
   const { scene, survol } = fausseScene()
   const { wrapper } = monter(scene)
   // `starHover` porte les coordonnées du pointeur, pas de l'étoile, et le survol
-  // porte à 14 px : une étoile du tout premier rang (116) s'attrape dès 102.
-  survol(trace(), 300, 102)
+  // porte à 14 px : une étoile du tout premier rang (96) s'attrape dès 82.
+  survol(trace(), 300, 82)
   await wrapper.vm.$nextTick()
   const bulle = wrapper.get('[data-role="bulle"]')
   expect(bulle.attributes('data-sens')).toBe('dessous')
-  expect((bulle.element as HTMLElement).style.top).toBe('132px')
+  expect((bulle.element as HTMLElement).style.top).toBe('112px')
 })
 
 test('le débord de la tache et le plancher de la bulle restent d’accord', async () => {

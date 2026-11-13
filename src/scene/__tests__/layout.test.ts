@@ -259,3 +259,14 @@ describe('la bande du ciel', () => {
     expect(voie + marge).toBe(HAUTEUR_FRISE)
   })
 })
+
+test('la frise fait 96 px', () => {
+  expect(HAUTEUR_FRISE).toBe(96)
+})
+
+test('l’œil se pose sur la ligne de voie, pas au-dessus', async () => {
+  // Il était centré dans la bande au-dessus de la voie ; cette bande passe de
+  // 64 à 44 px et un bouton de 36 px n'y tient plus proprement.
+  const css = (await import('@/components/EyeButton.vue?raw')).default
+  expect(css).toMatch(/top:\s*calc\(var\(--haut-voie\)\s*-\s*18px\)/)
+})

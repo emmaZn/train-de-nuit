@@ -278,13 +278,13 @@ export function facteurCadre(fenetre: Cadre, echelle: number): number {
 /* ---- Le ciel des visiteurs ---- */
 
 /** Hauteur de la voie dans la frise, en pixels (`--haut-voie` de base.css). */
-export const HAUT_VOIE = 64
+export const HAUT_VOIE = 44
 
 /**
- * Hauteur de la frise, fixe en pixels : `--haut-voie` (64) plus les 52 px que
+ * Hauteur de la frise, fixe en pixels : `--haut-voie` (44) plus les 52 px que
  * NavFrise.vue y ajoute. Un test lit les deux fichiers et vérifie la somme.
  */
-export const HAUTEUR_FRISE = 116
+export const HAUTEUR_FRISE = 96
 
 /**
  * La bande où vivent les étoiles des visiteurs : du bas de la frise jusqu'à
