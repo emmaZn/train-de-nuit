@@ -111,6 +111,32 @@ const position = computed(() => {
   pointer-events: none;
 }
 
+/*
+ * A patch of night behind the sentence, so it can be read over the white grain
+ * of the massif. Black becomes the colour of the night everywhere (CONCEPT §6),
+ * so the patch is mixed from `--fond` and follows the eye on its own.
+ *
+ * The last stop reaches 100 % on purpose. With `ellipse at center` the implicit
+ * `farthest-corner` puts the middle of each side at 1/√2 ≈ 71 % of the ray:
+ * stopping before that would leave the end of a long sentence on bare grain.
+ * The price is an edge — the box cuts a gradient still ~60 % opaque, which
+ * shows as a straight step on bright grain. Traded for legibility, on purpose:
+ * docs/superpowers/specs/2026-11-13-bulle-lisible-design.md §2.
+ */
+.bulle::before {
+  content: '';
+  position: absolute;
+  inset: -16px -28px;
+  z-index: -1;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--fond) 94%, transparent) 0%,
+    color-mix(in srgb, var(--fond) 88%, transparent) 35%,
+    color-mix(in srgb, var(--fond) 78%, transparent) 62%,
+    color-mix(in srgb, var(--fond) 0%, transparent) 100%
+  );
+}
+
 .phrase {
   margin: 0;
   font-family: var(--police-texte);
