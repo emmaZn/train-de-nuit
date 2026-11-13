@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 
-import { MARGE_CRETE } from '@/scene/crete'
+import { CRETE, CRETE_BIN } from '@/scene/crete'
 import { GARES } from '@/stores/voyage'
 
 import {
@@ -259,10 +259,29 @@ describe('la région libre du ciel', () => {
     expect(Number.isFinite(r.height)).toBe(true)
   })
 
-  test('la crête est brute : la marge est retranchée par la région, pas par cretePx', () => {
-    const x = 756
-    const r = regionCiel(x, 1512, 771, 2.153, 11)
-    expect(cretePx(x, 1512, 771, 2.153, 11) - MARGE_CRETE).toBeCloseTo(r.top + r.height, 5)
+  test('la crête est brute : valeur absolue sur un bord de paquet, sans marge', () => {
+    // Bord entre les paquets 26 et 27 : la crête y vaut min(386, 348) = 348.
+    const [w, h, echelle, decalage] = [1512, 771, 2.153, 11]
+    const frame = fitStage(w, h)
+    const c = cadreMontagnes(echelle)
+    const f = (STAGE.width / MOUNTAIN_SOURCE.width) * echelle
+    const x = (c.x + 27 * CRETE_BIN * f) * frame.scale + frame.offsetX
+    const attendu = (c.y + Math.min(CRETE[26], CRETE[27]) * f) * frame.scale + frame.offsetY + decalage
+    expect(cretePx(x, w, h, echelle, decalage)).toBeCloseTo(attendu, 5)
+  })
+
+  test('la crête rendue ne descend jamais sous le minimum de son paquet', () => {
+    for (const [w, h, echelle] of [[1512, 771, 2.153], [2560, 1440, 2.2], [1280, 800, 2.2]]) {
+      const frame = fitStage(w, h)
+      const c = cadreMontagnes(echelle)
+      const f = (STAGE.width / MOUNTAIN_SOURCE.width) * echelle
+      for (let x = 0; x <= w; x += 0.5) {
+        const sx = ((x - frame.offsetX) / frame.scale - c.x) / f
+        const i = Math.min(Math.max(Math.floor(sx / CRETE_BIN), 0), CRETE.length - 1)
+        const borne = (c.y + CRETE[i] * f) * frame.scale + frame.offsetY
+        expect(cretePx(x, w, h, echelle, 0)).toBeLessThanOrEqual(borne + 1e-6)
+      }
+    }
   })
 
   test('la crête varie en continu, sans marches', () => {

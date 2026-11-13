@@ -307,9 +307,12 @@ export function hautDuVoilePx(viewportW: number, viewportH: number, decalage: nu
  * compris, **sans** `MARGE_CRETE` (c'est `regionCiel` qui la retranche).
  *
  * Même chaîne que le rendu : source -> scène par `cadreMontagnes`, puis
- * scène -> écran par `fitStage`. La crête est interpolée linéairement entre
- * les centres de paquets et bornée aux extrémités : une crête en marches
- * ferait sauter la région quand le pointeur bouge.
+ * scène -> écran par `fitStage`. `CRETE` garde le minimum de chaque paquet :
+ * on évalue donc la crête aux bords de paquet à `min` des deux voisins, et on
+ * interpole linéairement entre bords. Les deux extrémités d'un segment sont
+ * ainsi au plus égales à la valeur de son paquet (la garantie conservatrice
+ * tient), et la fonction reste continue : une crête en marches ferait sauter
+ * la région quand le pointeur bouge.
  */
 export function cretePx(
   xPx: number,
@@ -322,9 +325,11 @@ export function cretePx(
   const c = cadreMontagnes(echelle)
   const f = facteurMontagnes(echelle)
   const sx = ((xPx - frame.offsetX) / frame.scale - c.x) / f
-  const t = borner(sx / CRETE_BIN - 0.5, 0, CRETE.length - 1)
-  const i = Math.min(Math.floor(t), CRETE.length - 2)
-  const sy = CRETE[i] + (CRETE[i + 1] - CRETE[i]) * (t - i)
+  const u = borner(sx / CRETE_BIN, 0, CRETE.length)
+  const i = Math.min(Math.floor(u), CRETE.length - 1)
+  const bord = (k: number): number =>
+    k <= 0 ? CRETE[0] : k >= CRETE.length ? CRETE[CRETE.length - 1] : Math.min(CRETE[k - 1], CRETE[k])
+  const sy = bord(i) + (bord(i + 1) - bord(i)) * (u - i)
   const wy = (c.y + sy * f) * frame.scale + frame.offsetY + decalage
   return Math.min(wy, hautDuVoilePx(viewportW, viewportH, decalage))
 }
