@@ -410,9 +410,13 @@ export function cadrageCiel(
   // le bord). Un plancher n'aurait donc jamais mordu.
   const decalage = jeu
 
-  const tient = (e: number): boolean => cielAuSommet(viewportW, viewportH, e, decalage) >= CIEL_SOMMET
+  const ciel = (e: number): number => cielAuSommet(viewportW, viewportH, e, decalage)
+  // Quand le haut du voile plafonne la crête, rapetisser ne rend plus de ciel :
+  // la cible devient le meilleur ciel disponible, ce qui garde l'échelle
+  // continue (les deux définitions coïncident à la hauteur critique).
+  const cible = Math.min(CIEL_SOMMET, ciel(ECHELLE_MIN))
+  const tient = (e: number): boolean => ciel(e) >= cible
   if (tient(ECHELLE_MONTAGNES)) return { decalage, echelle: ECHELLE_MONTAGNES }
-  if (!tient(ECHELLE_MIN)) return { decalage, echelle: ECHELLE_MIN }
 
   let bas = ECHELLE_MIN
   let haut = ECHELLE_MONTAGNES

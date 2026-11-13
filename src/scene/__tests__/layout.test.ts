@@ -344,10 +344,12 @@ describe('la règle de dégagement', () => {
   })
 
   test('l’échelle est continue en hauteur de fenêtre', () => {
-    for (let h = 380; h < 900; h += 1) {
-      const a = cadrageCiel(1000, h).echelle
-      const b = cadrageCiel(1000, h + 1).echelle
-      expect(Math.abs(a - b)).toBeLessThan(0.02)
+    for (const w of [360, 390, 600, 1000]) {
+      for (let h = 300; h < 900; h += 1) {
+        const a = cadrageCiel(w, h).echelle
+        const b = cadrageCiel(w, h + 1).echelle
+        expect(Math.abs(a - b), `${w}x${h}`).toBeLessThan(0.02)
+      }
     }
   })
 
