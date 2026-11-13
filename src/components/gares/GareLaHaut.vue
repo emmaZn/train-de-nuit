@@ -5,7 +5,7 @@ import { SCENE_KEY } from '@/composables/useScene'
 import type { Poignee } from '@/scene/Dissolve'
 import type { Scene } from '@/scene/Scene'
 import type { Trace } from '@/scene/types'
-import { ECHELLE_MONTAGNES, regionCiel } from '@/scene/layout'
+import { cadrageCiel } from '@/scene/layout'
 import { tirerPlace } from '@/scene/stars'
 import { useTraces } from '@/stores/traces'
 import type { Envoi } from '@/stores/traces'
@@ -22,7 +22,7 @@ import { useVoyage } from '@/stores/voyage'
 const MAX_PHRASE = 80
 /** Ce que les règles acceptent pour le prénom : au-delà, le document est refusé. */
 const MAX_PRENOM = 24
-/** Le tirage par défaut de `tirerPlace`, redit pour atteindre le quatrième argument. */
+/** Combien de candidats `tirerPlace` départage. */
 const TIRAGES = 40
 /** Passé ce délai, on rend l'écran au visiteur. L'écriture, elle, continue. */
 const DELAI = 10_000
@@ -204,19 +204,18 @@ function cadrePhrase(): DOMRect {
 /** L'écriture part tout de suite, à une place tirée une seule fois. */
 function demarrer(texte: string): Envoi {
   const prises = traces.etoiles.map((e) => ({ x: e.x, y: e.y }))
-  // Provisoire : la hauteur de la région au milieu de la fenêtre, avec le
-  // cadrage par défaut (la tâche 5 refait cet appel).
-  const region = regionCiel(
-    window.innerWidth / 2,
+  // Les distances se mesurent en pixels d'écran : la hauteur libre varie avec x,
+  // le carré normalisé ne dit plus « loin ».
+  const { decalage, echelle } = cadrageCiel(window.innerWidth, window.innerHeight)
+  const place = tirerPlace(
+    prises,
+    Math.random,
+    TIRAGES,
     window.innerWidth,
     window.innerHeight,
-    ECHELLE_MONTAGNES,
-    0,
+    echelle,
+    decalage,
   )
-  // Le quatrième argument n'est pas facultatif : sans lui le tirage mesure dans
-  // le carré normalisé, où 17 px de haut pèsent autant que 72 px de large, et
-  // les étoiles se posent les unes sur les autres.
-  const place = tirerPlace(prises, Math.random, TIRAGES, window.innerWidth / region.height)
   const nom = prenom.value.trim()
   // C'est le magasin qui tient l'envoi et qui, seul, conclut l'écriture : une
   // promesse écoutée d'ici mourrait avec le composant.

@@ -5,7 +5,7 @@ import { nextTick, shallowRef } from 'vue'
 import GareLaHaut from '@/components/gares/GareLaHaut.vue'
 import { SCENE_KEY } from '@/composables/useScene'
 import type { Scene } from '@/scene/Scene'
-import { ECHELLE_MONTAGNES, regionCiel } from '@/scene/layout'
+import { cadrageCiel } from '@/scene/layout'
 import { tirerPlace } from '@/scene/stars'
 import type { Place } from '@/scene/stars'
 import { useTraces } from '@/stores/traces'
@@ -266,16 +266,15 @@ test('la place tirée part dans le document et dans la dissolution, à l’ident
   expect(scene.beginDissolve.mock.calls[0][2]).toEqual({ x: doc.x, y: doc.y })
 })
 
-test('la place se tire dans le rapport de la bande de ciel, pas dans le carré', async () => {
+test('la place se tire à l’écran : fenêtre et cadrage, pas le carré normalisé', async () => {
   window.innerWidth = 1280
   window.innerHeight = 800
   const { champ } = monter()
   await champ.setValue('une phrase')
   await champ.trigger('keydown.enter')
   const appel = vi.mocked(tirerPlace).mock.calls[0]
-  // Le quatrième argument : sans lui, 17 px de haut pèsent autant que 72 de large.
-  expect(appel[3]).toBe(1280 / regionCiel(640, 1280, 800, ECHELLE_MONTAGNES, 0).height)
-  expect(appel[3]).toBeGreaterThan(1)
+  const { echelle, decalage } = cadrageCiel(1280, 800)
+  expect(appel.slice(3)).toEqual([1280, 800, echelle, decalage])
 })
 
 test('le champ phrase porte exactement la police que la dissolution rastérise', () => {

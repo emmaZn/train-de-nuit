@@ -47,21 +47,28 @@ export function projeter(
  * Where a new star goes: of `tirages` random candidates, the one farthest from
  * every taken place (best candidate). `alea` is injected to stay deterministic.
  *
- * Places are normalised, but a unit in x is much longer on screen than a unit
- * in y: `rapport` (band width over band height, in pixels) weights x so that
- * « far » means far on screen. The default 1 measures in the normalised square.
+ * Places are normalised, but the free region's height varies with x (60 px
+ * under the summit), so « far » is measured in screen pixels: every place is
+ * projected once, before the loop, and every candidate once.
  */
 export function tirerPlace(
   prises: Place[],
   alea: () => number,
-  tirages = 40,
-  rapport = 1,
+  tirages: number,
+  viewportW: number,
+  viewportH: number,
+  echelle: number,
+  decalage: number,
 ): Place {
+  const projetees = prises.map((p) => projeter(p, viewportW, viewportH, echelle, decalage))
   let meilleure: Place = { x: alea(), y: alea() }
-  let distanceMax = plusProche(meilleure, prises, rapport)
+  let distanceMax = plusProche(
+    projeter(meilleure, viewportW, viewportH, echelle, decalage),
+    projetees,
+  )
   for (let i = 1; i < tirages; i++) {
     const candidate = { x: alea(), y: alea() }
-    const d = plusProche(candidate, prises, rapport)
+    const d = plusProche(projeter(candidate, viewportW, viewportH, echelle, decalage), projetees)
     if (d > distanceMax) {
       meilleure = candidate
       distanceMax = d
@@ -70,9 +77,9 @@ export function tirerPlace(
   return meilleure
 }
 
-function plusProche(p: Place, prises: Place[], rapport: number): number {
+function plusProche(p: { px: number; py: number }, prises: { px: number; py: number }[]): number {
   let min = Infinity
-  for (const q of prises) min = Math.min(min, Math.hypot((p.x - q.x) * rapport, p.y - q.y))
+  for (const q of prises) min = Math.min(min, Math.hypot(p.px - q.px, p.py - q.py))
   return min
 }
 

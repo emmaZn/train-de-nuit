@@ -10,6 +10,7 @@ import {
   projeter,
   tirerPlace,
   type EtoilePosee,
+  type Place,
 } from '../stars'
 import type { Trace } from '../types'
 
@@ -83,7 +84,7 @@ test('les bornes 0 et 1 tombent dans la région, pas à côté', () => {
 test('tirerPlace tombe dans la bande 0..1 sur les deux axes', () => {
   const alea = graine(1)
   for (let i = 0; i < 50; i++) {
-    const p = tirerPlace([], alea)
+    const p = tirerPlace([], alea, 40, 1512, 771, 2.153, 11)
     expect(p.x).toBeGreaterThanOrEqual(0)
     expect(p.x).toBeLessThanOrEqual(1)
     expect(p.y).toBeGreaterThanOrEqual(0)
@@ -99,30 +100,33 @@ test('tirerPlace s’éloigne des places déjà prises', () => {
   let avecChoix = 0
   let sansChoix = 0
   for (let s = 1; s <= 30; s++) {
-    avecChoix += distance(tirerPlace(prises, graine(s)))
-    sansChoix += distance(tirerPlace(prises, graine(s), 1))
+    avecChoix += distance(tirerPlace(prises, graine(s), 40, 1512, 771, 2.153, 11))
+    sansChoix += distance(tirerPlace(prises, graine(s), 1, 1512, 771, 2.153, 11))
   }
   expect(avecChoix).toBeGreaterThan(sansChoix)
   expect(avecChoix / 30).toBeGreaterThan(0.45)
 })
 
-test('tirerPlace pèse x par le rapport : à distance normalisée égale, pas à distance écran égale', () => {
-  const prises = [{ x: 0.5, y: 0.5 }]
-  // Two candidates at the same normalised distance (0.1) from the taken place.
-  const tirages = () => {
-    const suite = [0.6, 0.5, 0.5, 0.6]
-    let i = 0
-    return () => suite[i++]
-  }
-  // Wide band (10x): the x offset is far on screen, the y offset is not.
-  expect(tirerPlace(prises, tirages(), 2, 10)).toEqual({ x: 0.6, y: 0.5 })
-  // Tall band (0.1x): the y offset is the far one.
-  expect(tirerPlace(prises, tirages(), 2, 0.1)).toEqual({ x: 0.5, y: 0.6 })
+test('les places ne s’entassent pas sous le sommet', () => {
+  // La hauteur libre varie avec x : une distance mesurée en espace normalisé
+  // ne veut plus dire « loin à l'écran ». Sous le sommet, où elle vaut 60 px,
+  // l'ancien tirage posait des étoiles à quelques pixels l'une de l'autre.
+  const alea = graine(1)
+  const [W, H, E, D] = [1512, 771, 2.153, 11]
+  const prises: Place[] = []
+  for (let i = 0; i < 40; i++) prises.push(tirerPlace(prises, alea, 40, W, H, E, D))
+  const posees = prises.map((p) => projeter(p, W, H, E, D))
+  let minimum = Infinity
+  for (let i = 0; i < posees.length; i++)
+    for (let j = i + 1; j < posees.length; j++)
+      minimum = Math.min(minimum, Math.hypot(posees[i].px - posees[j].px, posees[i].py - posees[j].py))
+  // Deux cibles de survol (14 px) ne doivent pas se recouvrir.
+  expect(minimum).toBeGreaterThan(28)
 })
 
 test('tirerPlace est déterministe à alea égal', () => {
   const prises = [{ x: 0.2, y: 0.3 }]
-  expect(tirerPlace(prises, graine(7))).toEqual(tirerPlace(prises, graine(7)))
+  expect(tirerPlace(prises, graine(7), 40, 1512, 771, 2.153, 11)).toEqual(tirerPlace(prises, graine(7), 40, 1512, 771, 2.153, 11))
 })
 
 const posees: EtoilePosee[] = [
