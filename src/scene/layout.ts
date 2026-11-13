@@ -350,3 +350,83 @@ export function regionCiel(
   const bas = cretePx(xPx, viewportW, viewportH, echelle, decalage) - MARGE_CRETE
   return { top, height: Math.max(bas - top, 1) }
 }
+
+/* ---- La règle de dégagement ---- */
+
+/** Ciel qu'on garde au sommet du massif, sous la frise, en pixels d'écran. */
+export const CIEL_SOMMET = 60
+
+/**
+ * Ce qu'on ne réduit pas sous les rails, en pixels d'écran. C'est un plafond
+ * au décalage, pas une garantie : on ne promet pas de l'atteindre (844 x 390
+ * n'en garde que 81). Voir `cadrageCiel` pour ce qu'il borne en pratique.
+ */
+export const PLANCHER_REFLET = 90
+
+/** Plus petite échelle que la résolution puisse retenir. */
+const ECHELLE_MIN = 0.5
+
+/**
+ * Le ciel au sommet : la crête la plus haute sur les colonnes visibles, sous
+ * la frise. La crête est linéaire par morceaux, ses ruptures aux bords de
+ * paquet : son minimum est donc atteint à un bord de paquet ou à une extrémité
+ * de l'écran. On n'évalue que ces points, et c'est exact.
+ */
+function cielAuSommet(
+  viewportW: number,
+  viewportH: number,
+  echelle: number,
+  decalage: number,
+): number {
+  const frame = fitStage(viewportW, viewportH)
+  const c = cadreMontagnes(echelle)
+  const f = facteurMontagnes(echelle)
+  let sommet = Math.min(
+    cretePx(0, viewportW, viewportH, echelle, decalage),
+    cretePx(viewportW, viewportW, viewportH, echelle, decalage),
+  )
+  for (let k = 0; k <= CRETE.length; k++) {
+    const x = (c.x + k * CRETE_BIN * f) * frame.scale + frame.offsetX
+    if (x > 0 && x < viewportW) {
+      sommet = Math.min(sommet, cretePx(x, viewportW, viewportH, echelle, decalage))
+    }
+  }
+  return sommet - HAUTEUR_FRISE
+}
+
+/**
+ * Comment dégager le sommet du massif : décaler d'abord, rapetisser ensuite.
+ *
+ * Le décalage ne dépasse ni le jeu vertical du cadrage (`-offsetY`, nul quand
+ * la fenêtre est pilotée par sa hauteur : sinon une bande du haut n'aurait plus
+ * de scène derrière elle).
+ * Si `CIEL_SOMMET` n'est pas atteint, l'échelle se résout : la plus grande de
+ * `[ECHELLE_MIN, ECHELLE_MONTAGNES]` qui tienne la cible. Résolue, elle est
+ * continue en hauteur de fenêtre, sans aucun seuil de format.
+ */
+export function cadrageCiel(
+  viewportW: number,
+  viewportH: number,
+): { decalage: number; echelle: number } {
+  const frame = fitStage(viewportW, viewportH)
+  const jeu = Math.max(0, -frame.offsetY)
+  // `PLANCHER_REFLET` ne mord pas ici : le tableau du plan donne 26 px de
+  // décalage et 81 px de reflet à 844 x 390, alors qu'un plafond strict
+  // (`reflet - PLANCHER_REFLET`) l'y réduirait à 0. Et un plafond qui ne mord
+  // qu'au-dessus de 90 ferait sauter le décalage d'un pixel de redimensionnement
+  // à l'autre. Le jeu de couverture est donc la seule borne.
+  const decalage = jeu
+
+  const tient = (e: number): boolean => cielAuSommet(viewportW, viewportH, e, decalage) >= CIEL_SOMMET
+  if (tient(ECHELLE_MONTAGNES)) return { decalage, echelle: ECHELLE_MONTAGNES }
+  if (!tient(ECHELLE_MIN)) return { decalage, echelle: ECHELLE_MIN }
+
+  let bas = ECHELLE_MIN
+  let haut = ECHELLE_MONTAGNES
+  while (haut - bas > 1e-4) {
+    const milieu = (bas + haut) / 2
+    if (tient(milieu)) bas = milieu
+    else haut = milieu
+  }
+  return { decalage, echelle: bas }
+}

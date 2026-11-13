@@ -7,6 +7,8 @@ import {
   ANCRE_FRISE,
   HAUTEUR_FRISE,
   HAUT_VOIE,
+  CIEL_SOMMET,
+  cadrageCiel,
   cretePx,
   hautDuVoilePx,
   regionCiel,
@@ -318,4 +320,42 @@ test('l’œil se pose sur la ligne de voie, pas au-dessus', async () => {
   // 64 à 44 px et un bouton de 36 px n'y tient plus proprement.
   const css = (await import('@/components/EyeButton.vue?raw')).default
   expect(css).toMatch(/top:\s*calc\(var\(--haut-voie\)\s*-\s*18px\)/)
+})
+
+describe('la règle de dégagement', () => {
+  const colonnes = (w: number): number[] => Array.from({ length: Math.ceil(w) + 1 }, (_, i) => i)
+
+  test.each([
+    [1512, 771, 11, 2.153],
+    [1280, 800, 0, 2.16],
+    [1440, 900, 0, 2.2],
+    [1728, 1117, 0, 2.2],
+    [390, 844, 0, 2.2],
+    [844, 390, 26, 1.555],
+  ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
+    const c = cadrageCiel(w, h)
+    expect(c.decalage).toBeCloseTo(decalage, 0)
+    expect(c.echelle).toBeCloseTo(echelle, 2)
+  })
+
+  test('le jeu vertical est nul dès que la fenêtre est pilotée par sa hauteur', () => {
+    expect(cadrageCiel(1440, 900).decalage).toBe(0)
+    expect(cadrageCiel(1512, 771).decalage).toBeGreaterThan(0)
+  })
+
+  test('l’échelle est continue en hauteur de fenêtre', () => {
+    for (let h = 380; h < 900; h += 1) {
+      const a = cadrageCiel(1000, h).echelle
+      const b = cadrageCiel(1000, h + 1).echelle
+      expect(Math.abs(a - b)).toBeLessThan(0.02)
+    }
+  })
+
+  test('la cible de 60 px est tenue partout', () => {
+    for (const [w, h] of [[1512, 771], [1280, 800], [1440, 900], [390, 844], [844, 390], [1024, 600]]) {
+      const { decalage, echelle } = cadrageCiel(w, h)
+      const sommet = Math.min(...colonnes(w).map((x) => cretePx(x, w, h, echelle, decalage)))
+      expect(sommet - HAUTEUR_FRISE).toBeGreaterThanOrEqual(CIEL_SOMMET - 0.5)
+    }
+  })
 })
