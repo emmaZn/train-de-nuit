@@ -108,20 +108,25 @@ test('tirerPlace s’éloigne des places déjà prises', () => {
 })
 
 test('les places ne s’entassent pas sous le sommet', () => {
-  // La hauteur libre varie avec x : une distance mesurée en espace normalisé
-  // ne veut plus dire « loin à l'écran ». Sous le sommet, où elle vaut 60 px,
-  // l'ancien tirage posait des étoiles à quelques pixels l'une de l'autre.
-  const alea = graine(1)
+  // La hauteur libre vaut ~60 px sous le sommet et plusieurs centaines sur les
+  // flancs : un rapport constant ne peut pas représenter les deux, il entasse
+  // les places là où il n'est pas calibré. On mesure donc les paires dont les
+  // deux étoiles sont sous le sommet (région de moins de 100 px).
   const [W, H, E, D] = [1512, 771, 2.153, 11]
-  const prises: Place[] = []
-  for (let i = 0; i < 40; i++) prises.push(tirerPlace(prises, alea, 40, W, H, E, D))
-  const posees = prises.map((p) => projeter(p, W, H, E, D))
   let minimum = Infinity
-  for (let i = 0; i < posees.length; i++)
-    for (let j = i + 1; j < posees.length; j++)
-      minimum = Math.min(minimum, Math.hypot(posees[i].px - posees[j].px, posees[i].py - posees[j].py))
-  // Deux cibles de survol (14 px) ne doivent pas se recouvrir.
-  expect(minimum).toBeGreaterThan(28)
+  for (let s = 1; s <= 30; s++) {
+    const alea = graine(s)
+    const prises: Place[] = []
+    for (let i = 0; i < 40; i++) prises.push(tirerPlace(prises, alea, 40, W, H, E, D))
+    const sous = prises
+      .map((p) => projeter(p, W, H, E, D))
+      .filter((p) => regionCiel(p.px, W, H, E, D).height < 100)
+    for (let i = 0; i < sous.length; i++)
+      for (let j = i + 1; j < sous.length; j++)
+        minimum = Math.min(minimum, Math.hypot(sous[i].px - sous[j].px, sous[i].py - sous[j].py))
+  }
+  // Deux cibles de survol (14 px) ne doivent pas se recouvrir, avec de la marge.
+  expect(minimum).toBeGreaterThan(40)
 })
 
 test('tirerPlace est déterministe à alea égal', () => {
