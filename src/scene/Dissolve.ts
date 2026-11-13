@@ -1,9 +1,14 @@
 import gsap from 'gsap'
 import { Container, Graphics } from 'pixi.js'
-import { ECHELLE_MONTAGNES } from './layout'
-import { projeter } from './stars'
+import { projeterAuCadrage } from './stars'
+
 import type { Place } from './stars'
 import type { Trace } from './types'
+
+/** Where the grain climbs to: the place the star will occupy once lit. */
+export function cibleDuGrain(place: Place, viewportW: number, viewportH: number) {
+  return projeterAuCadrage(place, viewportW, viewportH)
+}
 
 /**
  * Les cinq temps du §4.3 : 3,5 s en tout, dont 2,5 s de montée. Le temps 1
@@ -188,7 +193,7 @@ export class Dissolve implements Poignee {
 
   constructor(opts: DissolveOptions) {
     this.opts = opts
-    const vise = projeter(opts.place, opts.viewportW, opts.viewportH, ECHELLE_MONTAGNES, 0)
+    const vise = cibleDuGrain(opts.place, opts.viewportW, opts.viewportH)
     this.cible = { x: vise.px, y: vise.py }
     this.centre = {
       x: opts.depuis.left + opts.depuis.width / 2,
@@ -272,7 +277,7 @@ export class Dissolve implements Poignee {
    */
   resize(viewportW: number, viewportH: number): void {
     if (this.phase === 'fini') return
-    const vise = projeter(this.opts.place, viewportW, viewportH, ECHELLE_MONTAGNES, 0)
+    const vise = cibleDuGrain(this.opts.place, viewportW, viewportH)
     this.cible.x = vise.px
     this.cible.y = vise.py
     this.controle = this.controleVers(this.centre)

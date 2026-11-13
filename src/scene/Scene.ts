@@ -10,8 +10,8 @@ import {
   DUREE_ETAPE,
   HORIZON,
   STAGE,
+  cadrageScene,
   cadreDegrade,
-  fitStage,
 } from './layout'
 import type { Relief } from './Relief'
 import { DEFAUT, fondToHex } from './palette'
@@ -101,9 +101,11 @@ export class Scene {
 
     // Stars live in screen space, behind the stage frame that covers the
     // viewport: a phone shows only a quarter of that frame's width.
+    // La poussière aussi : elle ne se dessine que dans la région libre, qui
+    // se mesure en pixels d'écran.
+    this.sky = new Sky(this.app.stage)
     this.stars = new Stars(this.app.stage, { reducedMotion: this.reducedMotion })
     this.app.stage.addChild(this.monde, this.dissous)
-    this.sky = new Sky(this.monde)
 
     this.refletSprite.scale.y = -1
     this.refletSprite.alpha = REFLET_OPACITE
@@ -184,19 +186,21 @@ export class Scene {
   private cadrer(): void {
     if (!this.vivante) return
     const { width, height } = this.app.screen
-    const frame = fitStage(width, height)
+    // `frame.offsetY` porte le décalage : `cretePx` l'ajoute après `fitStage`,
+    // et c'est ce même conteneur qui porte massif, voile, rails et train.
+    const { frame, decalage, echelle } = cadrageScene(width, height)
     for (const noeud of [this.monde]) {
       noeud.scale.set(frame.scale)
       noeud.position.set(frame.offsetX, frame.offsetY)
     }
 
-    this.sky?.resize(STAGE.width, STAGE.height, width < 720)
+    this.sky?.resize(width, height, width < 720, echelle, decalage)
     this.stars?.setStars(this.traces, width, height)
     this.stars?.resize(width, height)
     // La place d'une étoile est une fraction, sa cible des pixels : une
     // dissolution en cours doit suivre l'écran.
     for (const d of this.dissolutions) d.resize(width, height)
-    this.relief?.cadrer(frame, width, height, this.app.renderer.resolution)
+    this.relief?.cadrer(frame, width, height, this.app.renderer.resolution, echelle)
 
     this.refletTexture?.destroy(true)
     this.refletTexture = RenderTexture.create({

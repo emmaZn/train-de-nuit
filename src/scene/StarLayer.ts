@@ -1,5 +1,5 @@
 import { Container, Graphics } from 'pixi.js'
-import { ECHELLE_MONTAGNES } from './layout'
+import { cadrageCiel } from './layout'
 import { aHalo, amplitudeScintillement, eclat, etoileSous, limiteEtoiles, projeter } from './stars'
 import type { EtoilePosee } from './stars'
 import type { Trace } from './types'
@@ -42,6 +42,8 @@ export class Stars {
   private readonly reducedMotion: boolean
   private largeur = 0
   private hauteur = 0
+  /** Solved once per viewport size: the rule bisects, and every star reads it. */
+  private cadrage = { decalage: 0, echelle: 1 }
   private horloge = 0
   private maintenant = Date.now()
   /**
@@ -62,8 +64,7 @@ export class Stars {
    * ones up to the limit; a placed star that falls out of it is faded out.
    */
   setStars(traces: Trace[], viewportW: number, viewportH: number): void {
-    this.largeur = viewportW
-    this.hauteur = viewportH
+    this.mesurer(viewportW, viewportH)
     this.limite ??= limiteEtoiles(viewportW)
     const gardees = [...traces].sort((a, b) => b.creeLe - a.creeLe).slice(0, this.limite)
     const ids = new Set(gardees.map((t) => t.id))
@@ -83,9 +84,16 @@ export class Stars {
   }
 
   resize(viewportW: number, viewportH: number): void {
+    this.mesurer(viewportW, viewportH)
+    for (const e of this.posees.values()) this.placer(e)
+  }
+
+  private mesurer(viewportW: number, viewportH: number): void {
+    if (viewportW !== this.largeur || viewportH !== this.hauteur) {
+      this.cadrage = cadrageCiel(viewportW, viewportH)
+    }
     this.largeur = viewportW
     this.hauteur = viewportH
-    for (const e of this.posees.values()) this.placer(e)
   }
 
   /** The trace under the pointer, or null. Emits nothing: the scene decides. */
@@ -158,7 +166,13 @@ export class Stars {
   }
 
   private placer(e: Posee): void {
-    const { px, py } = projeter(e.trace, this.largeur, this.hauteur, ECHELLE_MONTAGNES, 0)
+    const { px, py } = projeter(
+      e.trace,
+      this.largeur,
+      this.hauteur,
+      this.cadrage.echelle,
+      this.cadrage.decalage,
+    )
     e.px = px
     e.py = py
     e.gfx.position.set(px, py)

@@ -5,6 +5,7 @@ import {
   DUREE_MONTEE,
   DUREE_TOTALE,
   Dissolve,
+  cibleDuGrain,
   grainsDePhrase,
   grainsDepuisAlpha,
   poigneeSansAnimation,
@@ -12,8 +13,8 @@ import {
 import type { Grain } from '@/scene/Dissolve'
 import { Scene } from '@/scene/Scene'
 import { Stars } from '@/scene/StarLayer'
-import { ECHELLE_MONTAGNES } from '@/scene/layout'
-import { projeter } from '@/scene/stars'
+import { cadrageCiel } from '@/scene/layout'
+import { projeter, projeterAuCadrage } from '@/scene/stars'
 import type { Place } from '@/scene/stars'
 import type { Trace } from '@/scene/types'
 
@@ -198,7 +199,7 @@ test('land puis revert : le second est ignoré, la poignée ne joue qu’une fin
   expect(posees).toEqual([t])
   expect(parent.children).toHaveLength(0)
 
-  const { px, py } = projeter(PLACE, VP_W, VP_H, ECHELLE_MONTAGNES, 0)
+  const { px, py } = projeterAuCadrage(PLACE, VP_W, VP_H)
   expect(stars.hit(px, py)?.id).toBe(t.id)
   await fin
 })
@@ -297,8 +298,8 @@ test('un redimensionnement en vol déplace la cible du grain', async () => {
   d.resize(VP_W, VP_H2)
   jouer(d, DUREE_DEFAIT + DUREE_MONTEE + DUREE_ECLAT / 2)
 
-  const vise = projeter(PLACE, VP_W, VP_H2, ECHELLE_MONTAGNES, 0)
-  expect(vise.py).not.toBeCloseTo(projeter(PLACE, VP_W, VP_H, ECHELLE_MONTAGNES, 0).py)
+  const vise = projeterAuCadrage(PLACE, VP_W, VP_H2)
+  expect(vise.py).not.toBeCloseTo(projeterAuCadrage(PLACE, VP_W, VP_H).py)
   // Le halo de l'éclat, dessiné en dernier, se pose là où l'étoile sera.
   const halo = cercles(parent).at(-1)
   expect(halo?.x).toBeCloseTo(vise.px)
@@ -318,7 +319,7 @@ test('en mouvement réduit, land pose l’étoile sans animer', async () => {
   // Aucune image jouée : l'étoile est là dès que l'écriture aboutit.
   await expect(poignee.land(t)).resolves.toBeUndefined()
   expect(posees).toEqual([t])
-  const { px, py } = projeter(PLACE, VP_W, VP_H, ECHELLE_MONTAGNES, 0)
+  const { px, py } = projeterAuCadrage(PLACE, VP_W, VP_H)
   expect(stars.hit(px, py)?.id).toBe(t.id)
 })
 
@@ -329,4 +330,14 @@ test('sans rendu, beginDissolve rend une poignée qui se tient tout de suite', a
   const poignee = scene.beginDissolve('une phrase', DEPUIS, PLACE)
   await expect(poignee.land(trace())).resolves.toBeUndefined()
   await expect(poignee.revert()).resolves.toBeUndefined()
+})
+
+test('le grain monte là où l’étoile s’allumera vraiment', () => {
+  // `Dissolve` et `StarLayer` doivent lire la même région : sinon la traînée
+  // vise une place que l'étoile n'occupera pas. 1512x771 est un format où le
+  // décalage n'est pas nul.
+  const place = { x: 0.46, y: 0.3 }
+  const { decalage, echelle } = cadrageCiel(1512, 771)
+  expect(decalage).toBeGreaterThan(0)
+  expect(cibleDuGrain(place, 1512, 771)).toEqual(projeter(place, 1512, 771, echelle, decalage))
 })

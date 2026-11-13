@@ -1,4 +1,5 @@
 import { Container, Graphics } from 'pixi.js'
+import { regionCiel } from './layout'
 
 export type Grain = {
   x: number
@@ -50,6 +51,24 @@ export function makeDust(count: number, seed: number, w: number, h: number): Gra
 /** How far the dust lags behind the pointer, in pixels. */
 const PARALLAX = 14
 
+/**
+ * Garde les grains qui tiennent dans la région libre, parallaxe comprise : la
+ * poussière transparaît à travers le grain du massif exactement comme une
+ * étoile, et le souffle du pointeur la déplace de `PARALLAX` pixels.
+ */
+export function grainsLibres(
+  grains: Grain[],
+  viewportW: number,
+  viewportH: number,
+  echelle: number,
+  decalage: number,
+): Grain[] {
+  return grains.filter((g) => {
+    const { top, height } = regionCiel(g.x, viewportW, viewportH, echelle, decalage)
+    return g.y + g.r + PARALLAX <= top + height
+  })
+}
+
 export class Sky {
   private readonly racine = new Container()
   private readonly grains = new Graphics()
@@ -62,9 +81,11 @@ export class Sky {
     parent.addChild(this.racine)
   }
 
-  resize(width: number, height: number, mobile: boolean): void {
+  /** En pixels d'écran, comme les étoiles : la région libre est mesurée là. */
+  resize(width: number, height: number, mobile: boolean, echelle: number, decalage: number): void {
     this.grains.clear()
-    for (const grain of makeDust(dustCount(width, height, mobile), this.seed, width, height)) {
+    const poussiere = makeDust(dustCount(width, height, mobile), this.seed, width, height)
+    for (const grain of grainsLibres(poussiere, width, height, echelle, decalage)) {
       this.grains.circle(grain.x, grain.y, grain.r).fill({ color: 0xffffff, alpha: grain.a })
     }
   }

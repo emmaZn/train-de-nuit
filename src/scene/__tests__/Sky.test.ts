@@ -1,4 +1,5 @@
-import { dustCount, makeDust } from '@/scene/Sky'
+import { cadrageCiel, regionCiel } from '@/scene/layout'
+import { dustCount, grainsLibres, makeDust } from '@/scene/Sky'
 
 // Review Focus #5 : viewport minuscule, rotation mobile
 test.each([
@@ -44,4 +45,16 @@ test('la poussière couvre tout le ciel, bande de la frise comprise', () => {
 
 test('makeDust rend exactement le nombre de grains demandé', () => {
   expect(makeDust(123, 5, 800, 600)).toHaveLength(123)
+})
+
+test('aucun grain de poussière ne tombe sous la crête, parallaxe comprise', () => {
+  for (const [w, h] of [[1512, 771], [844, 390], [1440, 900]]) {
+    const { decalage, echelle } = cadrageCiel(w, h)
+    const libres = grainsLibres(makeDust(600, 1, w, h), w, h, echelle, decalage)
+    expect(libres.length).toBeGreaterThan(0)
+    for (const g of libres) {
+      const r = regionCiel(g.x, w, h, echelle, decalage)
+      expect(g.y + g.r + 14).toBeLessThanOrEqual(r.top + r.height)
+    }
+  }
 })

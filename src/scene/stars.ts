@@ -1,4 +1,4 @@
-import { SEUIL_MOBILE, regionCiel } from './layout'
+import { SEUIL_MOBILE, cadrageCiel, regionCiel } from './layout'
 import type { Trace } from './types'
 
 export const ETOILES_MAX_BUREAU = 120
@@ -41,6 +41,19 @@ export function projeter(
   const px = place.x * viewportW
   const region = regionCiel(px, viewportW, viewportH, echelle, decalage)
   return { px, py: region.top + place.y * region.height }
+}
+
+/**
+ * `projeter` au cadrage que la scène applique à cette fenêtre : le seul chemin
+ * par lequel une place devient un pixel, pour l'étoile comme pour son grain.
+ */
+export function projeterAuCadrage(
+  place: Place,
+  viewportW: number,
+  viewportH: number,
+): { px: number; py: number } {
+  const { decalage, echelle } = cadrageCiel(viewportW, viewportH)
+  return projeter(place, viewportW, viewportH, echelle, decalage)
 }
 
 /**

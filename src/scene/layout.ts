@@ -427,3 +427,19 @@ export function cadrageCiel(
   }
   return { decalage, echelle: bas }
 }
+
+/**
+ * Le cadrage que la scène applique réellement : le cadre de scène, déjà
+ * décalé, et l'échelle du massif. `cretePx` ajoute `decalage` après `fitStage` ;
+ * la scène le met donc dans `offsetY` du conteneur qui porte tout le décor
+ * (massif, voile, rails, train). Un seul endroit où ces deux chaînes se
+ * rejoignent, pour que les étoiles et la montagne ne se décalent jamais.
+ */
+export function cadrageScene(
+  viewportW: number,
+  viewportH: number,
+): { frame: Frame; decalage: number; echelle: number } {
+  const frame = fitStage(viewportW, viewportH)
+  const { decalage, echelle } = cadrageCiel(viewportW, viewportH)
+  return { frame: { ...frame, offsetY: frame.offsetY + decalage }, decalage, echelle }
+}
