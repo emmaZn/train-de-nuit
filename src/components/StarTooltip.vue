@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'
 import { SCENE_KEY } from '@/composables/useScene'
+import { HAUTEUR_FRISE } from '@/scene/layout'
 import { ageRelatif } from '@/scene/dates'
 import type { Trace } from '@/scene/types'
 
@@ -15,6 +16,11 @@ const MARGE = 16
  * star; measuring the real box would mean showing it first, then moving it.
  */
 const HAUTEUR_MAX = 110
+/**
+ * Clearance kept between the bottom of the frise and the top of the bubble, so
+ * a sentence never sits flush against the navigation.
+ */
+const DEGAGEMENT_FRISE = 8
 
 type Survol = { trace: Trace; x: number; y: number; age: string; gauche: number; dessus: boolean }
 
@@ -41,8 +47,11 @@ function surEtoile(trace: Trace | null, x: number, y: number) {
       MARGE,
       Math.min(x + ECART, window.innerWidth - MARGE - largeur),
     ),
-    // Below the point when it would run past the top.
-    dessus: y - ECART - HAUTEUR_MAX >= 0,
+    // Below the point when it would run into the frise. The top 116 px are the
+    // navigation, not the sky: measured against 0, a star just under the frise
+    // wrote its sentence across « ici » and « PROCHAIN ARRÊT », and neither the
+    // sentence nor the station could be read.
+    dessus: y - ECART - HAUTEUR_MAX >= HAUTEUR_FRISE + DEGAGEMENT_FRISE,
   }
 }
 

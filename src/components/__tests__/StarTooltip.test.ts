@@ -180,3 +180,21 @@ test('la bulle ne prend ni le pointeur ni l’attention des lecteurs d’écran'
   // The hidden list carries the same sentences: the bubble would only repeat them.
   expect(wrapper.get('[data-role="bulle"]').attributes('aria-hidden')).toBe('true')
 })
+
+test('sous la frise, la bulle descend au lieu de traverser la navigation', async () => {
+  const { scene, survol } = fausseScene()
+  const { wrapper } = monter(scene)
+  survol(trace(), 300, 200)
+  await wrapper.vm.$nextTick()
+  const bulle = wrapper.get('[data-role="bulle"]')
+  expect(bulle.attributes('data-sens')).toBe('dessous')
+  expect((bulle.element as HTMLElement).style.top).toBe('214px')
+})
+
+test('assez bas, la bulle repasse au-dessus du point', async () => {
+  const { scene, survol } = fausseScene()
+  const { wrapper } = monter(scene)
+  survol(trace(), 300, 248)
+  await wrapper.vm.$nextTick()
+  expect(wrapper.get('[data-role="bulle"]').attributes('data-sens')).toBe('dessus')
+})
