@@ -1,3 +1,5 @@
+import { CRETE, CRETE_BIN, MARGE_CRETE } from './crete'
+
 /** The frame every train asset is drawn in: rails, locomotive and wagon share it. */
 export const STAGE = { width: 2320, height: 1217 } as const
 
@@ -287,11 +289,59 @@ export const HAUT_VOIE = 44
 export const HAUTEUR_FRISE = 96
 
 /**
- * La bande où vivent les étoiles des visiteurs : du bas de la frise jusqu'à
- * mi-hauteur de la fenêtre. `y` est normalisé sur cette bande, pas sur la
- * fenêtre, sans quoi la frise (fixe) en cacherait une part variable.
+ * Haut du voile, en pixels d'écran : `HORIZON - DEGRADE_HAUTEUR` projeté.
+ * C'est le plancher de la région libre. Là où il n'y a pas de massif, la
+ * région irait sinon jusqu'au bas du cadre, et les étoiles se poseraient sur
+ * les rails, le train ou le reflet.
+ *
+ * `decalage` est un décalage vertical en pixels d'écran, ajouté après le
+ * cadrage.
  */
-export function bandeCiel(viewportH: number): { top: number; height: number } {
+export function hautDuVoilePx(viewportW: number, viewportH: number, decalage: number): number {
+  const frame = fitStage(viewportW, viewportH)
+  return (HORIZON - DEGRADE_HAUTEUR) * frame.scale + frame.offsetY + decalage
+}
+
+/**
+ * Ordonnée d'écran de la crête du massif sous la colonne `xPx`, plancher
+ * compris, **sans** `MARGE_CRETE` (c'est `regionCiel` qui la retranche).
+ *
+ * Même chaîne que le rendu : source -> scène par `cadreMontagnes`, puis
+ * scène -> écran par `fitStage`. La crête est interpolée linéairement entre
+ * les centres de paquets et bornée aux extrémités : une crête en marches
+ * ferait sauter la région quand le pointeur bouge.
+ */
+export function cretePx(
+  xPx: number,
+  viewportW: number,
+  viewportH: number,
+  echelle: number,
+  decalage: number,
+): number {
+  const frame = fitStage(viewportW, viewportH)
+  const c = cadreMontagnes(echelle)
+  const f = facteurMontagnes(echelle)
+  const sx = ((xPx - frame.offsetX) / frame.scale - c.x) / f
+  const t = borner(sx / CRETE_BIN - 0.5, 0, CRETE.length - 1)
+  const i = Math.min(Math.floor(t), CRETE.length - 2)
+  const sy = CRETE[i] + (CRETE[i + 1] - CRETE[i]) * (t - i)
+  const wy = (c.y + sy * f) * frame.scale + frame.offsetY + decalage
+  return Math.min(wy, hautDuVoilePx(viewportW, viewportH, decalage))
+}
+
+/**
+ * La région où une étoile peut se poser : du bas de la frise jusqu'à la crête
+ * moins `MARGE_CRETE`. `y` est normalisé sur cette région. Sa hauteur reste
+ * strictement positive, sans quoi `projeter` poserait les étoiles en NaN.
+ */
+export function regionCiel(
+  xPx: number,
+  viewportW: number,
+  viewportH: number,
+  echelle: number,
+  decalage: number,
+): { top: number; height: number } {
   const top = HAUTEUR_FRISE
-  return { top, height: Math.max(viewportH / 2 - top, 1) }
+  const bas = cretePx(xPx, viewportW, viewportH, echelle, decalage) - MARGE_CRETE
+  return { top, height: Math.max(bas - top, 1) }
 }

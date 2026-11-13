@@ -1,5 +1,6 @@
 import gsap from 'gsap'
 import { Container, Graphics } from 'pixi.js'
+import { ECHELLE_MONTAGNES } from './layout'
 import { projeter } from './stars'
 import type { Place } from './stars'
 import type { Trace } from './types'
@@ -187,7 +188,7 @@ export class Dissolve implements Poignee {
 
   constructor(opts: DissolveOptions) {
     this.opts = opts
-    const vise = projeter(opts.place, opts.viewportW, opts.viewportH)
+    const vise = projeter(opts.place, opts.viewportW, opts.viewportH, ECHELLE_MONTAGNES, 0)
     this.cible = { x: vise.px, y: vise.py }
     this.centre = {
       x: opts.depuis.left + opts.depuis.width / 2,
@@ -271,7 +272,7 @@ export class Dissolve implements Poignee {
    */
   resize(viewportW: number, viewportH: number): void {
     if (this.phase === 'fini') return
-    const vise = projeter(this.opts.place, viewportW, viewportH)
+    const vise = projeter(this.opts.place, viewportW, viewportH, ECHELLE_MONTAGNES, 0)
     this.cible.x = vise.px
     this.cible.y = vise.py
     this.controle = this.controleVers(this.centre)

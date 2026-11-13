@@ -1,4 +1,4 @@
-import { HAUTEUR_FRISE, SEUIL_MOBILE } from '../layout'
+import { ECHELLE_MONTAGNES, HAUTEUR_FRISE, SEUIL_MOBILE, regionCiel } from '../layout'
 import {
   ETOILES_MAX_BUREAU,
   ETOILES_MAX_MOBILE,
@@ -63,18 +63,21 @@ test.each([
   [390, 844],
 ])('projeter ne pose jamais une étoile sous la frise (%i x %i)', (w, h) => {
   for (const y of [0, 0.5, 1]) {
-    expect(projeter({ x: 0.5, y }, w, h).py).toBeGreaterThanOrEqual(HAUTEUR_FRISE)
+    expect(projeter({ x: 0.5, y }, w, h, ECHELLE_MONTAGNES, 0).py).toBeGreaterThanOrEqual(HAUTEUR_FRISE)
   }
 })
 
 test('projeter rend la même place relative quelle que soit la fenêtre', () => {
-  const a = projeter({ x: 0.25, y: 0.5 }, 1000, 800)
-  const b = projeter({ x: 0.25, y: 0.5 }, 2000, 800)
+  const a = projeter({ x: 0.25, y: 0.5 }, 1000, 800, ECHELLE_MONTAGNES, 0)
+  const b = projeter({ x: 0.25, y: 0.5 }, 2000, 800, ECHELLE_MONTAGNES, 0)
   expect(a.px / 1000).toBeCloseTo(b.px / 2000)
-  expect(a.py).toBeCloseTo(b.py)
-  // y is relative to the band: its middle is the same fraction of any band.
-  const c = projeter({ x: 0.25, y: 0.5 }, 1000, 1200)
-  expect(c.py - HAUTEUR_FRISE).toBeCloseTo((1200 / 2 - HAUTEUR_FRISE) / 2)
+  expect(a.py).toBeGreaterThan(HAUTEUR_FRISE)
+})
+
+test('les bornes 0 et 1 tombent dans la région, pas à côté', () => {
+  const r = regionCiel(700, 1512, 771, 2.153, 11)
+  expect(projeter({ x: 700 / 1512, y: 0 }, 1512, 771, 2.153, 11).py).toBeCloseTo(r.top, 0)
+  expect(projeter({ x: 700 / 1512, y: 1 }, 1512, 771, 2.153, 11).py).toBeCloseTo(r.top + r.height, 0)
 })
 
 test('tirerPlace tombe dans la bande 0..1 sur les deux axes', () => {

@@ -5,7 +5,7 @@ import { SCENE_KEY } from '@/composables/useScene'
 import type { Poignee } from '@/scene/Dissolve'
 import type { Scene } from '@/scene/Scene'
 import type { Trace } from '@/scene/types'
-import { bandeCiel } from '@/scene/layout'
+import { ECHELLE_MONTAGNES, regionCiel } from '@/scene/layout'
 import { tirerPlace } from '@/scene/stars'
 import { useTraces } from '@/stores/traces'
 import type { Envoi } from '@/stores/traces'
@@ -204,11 +204,19 @@ function cadrePhrase(): DOMRect {
 /** L'écriture part tout de suite, à une place tirée une seule fois. */
 function demarrer(texte: string): Envoi {
   const prises = traces.etoiles.map((e) => ({ x: e.x, y: e.y }))
-  const bande = bandeCiel(window.innerHeight)
+  // Provisoire : la hauteur de la région au milieu de la fenêtre, avec le
+  // cadrage par défaut (la tâche 5 refait cet appel).
+  const region = regionCiel(
+    window.innerWidth / 2,
+    window.innerWidth,
+    window.innerHeight,
+    ECHELLE_MONTAGNES,
+    0,
+  )
   // Le quatrième argument n'est pas facultatif : sans lui le tirage mesure dans
   // le carré normalisé, où 17 px de haut pèsent autant que 72 px de large, et
   // les étoiles se posent les unes sur les autres.
-  const place = tirerPlace(prises, Math.random, TIRAGES, window.innerWidth / bande.height)
+  const place = tirerPlace(prises, Math.random, TIRAGES, window.innerWidth / region.height)
   const nom = prenom.value.trim()
   // C'est le magasin qui tient l'envoi et qui, seul, conclut l'écriture : une
   // promesse écoutée d'ici mourrait avec le composant.

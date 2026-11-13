@@ -1,12 +1,15 @@
 import { readFileSync } from 'node:fs'
 
+import { MARGE_CRETE } from '@/scene/crete'
 import { GARES } from '@/stores/voyage'
 
 import {
   ANCRE_FRISE,
   HAUTEUR_FRISE,
   HAUT_VOIE,
-  bandeCiel,
+  cretePx,
+  hautDuVoilePx,
+  regionCiel,
   ANCRE_FRISE_MOBILE,
   DEGRADE_HAUTEUR,
   DUREE_ETAPE,
@@ -238,15 +241,42 @@ test('sur téléphone, la marge se réduit au lieu de cacher le marqueur', () =>
   expect(margeVoie(390)).toBeLessThan(margeVoie(1512))
 })
 
-describe('la bande du ciel', () => {
-  test('commence sous la frise et finit à mi-hauteur', () => {
-    const bande = bandeCiel(900)
-    expect(bande.top).toBe(HAUTEUR_FRISE)
-    expect(bande.top + bande.height).toBe(450)
+describe('la région libre du ciel', () => {
+  test('là où il n’y a pas de massif, la région s’arrête au haut du voile', () => {
+    expect(cretePx(2, 844, 390, 1.555, 26)).toBeCloseTo(hautDuVoilePx(844, 390, 26), 0)
   })
 
-  test('garde une hauteur positive sur une fenêtre très basse', () => {
-    expect(bandeCiel(100).height).toBeGreaterThan(0)
+  test('la région ne descend jamais sous le haut du voile', () => {
+    for (const x of [0, 200, 422, 700, 844]) {
+      const r = regionCiel(x, 844, 390, 1.555, 26)
+      expect(r.top + r.height).toBeLessThanOrEqual(hautDuVoilePx(844, 390, 26) + 0.5)
+    }
+  })
+
+  test('une région écrasée garde une hauteur utilisable', () => {
+    const r = regionCiel(400, 800, 200, 2.2, 0)
+    expect(r.height).toBeGreaterThan(0)
+    expect(Number.isFinite(r.height)).toBe(true)
+  })
+
+  test('la crête est brute : la marge est retranchée par la région, pas par cretePx', () => {
+    const x = 756
+    const r = regionCiel(x, 1512, 771, 2.153, 11)
+    expect(cretePx(x, 1512, 771, 2.153, 11) - MARGE_CRETE).toBeCloseTo(r.top + r.height, 5)
+  })
+
+  test('la crête varie en continu, sans marches', () => {
+    let max = 0
+    for (let x = 300; x < 1200; x++) {
+      const d = Math.abs(cretePx(x + 1, 1512, 771, 2.153, 0) - cretePx(x, 1512, 771, 2.153, 0))
+      max = Math.max(max, d)
+    }
+    expect(max).toBeLessThan(6)
+  })
+
+  test('le décalage descend la crête d’autant, en pixels d’écran', () => {
+    const a = cretePx(756, 1512, 771, 2.153, 0)
+    expect(cretePx(756, 1512, 771, 2.153, 30)).toBeCloseTo(a + 30, 5)
   })
 
   test('HAUTEUR_FRISE est la somme des deux morceaux de CSS qui la font', () => {

@@ -5,7 +5,7 @@ import { nextTick, shallowRef } from 'vue'
 import GareLaHaut from '@/components/gares/GareLaHaut.vue'
 import { SCENE_KEY } from '@/composables/useScene'
 import type { Scene } from '@/scene/Scene'
-import { bandeCiel } from '@/scene/layout'
+import { ECHELLE_MONTAGNES, regionCiel } from '@/scene/layout'
 import { tirerPlace } from '@/scene/stars'
 import type { Place } from '@/scene/stars'
 import { useTraces } from '@/stores/traces'
@@ -274,7 +274,7 @@ test('la place se tire dans le rapport de la bande de ciel, pas dans le carré',
   await champ.trigger('keydown.enter')
   const appel = vi.mocked(tirerPlace).mock.calls[0]
   // Le quatrième argument : sans lui, 17 px de haut pèsent autant que 72 de large.
-  expect(appel[3]).toBe(1280 / bandeCiel(800).height)
+  expect(appel[3]).toBe(1280 / regionCiel(640, 1280, 800, ECHELLE_MONTAGNES, 0).height)
   expect(appel[3]).toBeGreaterThan(1)
 })
 

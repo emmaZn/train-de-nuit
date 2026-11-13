@@ -1,6 +1,7 @@
 import { Container } from 'pixi.js'
 import { afterEach, beforeEach, vi } from 'vitest'
 import { Stars } from '@/scene/StarLayer'
+import { ECHELLE_MONTAGNES } from '@/scene/layout'
 import { ETOILES_MAX_BUREAU, limiteEtoiles, projeter } from '@/scene/stars'
 import type { Trace } from '@/scene/types'
 
@@ -39,7 +40,7 @@ test('setStars pose chaque trace à la place que projeter donne', () => {
   const { stars, racine } = monter()
   const t = trace(0, { x: 0.25, y: 0.5 })
   stars.setStars([t], 1000, 800)
-  const attendu = projeter({ x: 0.25, y: 0.5 }, 1000, 800)
+  const attendu = projeter({ x: 0.25, y: 0.5 }, 1000, 800, ECHELLE_MONTAGNES, 0)
   expect(racine.children).toHaveLength(1)
   expect(racine.children[0].x).toBeCloseTo(attendu.px)
   expect(racine.children[0].y).toBeCloseTo(attendu.py)
@@ -49,7 +50,7 @@ test('resize reprojette sans changer la place relative', () => {
   const { stars, racine } = monter()
   stars.setStars([trace(0, { x: 0.25, y: 0.5 })], 1000, 800)
   stars.resize(500, 1000)
-  const attendu = projeter({ x: 0.25, y: 0.5 }, 500, 1000)
+  const attendu = projeter({ x: 0.25, y: 0.5 }, 500, 1000, ECHELLE_MONTAGNES, 0)
   expect(racine.children[0].x).toBeCloseTo(attendu.px)
   expect(racine.children[0].y).toBeCloseTo(attendu.py)
   // le test d'impact suit la nouvelle place
@@ -59,7 +60,7 @@ test('resize reprojette sans changer la place relative', () => {
 test('hit rend la trace sous le pointeur et null ailleurs', () => {
   const { stars } = monter()
   stars.setStars([trace(0, { x: 0.25, y: 0.5 })], 1000, 800)
-  const { px, py } = projeter({ x: 0.25, y: 0.5 }, 1000, 800)
+  const { px, py } = projeter({ x: 0.25, y: 0.5 }, 1000, 800, ECHELLE_MONTAGNES, 0)
   expect(stars.hit(px + 3, py - 3)?.id).toBe('t0')
   expect(stars.hit(px + 200, py)).toBeNull()
 })
@@ -71,7 +72,7 @@ test('setStars au-delà de la limite ne garde que les plus récentes', () => {
   stars.setStars(traces, 500, 800)
   expect(racine.children).toHaveLength(limite)
   const vieille = traces[traces.length - 1]
-  const p = projeter(vieille, 500, 800)
+  const p = projeter(vieille, 500, 800, ECHELLE_MONTAGNES, 0)
   expect(stars.hit(p.px, p.py)?.id).not.toBe(vieille.id)
 })
 
@@ -138,14 +139,14 @@ test('une étoile revenue pendant son extinction est rallumée au lieu de finir 
   stars.update(10, MAINTENANT)
 
   expect(racine.children).toContain(gfx)
-  const { px, py } = projeter({ x: 0.25, y: 0.5 }, 1000, 800)
+  const { px, py } = projeter({ x: 0.25, y: 0.5 }, 1000, 800, ECHELLE_MONTAGNES, 0)
   expect(stars.hit(px, py)?.id).toBe('t0')
 })
 
 test('fadeOut retire l’étoile de la cible des survols', () => {
   const { stars } = monter()
   stars.setStars([trace(0, { x: 0.25, y: 0.5 })], 1000, 800)
-  const { px, py } = projeter({ x: 0.25, y: 0.5 }, 1000, 800)
+  const { px, py } = projeter({ x: 0.25, y: 0.5 }, 1000, 800, ECHELLE_MONTAGNES, 0)
   expect(stars.hit(px, py)?.id).toBe('t0')
   stars.fadeOut('t0')
   expect(stars.hit(px, py)).toBeNull()

@@ -1,4 +1,4 @@
-import { SEUIL_MOBILE, bandeCiel } from './layout'
+import { SEUIL_MOBILE, regionCiel } from './layout'
 import type { Trace } from './types'
 
 export const ETOILES_MAX_BUREAU = 120
@@ -30,14 +30,17 @@ export function amplitudeScintillement(e: number): number {
   return 0.12 + 0.35 * e
 }
 
-/** Stored place to screen pixels: x over the width, y over the sky band. */
+/** Stored place to screen pixels: x over the width, y over the free region under that column. */
 export function projeter(
   place: Place,
   viewportW: number,
   viewportH: number,
+  echelle: number,
+  decalage: number,
 ): { px: number; py: number } {
-  const bande = bandeCiel(viewportH)
-  return { px: place.x * viewportW, py: bande.top + place.y * bande.height }
+  const px = place.x * viewportW
+  const region = regionCiel(px, viewportW, viewportH, echelle, decalage)
+  return { px, py: region.top + place.y * region.height }
 }
 
 /**

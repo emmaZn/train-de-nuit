@@ -12,6 +12,7 @@ import {
 import type { Grain } from '@/scene/Dissolve'
 import { Scene } from '@/scene/Scene'
 import { Stars } from '@/scene/StarLayer'
+import { ECHELLE_MONTAGNES } from '@/scene/layout'
 import { projeter } from '@/scene/stars'
 import type { Place } from '@/scene/stars'
 import type { Trace } from '@/scene/types'
@@ -197,7 +198,7 @@ test('land puis revert : le second est ignoré, la poignée ne joue qu’une fin
   expect(posees).toEqual([t])
   expect(parent.children).toHaveLength(0)
 
-  const { px, py } = projeter(PLACE, VP_W, VP_H)
+  const { px, py } = projeter(PLACE, VP_W, VP_H, ECHELLE_MONTAGNES, 0)
   expect(stars.hit(px, py)?.id).toBe(t.id)
   await fin
 })
@@ -296,8 +297,8 @@ test('un redimensionnement en vol déplace la cible du grain', async () => {
   d.resize(VP_W, VP_H2)
   jouer(d, DUREE_DEFAIT + DUREE_MONTEE + DUREE_ECLAT / 2)
 
-  const vise = projeter(PLACE, VP_W, VP_H2)
-  expect(vise.py).not.toBeCloseTo(projeter(PLACE, VP_W, VP_H).py)
+  const vise = projeter(PLACE, VP_W, VP_H2, ECHELLE_MONTAGNES, 0)
+  expect(vise.py).not.toBeCloseTo(projeter(PLACE, VP_W, VP_H, ECHELLE_MONTAGNES, 0).py)
   // Le halo de l'éclat, dessiné en dernier, se pose là où l'étoile sera.
   const halo = cercles(parent).at(-1)
   expect(halo?.x).toBeCloseTo(vise.px)
@@ -317,7 +318,7 @@ test('en mouvement réduit, land pose l’étoile sans animer', async () => {
   // Aucune image jouée : l'étoile est là dès que l'écriture aboutit.
   await expect(poignee.land(t)).resolves.toBeUndefined()
   expect(posees).toEqual([t])
-  const { px, py } = projeter(PLACE, VP_W, VP_H)
+  const { px, py } = projeter(PLACE, VP_W, VP_H, ECHELLE_MONTAGNES, 0)
   expect(stars.hit(px, py)?.id).toBe(t.id)
 })
 

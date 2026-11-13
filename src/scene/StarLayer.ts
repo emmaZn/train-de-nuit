@@ -1,4 +1,5 @@
 import { Container, Graphics } from 'pixi.js'
+import { ECHELLE_MONTAGNES } from './layout'
 import { aHalo, amplitudeScintillement, eclat, etoileSous, limiteEtoiles, projeter } from './stars'
 import type { EtoilePosee } from './stars'
 import type { Trace } from './types'
@@ -157,7 +158,7 @@ export class Stars {
   }
 
   private placer(e: Posee): void {
-    const { px, py } = projeter(e.trace, this.largeur, this.hauteur)
+    const { px, py } = projeter(e.trace, this.largeur, this.hauteur, ECHELLE_MONTAGNES, 0)
     e.px = px
     e.py = py
     e.gfx.position.set(px, py)
