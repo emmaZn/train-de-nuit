@@ -356,13 +356,6 @@ export function regionCiel(
 /** Ciel qu'on garde au sommet du massif, sous la frise, en pixels d'écran. */
 export const CIEL_SOMMET = 60
 
-/**
- * Ce qu'on ne réduit pas sous les rails, en pixels d'écran. C'est un plafond
- * au décalage, pas une garantie : on ne promet pas de l'atteindre (844 x 390
- * n'en garde que 81). Voir `cadrageCiel` pour ce qu'il borne en pratique.
- */
-export const PLANCHER_REFLET = 90
-
 /** Plus petite échelle que la résolution puisse retenir. */
 const ECHELLE_MIN = 0.5
 
@@ -410,11 +403,11 @@ export function cadrageCiel(
 ): { decalage: number; echelle: number } {
   const frame = fitStage(viewportW, viewportH)
   const jeu = Math.max(0, -frame.offsetY)
-  // `PLANCHER_REFLET` ne mord pas ici : le tableau du plan donne 26 px de
-  // décalage et 81 px de reflet à 844 x 390, alors qu'un plafond strict
-  // (`reflet - PLANCHER_REFLET`) l'y réduirait à 0. Et un plafond qui ne mord
-  // qu'au-dessus de 90 ferait sauter le décalage d'un pixel de redimensionnement
-  // à l'autre. Le jeu de couverture est donc la seule borne.
+  // Le jeu de couverture est la seule borne du décalage : tant que les rails
+  // sont visibles il est toujours plus serré que n'importe quel plancher de
+  // reflet, et sur les fenêtres larges et basses, où il est grand, le reflet
+  // est déjà négatif avant décalage (le cadrage « cover » pousse les rails sous
+  // le bord). Un plancher n'aurait donc jamais mordu.
   const decalage = jeu
 
   const tient = (e: number): boolean => cielAuSommet(viewportW, viewportH, e, decalage) >= CIEL_SOMMET
