@@ -125,7 +125,10 @@ test('près du bord haut, la bulle passe au-dessous du point', async () => {
   await wrapper.vm.$nextTick()
   const bulle = wrapper.get('[data-role="bulle"]')
   expect(bulle.attributes('data-sens')).toBe('dessous')
-  expect((bulle.element as HTMLElement).style.top).toBe('34px')
+  // 132 et non 34 : la bulle a un plancher, pour que son fond ne remonte pas
+  // dans la frise. Un pointeur à 20 px ne se produit pas — le ciel commence à
+  // 116 et le survol porte à 14.
+  expect((bulle.element as HTMLElement).style.top).toBe('132px')
 })
 
 test('la bulle disparaît quand starHover rend null', async () => {
@@ -197,4 +200,34 @@ test('assez bas, la bulle repasse au-dessus du point', async () => {
   survol(trace(), 300, 248)
   await wrapper.vm.$nextTick()
   expect(wrapper.get('[data-role="bulle"]').attributes('data-sens')).toBe('dessus')
+})
+
+test('juste sous le seuil, la bulle reste au-dessous', async () => {
+  const { scene, survol } = fausseScene()
+  const { wrapper } = monter(scene)
+  survol(trace(), 300, 247)
+  await wrapper.vm.$nextTick()
+  // Avec le test à 248, cette borne fixe le dégagement : 247 et 248 encadrent
+  // la seule valeur qui passe les deux.
+  expect(wrapper.get('[data-role="bulle"]').attributes('data-sens')).toBe('dessous')
+})
+
+test('au ras de la frise, le fond de la bulle ne mord pas sur la navigation', async () => {
+  const { scene, survol } = fausseScene()
+  const { wrapper } = monter(scene)
+  // `starHover` porte les coordonnées du pointeur, pas de l'étoile, et le survol
+  // porte à 14 px : une étoile du tout premier rang (116) s'attrape dès 102.
+  survol(trace(), 300, 102)
+  await wrapper.vm.$nextTick()
+  const bulle = wrapper.get('[data-role="bulle"]')
+  expect(bulle.attributes('data-sens')).toBe('dessous')
+  expect((bulle.element as HTMLElement).style.top).toBe('132px')
+})
+
+test('le débord de la tache et le plancher de la bulle restent d’accord', async () => {
+  const css = (await import('@/components/StarTooltip.vue?raw')).default
+  const regle = /\.bulle::before\s*\{([^}]*)\}/s.exec(css)?.[1] ?? ''
+  const debordCss = Number(/inset:\s*(-?\d+)px/.exec(regle)?.[1])
+  const constante = Number(/const DEBORD_TACHE = (\d+)/.exec(css)?.[1])
+  expect(debordCss).toBe(-constante)
 })

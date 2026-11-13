@@ -21,6 +21,13 @@ const HAUTEUR_MAX = 110
  * a sentence never sits flush against the navigation.
  */
 const DEGAGEMENT_FRISE = 8
+/**
+ * How far the patch of night bleeds above the bubble — the vertical half of the
+ * `::before` inset below, which a test keeps in step. The bubble's own text is
+ * not the whole bubble: without this, a bubble resting just under the frise put
+ * its background over « À QUAI », which is the defect we set out to fix.
+ */
+const DEBORD_TACHE = 16
 
 type Survol = { trace: Trace; x: number; y: number; age: string; gauche: number; dessus: boolean }
 
@@ -79,7 +86,10 @@ const position = computed(() => {
     left: `${s.gauche}px`,
     ...(s.dessus
       ? { bottom: `${window.innerHeight - (s.y - ECART)}px` }
-      : { top: `${s.y + ECART}px` }),
+      : // Never high enough for the patch to reach the frise. `starHover` carries
+        // the pointer, not the star, and hovering reaches 14 px: a star of the
+        // very first row is caught from y = 102.
+        { top: `${Math.max(s.y + ECART, HAUTEUR_FRISE + DEBORD_TACHE)}px` }),
   }
 })
 </script>
