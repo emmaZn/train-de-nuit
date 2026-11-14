@@ -1,3 +1,5 @@
+import { CRETE, CRETE_BIN, MARGE_CRETE } from './crete'
+
 /** The frame every train asset is drawn in: rails, locomotive and wagon share it. */
 export const STAGE = { width: 2320, height: 1217 } as const
 
@@ -104,14 +106,35 @@ export const SEUIL_MOBILE = 720
 
 /** Où se tient la gare à quai, depuis le bord gauche. */
 export const ANCRE_FRISE = 120
-export const ANCRE_FRISE_MOBILE = 24
+export const ANCRE_FRISE_MOBILE = 44
 
 /** Ce qu'on garde à droite, pour que la dernière mention ait sa place. */
-export const MARGE_FRISE = 150
-export const MARGE_FRISE_MOBILE = 150
+/**
+ * Ce que l'œil occupe au bord droit : 24 px d'icône, 6 de rembourrage de chaque
+ * côté, et 16 px de dégagement. La voie s'effaçait jusqu'ici à `MARGE_VOIE` du
+ * bord, c'est-à-dire exactement là où l'œil commence — ils se superposaient par
+ * construction.
+ */
+export const DEGAGEMENT_OEIL = 36 + 16
+
+export const MARGE_FRISE = 200
+export const MARGE_FRISE_MOBILE = 175
 
 /** Ce que la voie laisse libre de chaque côté de l'écran, en pixels. */
 export const MARGE_VOIE = 40
+
+/**
+ * Sur quelle distance la frise s'efface, après la marge, avant d'être opaque.
+ *
+ * Elle est réglée pour l'ancre du bureau. Sur téléphone, où l'ancre vaut le
+ * tiers, le même fondu ferait naître la première gare en plein dedans — « ici »
+ * à moitié effacé. Il s'y resserre donc, et pas seulement à la moitié :
+ * `margeVoie` est elle-même plafonnée par l'ancre moins 16, si bien qu'un fondu
+ * de 16 px laisserait exactement zéro dégagement. À 10, il en reste six.
+ */
+export function fonduFrise(largeur: number): number {
+  return largeur < SEUIL_MOBILE ? 10 : 48
+}
 
 /**
  * Marge effective, qui ne mord jamais sur l'ancre : sur un téléphone celle-ci
@@ -121,6 +144,11 @@ export const MARGE_VOIE = 40
 export function margeVoie(largeur: number): number {
   const ancre = largeur < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
   return Math.max(0, Math.min(MARGE_VOIE, ancre - 16))
+}
+
+/** Idem à droite, où l'œil se tient : la voie doit s'arrêter avant lui. */
+export function margeVoieDroite(largeur: number): number {
+  return margeVoie(largeur) + DEGAGEMENT_OEIL
 }
 
 /** Écartement minimal : en dessous, deux gares se chevaucheraient. */
@@ -273,4 +301,204 @@ export function bornesFenetre(fenetre: Cadre, echelle: number): Bornes {
 /** Largeur du cadre Blender, en parts de la fenêtre : c'est l'échelle du grain. */
 export function facteurCadre(fenetre: Cadre, echelle: number): number {
   return cadreMontagnes(echelle).width / fenetre.width
+}
+
+/* ---- Le ciel des visiteurs ---- */
+
+/** Hauteur de la voie dans la frise, en pixels (`--haut-voie` de base.css). */
+export const HAUT_VOIE = 44
+
+/**
+ * Hauteur de la frise, fixe en pixels : `--haut-voie` (44) plus les 52 px que
+ * NavFrise.vue y ajoute. Un test lit les deux fichiers et vérifie la somme.
+ */
+export const HAUTEUR_FRISE = 96
+
+/**
+ * Haut du voile, en pixels d'écran : `HORIZON - DEGRADE_HAUTEUR` projeté.
+ * C'est le plancher de la région libre. Là où il n'y a pas de massif, la
+ * région irait sinon jusqu'au bas du cadre, et les étoiles se poseraient sur
+ * les rails, le train ou le reflet.
+ *
+ * `decalage` est un décalage vertical en pixels d'écran, ajouté après le
+ * cadrage.
+ */
+export function hautDuVoilePx(viewportW: number, viewportH: number, decalage: number): number {
+  const frame = fitStage(viewportW, viewportH)
+  return (HORIZON - DEGRADE_HAUTEUR) * frame.scale + frame.offsetY + decalage
+}
+
+/**
+ * Ordonnée d'écran de la crête du massif sous la colonne `xPx`, plancher
+ * compris, **sans** `MARGE_CRETE` (c'est `regionCiel` qui la retranche).
+ *
+ * Même chaîne que le rendu : source -> scène par `cadreMontagnes`, puis
+ * scène -> écran par `fitStage`. `CRETE` garde le minimum de chaque paquet :
+ * on évalue donc la crête aux bords de paquet à `min` des deux voisins, et on
+ * interpole linéairement entre bords. Les deux extrémités d'un segment sont
+ * ainsi au plus égales à la valeur de son paquet (la garantie conservatrice
+ * tient), et la fonction reste continue : une crête en marches ferait sauter
+ * la région quand le pointeur bouge.
+ */
+export function cretePx(
+  xPx: number,
+  viewportW: number,
+  viewportH: number,
+  echelle: number,
+  decalage: number,
+): number {
+  const frame = fitStage(viewportW, viewportH)
+  const c = cadreMontagnes(echelle)
+  const f = facteurMontagnes(echelle)
+  const sx = ((xPx - frame.offsetX) / frame.scale - c.x) / f
+  const u = borner(sx / CRETE_BIN, 0, CRETE.length)
+  const i = Math.min(Math.floor(u), CRETE.length - 1)
+  const bord = (k: number): number =>
+    k <= 0 ? CRETE[0] : k >= CRETE.length ? CRETE[CRETE.length - 1] : Math.min(CRETE[k - 1], CRETE[k])
+  const sy = bord(i) + (bord(i + 1) - bord(i)) * (u - i)
+  const wy = (c.y + sy * f) * frame.scale + frame.offsetY + decalage
+  return Math.min(wy, hautDuVoilePx(viewportW, viewportH, decalage))
+}
+
+/**
+ * La région où une étoile peut se poser : du bas de la frise jusqu'à la crête
+ * moins `MARGE_CRETE`. `y` est normalisé sur cette région. Sa hauteur reste
+ * strictement positive, sans quoi `projeter` poserait les étoiles en NaN.
+ */
+export function regionCiel(
+  xPx: number,
+  viewportW: number,
+  viewportH: number,
+  echelle: number,
+  decalage: number,
+): { top: number; height: number } {
+  const top = HAUTEUR_FRISE
+  const bas = cretePx(xPx, viewportW, viewportH, echelle, decalage) - MARGE_CRETE
+  return { top, height: Math.max(bas - top, 1) }
+}
+
+/* ---- La règle de dégagement ---- */
+
+/** Ciel qu'on garde au sommet du massif, sous la frise, en pixels d'écran. */
+export const CIEL_SOMMET = 60
+
+/**
+ * Ce qu'on ne réduit pas sous les rails, en pixels d'écran. C'est un plafond
+ * au décalage, pas une garantie : on ne promet pas de l'atteindre. Quand
+ * l'espace sous les rails est déjà inférieur avant tout décalage (il peut même
+ * être négatif, les rails étant alors hors champ), le décalage permis est 0.
+ */
+export const PLANCHER_REFLET = 55
+
+/**
+ * Ce qu'on descend la scène en plus, sur grand écran, pour dégager du ciel.
+ *
+ * Le décalage est d'ordinaire plafonné par le jeu du cadrage « cover »
+ * (`-offsetY`), qui ne vaut qu'une poignée de pixels sur une fenêtre de bureau
+ * ordinaire : 11 px à 1512 x 771. Au-delà, une bande du haut n'a plus de scène
+ * derrière elle — ce qui condamnait la manœuvre quand la poussière vivait dans
+ * le cadre. Elle se dessine désormais en coordonnées d'écran : cette bande
+ * porte donc le fond et le grain comme le reste du ciel, et ne se voit pas.
+ */
+export const DESCENTE_BUREAU = 20
+
+/**
+ * Idem sur téléphone, où l'on descend davantage : le format est très haut, le
+ * train y tombe trop près du milieu, et le ciel au-dessus du massif supporte
+ * d'être généreux. Les deux valeurs sont séparées parce que ce sont deux
+ * décisions d'Emmanuelle, prises à deux moments et sur deux formats.
+ */
+export const DESCENTE_MOBILE = 60
+
+/** Plus petite échelle que la résolution puisse retenir. */
+const ECHELLE_MIN = 0.5
+
+/**
+ * Le ciel au sommet : la crête la plus haute sur les colonnes visibles, sous
+ * la frise. La crête est linéaire par morceaux, ses ruptures aux bords de
+ * paquet : son minimum est donc atteint à un bord de paquet ou à une extrémité
+ * de l'écran. On n'évalue que ces points, et c'est exact.
+ */
+function cielAuSommet(
+  viewportW: number,
+  viewportH: number,
+  echelle: number,
+  decalage: number,
+): number {
+  const frame = fitStage(viewportW, viewportH)
+  const c = cadreMontagnes(echelle)
+  const f = facteurMontagnes(echelle)
+  let sommet = Math.min(
+    cretePx(0, viewportW, viewportH, echelle, decalage),
+    cretePx(viewportW, viewportW, viewportH, echelle, decalage),
+  )
+  for (let k = 0; k <= CRETE.length; k++) {
+    const x = (c.x + k * CRETE_BIN * f) * frame.scale + frame.offsetX
+    if (x > 0 && x < viewportW) {
+      sommet = Math.min(sommet, cretePx(x, viewportW, viewportH, echelle, decalage))
+    }
+  }
+  return sommet - HAUTEUR_FRISE
+}
+
+/**
+ * Comment dégager le sommet du massif : décaler d'abord, rapetisser ensuite.
+ *
+ * Le décalage ne dépasse ni le jeu vertical du cadrage (`-offsetY`, nul quand
+ * la fenêtre est pilotée par sa hauteur : sinon une bande du haut n'aurait plus
+ * de scène derrière elle), ni ce que `PLANCHER_REFLET` autorise sous les rails.
+ * Si `CIEL_SOMMET` n'est pas atteint, l'échelle se résout : la plus grande de
+ * `[ECHELLE_MIN, ECHELLE_MONTAGNES]` qui tienne la cible. Résolue, elle est
+ * continue en hauteur de fenêtre, sans aucun seuil de format.
+ */
+export function cadrageCiel(
+  viewportW: number,
+  viewportH: number,
+): { decalage: number; echelle: number } {
+  const frame = fitStage(viewportW, viewportH)
+  const jeu = Math.max(0, -frame.offsetY)
+  // Le décalage est plafonné par le jeu de couverture ET par le plafond du
+  // reflet : `max(0, reflet - PLANCHER_REFLET)`, continu en hauteur de fenêtre.
+  // Sans lui, le décalage pris en entier (jeu = -offsetY) remet offsetY à 0 et
+  // fait sortir rails et train sur les fenêtres larges et basses. Si la cible
+  // n'est plus atteinte, l'échelle se résout plus bas.
+  const reflet = viewportH - (HORIZON * frame.scale + frame.offsetY)
+  // Sur grand écran on s'autorise `DESCENTE_BUREAU` au-delà du jeu : le
+  // plafond du reflet, lui, reste le vrai garde-fou — il est ce qui empêche
+  // rails et train de sortir par le bas.
+  const marge = jeu + (viewportW >= SEUIL_MOBILE ? DESCENTE_BUREAU : DESCENTE_MOBILE)
+  const decalage = Math.min(marge, Math.max(0, reflet - PLANCHER_REFLET))
+
+  const ciel = (e: number): number => cielAuSommet(viewportW, viewportH, e, decalage)
+  // Quand le haut du voile plafonne la crête, rapetisser ne rend plus de ciel :
+  // la cible devient le meilleur ciel disponible, ce qui garde l'échelle
+  // continue (les deux définitions coïncident à la hauteur critique).
+  const cible = Math.min(CIEL_SOMMET, ciel(ECHELLE_MIN))
+  const tient = (e: number): boolean => ciel(e) >= cible
+  if (tient(ECHELLE_MONTAGNES)) return { decalage, echelle: ECHELLE_MONTAGNES }
+
+  let bas = ECHELLE_MIN
+  let haut = ECHELLE_MONTAGNES
+  while (haut - bas > 1e-4) {
+    const milieu = (bas + haut) / 2
+    if (tient(milieu)) bas = milieu
+    else haut = milieu
+  }
+  return { decalage, echelle: bas }
+}
+
+/**
+ * Le cadrage que la scène applique réellement : le cadre de scène, déjà
+ * décalé, et l'échelle du massif. `cretePx` ajoute `decalage` après `fitStage` ;
+ * la scène le met donc dans `offsetY` du conteneur qui porte tout le décor
+ * (massif, voile, rails, train). Un seul endroit où ces deux chaînes se
+ * rejoignent, pour que les étoiles et la montagne ne se décalent jamais.
+ */
+export function cadrageScene(
+  viewportW: number,
+  viewportH: number,
+): { frame: Frame; decalage: number; echelle: number } {
+  const frame = fitStage(viewportW, viewportH)
+  const { decalage, echelle } = cadrageCiel(viewportW, viewportH)
+  return { frame: { ...frame, offsetY: frame.offsetY + decalage }, decalage, echelle }
 }

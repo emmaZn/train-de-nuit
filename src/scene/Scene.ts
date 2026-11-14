@@ -2,27 +2,70 @@ import gsap from 'gsap'
 import { Application, BlurFilter, Container, FillGradient, Graphics, RenderTexture, Sprite } from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
+import { Dissolve, grainsDePhrase, poigneeSansAnimation } from './Dissolve'
+import type { Poignee } from './Dissolve'
 import {
   DEGRADE_HAUTEUR,
   DEGRADE_OPACITE,
   DUREE_ETAPE,
   HORIZON,
   STAGE,
+  cadrageScene,
   cadreDegrade,
-  fitStage,
 } from './layout'
+import type { Frame } from './layout'
 import type { Relief } from './Relief'
 import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
+import { Stars } from './StarLayer'
+import type { Place } from './stars'
 import { Train, avancement } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
-import type { Manifest } from './types'
+import type { Manifest, Trace } from './types'
 
 /** The reflection is rendered at half resolution: it is blurred anyway. */
 const REFLET_RESOLUTION = 0.5
 const REFLET_OPACITE = 0.16
+
+/**
+ * Pose le conteneur qui porte tout le décor. `frame` vient de `cadrageScene` :
+ * son `offsetY` porte le décalage que `cretePx` ajoute après `fitStage`.
+ */
+export function poserMonde(noeud: Container, frame: Frame): void {
+  noeud.scale.set(frame.scale)
+  noeud.position.set(frame.offsetX, frame.offsetY)
+}
+
+/**
+ * Le contre-transport du ciel. Le ciel se mesure en pixels d'écran — c'est ce
+ * que croient la place d'une étoile et son test de survol — mais il vit
+ * maintenant dans `decor`, qui porte le cadre. Ceci annule `poserMonde` : un
+ * enfant posé en (px, py) retombe sur le pixel d'écran (px, py).
+ */
+export function poserCiel(noeud: Container, frame: Frame): void {
+  const k = 1 / frame.scale
+  noeud.scale.set(k)
+  noeud.position.set(-frame.offsetX * k, -frame.offsetY * k)
+}
+
+/**
+ * L'ordre des plans du décor, du fond vers l'avant : le massif, puis le ciel,
+ * puis tout ce que l'appelant ajoutera ensuite — le voile du pied, les rails
+ * et le train. Le ciel passe donc **devant** la montagne et **derrière** le
+ * train (CONCEPT.md §6).
+ *
+ * Les deux places se réservent ici, en entier et tout de suite : le massif
+ * arrive bien plus tard, et le ciel ne doit pas glisser devant lui en
+ * attendant.
+ */
+export function plansDuDecor(decor: Container): { massif: Container; ciel: Container } {
+  const massif = new Container()
+  const ciel = new Container()
+  decor.addChild(massif, ciel)
+  return { massif, ciel }
+}
 
 export type SceneOptions = { reducedMotion: boolean }
 
@@ -36,10 +79,22 @@ export class Scene {
   private readonly monde = new Container()
   /** Mountains and train together: this is what the reflection mirrors. */
   private readonly decor = new Container()
+  /**
+   * Le massif, puis le ciel — poussière et étoiles-voyageuses. Le ciel est
+   * dans `decor` pour partager son filtre de recoloration et passer sous le
+   * voile du pied ; il sort du reflet, lui, à chaque image (`rendreReflet`).
+   */
+  private readonly plans = plansDuDecor(this.decor)
   private readonly refletSprite = new Sprite()
   private refletTexture: RenderTexture | null = null
+  /** Les grains des phrases qui se défont : au-dessus de tout le reste. */
+  private readonly dissous = new Container()
+  private readonly dissolutions = new Set<Dissolve>()
 
   private sky: Sky | null = null
+  private stars: Stars | null = null
+  /** Kept so stars set before init, or between resizes, are not lost. */
+  private traces: Trace[] = []
   private relief: Relief | null = null
   private train: Train | null = null
   private recolor: Filter | null = null
@@ -89,8 +144,13 @@ export class Scene {
     this.vivante = true
     this.recolor = createRecolorFilter(fondToHex(this.fond))
 
-    this.app.stage.addChild(this.monde)
-    this.sky = new Sky(this.monde)
+    // Le ciel se mesure en pixels d'écran — un téléphone ne voit qu'un quart
+    // de la largeur du cadre —, mais il se dessine entre le massif et le
+    // train : `poserCiel` annule le cadre pour lui, et le reste du décor ne
+    // change pas de repère.
+    this.sky = new Sky(this.plans.ciel)
+    this.stars = new Stars(this.plans.ciel, { reducedMotion: this.reducedMotion })
+    this.app.stage.addChild(this.monde, this.dissous)
 
     this.refletSprite.scale.y = -1
     this.refletSprite.alpha = REFLET_OPACITE
@@ -112,12 +172,12 @@ export class Scene {
   }
 
   private async peupler(manifest: Manifest): Promise<void> {
-    // L'ordre des plans se réserve d'abord, et en entier : le massif arrive
-    // plus tard, mais sa place est prise. S'il ne peut pas se construire, le
+    // Les places du massif et du ciel sont déjà prises (`plansDuDecor`) : ce
+    // qu'on ajoute ici vient devant eux. S'il ne peut pas se construire, le
     // voile et le train sont là quand même.
-    const fondDuDecor = new Container()
-    this.decor.addChild(fondDuDecor)
-    // Entre le massif et le train : c'est ce qui détache le trait blanc.
+    const fondDuDecor = this.plans.massif
+    // Devant le ciel, et donc devant le massif : c'est ce qui détache le
+    // trait blanc, et c'est aussi ce qui éteint la poussière près des rails.
     this.decor.addChild(this.voileDuPied())
     this.train = new Train(this.decor, manifest)
 
@@ -171,14 +231,21 @@ export class Scene {
   private cadrer(): void {
     if (!this.vivante) return
     const { width, height } = this.app.screen
-    const frame = fitStage(width, height)
-    for (const noeud of [this.monde]) {
-      noeud.scale.set(frame.scale)
-      noeud.position.set(frame.offsetX, frame.offsetY)
-    }
+    // `frame.offsetY` porte le décalage : `cretePx` l'ajoute après `fitStage`,
+    // et c'est ce même conteneur qui porte massif, voile, rails et train.
+    const { frame, echelle } = cadrageScene(width, height)
+    poserMonde(this.monde, frame)
+    // Le ciel vit dans le décor mais compte en pixels d'écran : son
+    // contre-transport se refait à chaque cadrage, comme celui du monde.
+    poserCiel(this.plans.ciel, frame)
 
-    this.sky?.resize(STAGE.width, STAGE.height, width < 720)
-    this.relief?.cadrer(frame, width, height, this.app.renderer.resolution)
+    this.sky?.resize(frame, width, height, width < 720)
+    this.stars?.setStars(this.traces, width, height)
+    this.stars?.resize(width, height)
+    // La place d'une étoile est une fraction, sa cible des pixels : une
+    // dissolution en cours doit suivre l'écran.
+    for (const d of this.dissolutions) d.resize(width, height)
+    this.relief?.cadrer(frame, width, height, this.app.renderer.resolution, echelle)
 
     this.refletTexture?.destroy(true)
     this.refletTexture = RenderTexture.create({
@@ -200,6 +267,55 @@ export class Scene {
   setPointer(x: number, y: number): void {
     if (this.reducedMotion) return
     this.sky?.setPointer(x, y)
+  }
+
+  /** The visitors' stars. Called again whenever the store changes. */
+  setStars(traces: Trace[]): void {
+    this.traces = traces
+    if (!this.vivante) return
+    const { width, height } = this.app.screen
+    this.stars?.setStars(traces, width, height)
+  }
+
+  /**
+   * La phrase se défait en grains (CONCEPT.md §4.3). L'écriture est déjà
+   * partie : la poignée dit comment elle a fini — `land` allume l'étoile,
+   * `revert` reforme la phrase —, et la première des deux l'emporte.
+   *
+   * **L'appelant doit toujours conclure**, par `land` ou par `revert` passé
+   * son délai : une poignée abandonnée laisse ses grains à l'écran jusqu'au
+   * `dispose` de la scène.
+   *
+   * `land` pose l'étoile lui-même. Le magasin qui pousse ensuite la même
+   * trace par `setStars` ne la repose pas : `Stars.setStars` est idempotent
+   * par `id`.
+   */
+  beginDissolve(phrase: string, from: DOMRect, place: Place): Poignee {
+    const allumer = (trace: Trace) => {
+      this.setStars([trace, ...this.traces.filter((t) => t.id !== trace.id)])
+    }
+    // Mouvement réduit, ou pas de WebGL : l'horloge de la scène ne tourne
+    // pas, une dissolution animée ne finirait jamais. L'étoile se pose.
+    if (!this.peutAnimer) return poigneeSansAnimation(allumer)
+
+    const { width, height } = this.app.screen
+    const dissolution = new Dissolve({
+      depuis: from,
+      place,
+      parent: this.dissous,
+      viewportW: width,
+      viewportH: height,
+      grains: grainsDePhrase(phrase, from),
+      allumer,
+    })
+    this.dissolutions.add(dissolution)
+    return dissolution
+  }
+
+  /** The pointer in CSS pixels: tells which star, if any, it is over. */
+  setPointerPx(px: number, py: number): void {
+    const trace = this.stars?.hit(px, py) ?? null
+    this.emitter.emit('starHover', trace, px, py)
   }
 
   /**
@@ -270,6 +386,10 @@ export class Scene {
           Math.round(melange[2] * 255)
         if (this.recolor) setRecolorFond(this.recolor, couleur)
         if (this.vivante) this.app.renderer.background.color = couleur
+        // Vue écoute pour écrire `--fond` au même rythme : tout ce qui est en
+        // CSS — la tache de nuit du formulaire, celle de la bulle — fond avec
+        // la scène au lieu de sauter d'une image.
+        this.emitter.emit('fond', '#' + couleur.toString(16).padStart(6, '0'))
       },
     })
   }
@@ -308,15 +428,30 @@ export class Scene {
     this.relief?.setLegs(this.legsParcourues)
     this.relief?.dessiner()
     this.sky?.update()
+    this.stars?.update(dt, Date.now())
+    for (const d of this.dissolutions) {
+      d.update(dt)
+      if (d.fini) this.dissolutions.delete(d)
+    }
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
     this.rendreReflet()
   }
 
+  /**
+   * Le reflet ne prend pas le ciel. L'eau renvoie le massif et le train —
+   * les choses solides. La poussière, elle, couvre déjà tout l'écran, reflet
+   * compris : la renvoyer y dessinerait une seconde fois le même grain,
+   * retourné. Et les étoiles-voyageuses y laisseraient des sosies qui ne
+   * répondent à rien, juste sous la voie — précisément la zone que
+   * `regionCiel` leur interdit pour qu'on ne les y cherche pas.
+   */
   private rendreReflet(): void {
     if (!this.refletTexture) return
+    this.plans.ciel.visible = false
     this.decor.scale.set(REFLET_RESOLUTION)
     this.app.renderer.render({ container: this.decor, target: this.refletTexture, clear: true })
     this.decor.scale.set(1)
+    this.plans.ciel.visible = true
   }
 
   dispose(): void {
@@ -325,6 +460,9 @@ export class Scene {
     this.relief?.detruire()
     this.train?.destroy()
     this.sky?.destroy()
+    this.stars?.destroy()
+    for (const d of this.dissolutions) d.destroy()
+    this.dissolutions.clear()
     if (this.vivante) this.app.destroy(true, { children: true })
     this.vivante = false
   }

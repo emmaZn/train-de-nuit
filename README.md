@@ -140,4 +140,94 @@ Une seule règle gouverne les couleurs : **dans tous les assets, le noir devient
 
 L'**étape 1** du §13 de `CONCEPT.md` est faite : squelette, scène, montagnes, voie, train qui démarre, roule, freine et s'arrête, reflet, frise en boucle et quatre routes, trajet toujours vers l'avant.
 
-Restent les étapes 2 à 5 : le ciel des voyageurs et Firebase, les oiseaux de « plus loin », les textes d'« ici » et le poteau d'« ailleurs », puis les finitions.
+L'**étape 2** l'est aussi : le ciel des voyageurs et « là-haut ». Une phrase se défait en grains, un seul monte jusqu'à sa place et s'allume ; chaque étoile se lit au survol, à l'appui du doigt ou au clavier ; et le ciel, borné à 120 étoiles sur un bureau et 50 sur un téléphone, se lit en une seule requête Firestore.
+
+Restent les étapes 3 à 5 : les oiseaux de « plus loin », les textes d'« ici » et le poteau d'« ailleurs », puis les finitions.
+
+### Lancer le ciel en local
+
+Le ciel parle à Firestore, mais jamais à la production pendant le développement : l'émulateur suffit.
+
+```bash
+npm run emulators    # l'émulateur Firestore
+npm run seed         # sème 200 traces approuvées, pour juger du ciel plein
+npm run test:rules   # les règles de sécurité, contre l'émulateur
+```
+
+L'émulateur est un programme Java : il faut **Java 21 ou plus** (la CLI Firebase v15 a retiré les versions antérieures). `mise.toml` l'épingle, comme Node : `mise install` suffit. Le projet s'appelle `demo-train-de-nuit`, et le préfixe `demo-` rend la production **inatteignable par construction** : ni le script de semis ni l'émulateur ne peuvent y écrire, quoi qu'on oublie de configurer.
+
+### Passer au vrai projet
+
+Le projet existe : **`train-de-nuit`**, créé le 14 novembre 2026, base Firestore en mode
+natif. L'index composite et les règles y sont déjà déposés. Ce qui suit raconte comment on
+y parle, et surtout où ça coince.
+
+**La bascule tient à une seule variable.** `src/firebase.ts` ne regarde que
+`VITE_FIREBASE_PROJECT_ID` : tant qu'elle est absente, l'application se connecte à
+l'émulateur sous `demo-train-de-nuit` ; dès qu'elle porte un vrai identifiant, `npm run dev`
+lui-même parle à la production. `.env.local` garde les cinq valeurs du projet, **commentées**,
+précisément pour que ce basculement soit un geste conscient et non un oubli. Le fichier est
+hors de git par la règle `*.local` ; `.env.example` en donne la liste.
+
+**Le projet par défaut reste la démo.** `.firebaserc` déclare `demo-train-de-nuit` en
+`default` et `train-de-nuit` sous l'alias `prod`. Ne pas faire `firebase use --add`, qui
+ferait du vrai projet le défaut : `npm run emulators` lit ce même défaut, et l'émulateur
+cesserait alors de tourner sous un identifiant `demo-`, qui est ce qui rend la production
+inatteignable par construction. Pour déposer, on nomme la cible :
+
+```bash
+npx firebase deploy --only firestore:indexes --project prod
+npx firebase deploy --only firestore:rules   --project prod
+```
+
+L'index n'est pas une précaution : la lecture du ciel croise `approuvee` et `creeLe`, ce que
+l'émulateur accepte sans index et que la production refuse. Sans lui, le ciel marche en local
+et reste noir en vrai.
+
+**L'ordre compte.** Une base Firestore neuve en mode production refuse tout. Nos règles, elles,
+ouvrent la création à n'importe quel visiteur — c'est leur rôle. Entre le dépôt des règles et
+l'armement d'App Check, il existe donc une fenêtre où la collection est publiquement
+inscriptible. On arme App Check **d'abord**, on dépose les règles **ensuite** : la base passe
+de « fermée » à « ouverte et protégée » sans jamais traverser « ouverte à n'importe quel
+script ».
+
+#### App Check : le piège de la clé
+
+La console ne propose plus le reCAPTCHA v3 classique — le champ est grisé et un bandeau
+renvoie vers **Fraud Defense**, le nouveau nom de reCAPTCHA Enterprise. `src/firebase.ts`
+utilise donc `ReCaptchaEnterpriseProvider`, et il n'y a pas d'autre chemin.
+
+**La clé doit être créée depuis la page reCAPTCHA du projet lui-même**, c'est-à-dire
+`console.cloud.google.com/security/recaptcha?project=train-de-nuit`. Une clé créée ailleurs —
+depuis une autre page, un autre projet — fait échouer l'échange du jeton avec :
+
+```
+400 FAILED_PRECONDITION
+Unable to call the reCAPTCHA Enterprise CreateAssessment method; ensure that the
+reCAPTCHA Enterprise API is enabled and that the site key is from the same project
+as the one containing this app.
+```
+
+Ce message coûte du temps, parce qu'il nomme **deux** causes et que la première est la plus
+visible. On active l'API, on recommence, rien ne change ; on soupçonne la facturation, le
+plan Blaze, le domaine `localhost`. C'était la seconde cause : la clé venait d'ailleurs.
+Recréée depuis la page du projet, l'erreur devient aussitôt `403 App attestation failed` sur
+un faux jeton — c'est-à-dire la bonne réponse, Firebase appelant enfin reCAPTCHA pour de bon.
+**Aucun compte de facturation n'a été nécessaire : le projet est resté sur Spark.**
+
+Un repère utile pour la prochaine fois : `400 FAILED_PRECONDITION` veut dire que Firebase n'a
+même pas pu interroger reCAPTCHA, donc que le problème est la clé ou l'API ; `403 App
+attestation failed` veut dire que la chaîne fonctionne et que c'est le jeton qui est refusé.
+
+**Vérifié le 14 novembre 2026** par une écriture réelle depuis `localhost`, application des
+règles armée sur Cloud Firestore : la phrase est arrivée dans la base avec `approuvee: false`.
+
+L'onglet **API** de la page App Check est celui qui compte. Enregistrer l'application ne fait
+que produire des jetons ; tant que l'application des règles n'y est pas armée pour Cloud
+Firestore, personne ne les vérifie. Le mode non appliqué sert d'observation : les jetons sont
+comptés, rien n'est refusé.
+
+Dernier point, pour l'étape 5 : la clé a la **validation de domaine désactivée**, ce qui
+autorise n'importe quel site à s'en servir. C'était commode pour travailler depuis
+`localhost`. Le jour du déploiement, réactiver la validation et n'y lister que le vrai
+domaine.

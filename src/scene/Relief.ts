@@ -2,10 +2,14 @@
  * Le massif dans la scène : Three le calcule dans son propre canvas, Pixi le
  * consomme comme n'importe quelle texture.
  *
- * C'est ce qui permet de ne rien changer d'autre — le reflet le reflète, le
- * filtre de recoloration le recolore et la poussière d'étoiles reste derrière,
- * exactement comme du temps de la séquence d'images. La différence est qu'il
- * est calculé à la résolution réelle de l'écran, et qu'il tourne en continu.
+ * C'est ce qui permet de ne rien changer d'autre — le reflet le reflète et le
+ * filtre de recoloration le recolore, exactement comme du temps de la séquence
+ * d'images. La différence est qu'il est calculé à la résolution réelle de
+ * l'écran, et qu'il tourne en continu.
+ *
+ * Le ciel, lui, ne reste plus derrière : il passe **devant** le massif, pour
+ * que son grain continue sur le flanc au lieu de s'arrêter sur la silhouette
+ * (voir `plansDuDecor` dans Scene.ts).
  */
 import { CanvasSource, Container, Sprite, Texture } from 'pixi.js'
 
@@ -73,6 +77,8 @@ export class Relief {
 
   private fenetre: Cadre = { x: 0, y: 0, width: STAGE.width, height: HORIZON }
   private echelleEcran = 1
+  /** Ouverture de la caméra : elle change à chaque pixel de hauteur, sans rien recharger. */
+  private echelleMassif = ECHELLE_MONTAGNES
   private resolution = 1
   private legs = 0
   private dernierRendu = Number.NaN
@@ -95,11 +101,21 @@ export class Relief {
     this.appliquer()
   }
 
-  /** La part de la scène qu'on voit, et à quelle densité de pixels. */
-  cadrer(frame: Frame, viewportW: number, viewportH: number, resolution: number): void {
+  /**
+   * La part de la scène qu'on voit, et à quelle densité de pixels. `frame` est
+   * celui de `cadrageScene` : son `offsetY` porte déjà le décalage.
+   */
+  cadrer(
+    frame: Frame,
+    viewportW: number,
+    viewportH: number,
+    resolution: number,
+    echelle: number,
+  ): void {
     this.fenetre = fenetreVisible(frame, viewportW, viewportH)
     this.echelleEcran = frame.scale
     this.resolution = resolution
+    this.echelleMassif = echelle
     this.appliquer()
   }
 
@@ -118,10 +134,10 @@ export class Relief {
     this.massif.cadrer(
       largeur,
       hauteur,
-      bornesFenetre(f, ECHELLE_MONTAGNES),
+      bornesFenetre(f, this.echelleMassif),
       // La taille du grain se mesure sur le cadre Blender, pas sur le canvas :
       // les deux ne coïncident que si la fenêtre est exactement ce cadre.
-      largeur * facteurCadre(f, ECHELLE_MONTAGNES),
+      largeur * facteurCadre(f, this.echelleMassif),
     )
     this.source.resize(largeur, hauteur, 1)
     // Après le redimensionnement, et pas avant : Pixi déduit l'échelle du

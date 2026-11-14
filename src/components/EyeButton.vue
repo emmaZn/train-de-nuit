@@ -38,12 +38,12 @@ defineEmits<{ change: [fond: string] }>()
 </template>
 
 <style scoped>
-/* Même marge que la voie, et centré dans la bande qu'elle laisse au-dessus
-   d'elle : sans ces deux repères, l'œil flotte dans le coin sans s'aligner
-   sur rien. */
+/* Même marge que la voie, et centré sur la voie elle-même (18 px, la moitié
+   des 36 px du bouton) : sans ces deux repères, l'œil flotte dans le coin
+   sans s'aligner sur rien. */
 .oeil {
   position: fixed;
-  top: calc((var(--haut-voie) - 36px) / 2);
+  top: calc(var(--haut-voie) - 18px);
   right: var(--marge-ecran);
   z-index: 3;
   /* En flux, un SVG traîne son interligne : le bouton ferait 40 px de haut

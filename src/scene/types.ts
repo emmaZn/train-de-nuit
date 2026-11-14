@@ -16,6 +16,9 @@ export type Trace = {
   phrase: string
   prenom?: string
   creeLe: number
+  /** Place in the sky band, both 0..1 (see bandeCiel in layout.ts). */
+  x: number
+  y: number
 }
 
 /**
