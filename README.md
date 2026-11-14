@@ -191,13 +191,15 @@ inscriptible. On arme App Check **d'abord**, on dépose les règles **ensuite** 
 de « fermée » à « ouverte et protégée » sans jamais traverser « ouverte à n'importe quel
 script ».
 
-#### App Check : le mur, et pourquoi il n'est pas armé
+#### App Check : le piège de la clé
 
-La console ne propose plus le reCAPTCHA v3 classique mais **Fraud Defense**, le nouveau nom de
-reCAPTCHA Enterprise. `src/firebase.ts` utilise donc `ReCaptchaEnterpriseProvider`.
+La console ne propose plus le reCAPTCHA v3 classique — le champ est grisé et un bandeau
+renvoie vers **Fraud Defense**, le nouveau nom de reCAPTCHA Enterprise. `src/firebase.ts`
+utilise donc `ReCaptchaEnterpriseProvider`, et il n'y a pas d'autre chemin.
 
-L'enregistrement de l'application réussit, le script reCAPTCHA se charge et la clé est
-reconnue — mais l'échange du jeton échoue :
+**La clé doit être créée depuis la page reCAPTCHA du projet lui-même**, c'est-à-dire
+`console.cloud.google.com/security/recaptcha?project=train-de-nuit`. Une clé créée ailleurs —
+depuis une autre page, un autre projet — fait échouer l'échange du jeton avec :
 
 ```
 400 FAILED_PRECONDITION
@@ -206,20 +208,26 @@ reCAPTCHA Enterprise API is enabled and that the site key is from the same proje
 as the one containing this app.
 ```
 
-Fraud Defense s'appuie sur l'API reCAPTCHA Enterprise, un service Google Cloud dont
-l'activation réclame un compte de facturation — donc le plan **Blaze**, alors que le §8 du
-concept prévoyait Spark.
+Ce message coûte du temps, parce qu'il nomme **deux** causes et que la première est la plus
+visible. On active l'API, on recommence, rien ne change ; on soupçonne la facturation, le
+plan Blaze, le domaine `localhost`. C'était la seconde cause : la clé venait d'ailleurs.
+Recréée depuis la page du projet, l'erreur devient aussitôt `403 App attestation failed` sur
+un faux jeton — c'est-à-dire la bonne réponse, Firebase appelant enfin reCAPTCHA pour de bon.
+**Aucun compte de facturation n'a été nécessaire : le projet est resté sur Spark.**
 
-**Le piège :** armer l'application des règles pendant que l'échange échoue rend la base
-inutilisable. Le client n'obtient aucun jeton, et Firestore refuse **tout**, lectures
-comprises. App Check est donc laissé **désarmé**, et `VITE_RECAPTCHA_KEY` commentée : avec une
-clé et sans API, on bloque tout ; sans clé, App Check reste dormant et ne gêne rien.
+Un repère utile pour la prochaine fois : `400 FAILED_PRECONDITION` veut dire que Firebase n'a
+même pas pu interroger reCAPTCHA, donc que le problème est la clé ou l'API ; `403 App
+attestation failed` veut dire que la chaîne fonctionne et que c'est le jeton qui est refusé.
 
-**Ce qu'on perd, et pourquoi c'est tenable.** Les règles continuent de borner chaque écriture
-— 80 points de code, `approuvee: false` obligatoire, champs inconnus refusés, lecture plafonnée
-à 120 — et rien n'apparaît dans le ciel sans approbation manuelle. Ce qui manque, c'est la
-limite au **nombre** d'écritures. Or sur Spark, un script qui spamme épuise le quota gratuit
-journalier et la base refuse les écritures jusqu'au lendemain : ça ne coûte rien. Sur Blaze,
-le même script fait tourner le compteur. **Spark sans App Check protège donc mieux le
-portefeuille que Blaze avec.** La question se reposera à l'étape 5, sur le vrai domaine, qui
-est de toute façon le seul endroit où App Check compte.
+**Vérifié le 14 novembre 2026** par une écriture réelle depuis `localhost`, application des
+règles armée sur Cloud Firestore : la phrase est arrivée dans la base avec `approuvee: false`.
+
+L'onglet **API** de la page App Check est celui qui compte. Enregistrer l'application ne fait
+que produire des jetons ; tant que l'application des règles n'y est pas armée pour Cloud
+Firestore, personne ne les vérifie. Le mode non appliqué sert d'observation : les jetons sont
+comptés, rien n'est refusé.
+
+Dernier point, pour l'étape 5 : la clé a la **validation de domaine désactivée**, ce qui
+autorise n'importe quel site à s'en servir. C'était commode pour travailler depuis
+`localhost`. Le jour du déploiement, réactiver la validation et n'y lister que le vrai
+domaine.
