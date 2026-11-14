@@ -9,6 +9,7 @@ import {
   HAUT_VOIE,
   CIEL_SOMMET,
   DESCENTE_BUREAU,
+  DESCENTE_MOBILE,
   PLANCHER_REFLET,
   cadrageCiel,
   cadrageScene,
@@ -337,7 +338,7 @@ describe('la règle de dégagement', () => {
     [1280, 800, 20, 2.2],
     [1440, 900, 20, 2.2],
     [1728, 1117, 20, 2.2],
-    [390, 844, 0, 2.2],
+    [390, 844, 40, 2.2],
     [844, 390, 26, 1.555],
   ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
     const c = cadrageCiel(w, h)
@@ -345,7 +346,7 @@ describe('la règle de dégagement', () => {
     expect(c.echelle).toBeCloseTo(echelle, 2)
   })
 
-  test('la descente de bureau s’ajoute au jeu vertical, et rien sur téléphone', () => {
+  test('la descente s’ajoute au jeu vertical, et vaut plus sur téléphone', () => {
     // Le jeu de couverture reste nul dès que la fenêtre est pilotée par sa
     // hauteur : c'est une propriété de `fitStage`, et elle n'a pas bougé. Ce
     // qui a changé, c'est que le décalage ne s'y limite plus sur grand écran.
@@ -354,9 +355,10 @@ describe('la règle de dégagement', () => {
     // La bande découverte en haut est du ciel, que la couche d'écran remplit
     // de toute façon — c'est ce qui rend la manœuvre possible aujourd'hui.
     expect(cadrageCiel(1512, 771).decalage).toBeGreaterThan(DESCENTE_BUREAU)
-    // Sur téléphone on n'ajoute rien : la hauteur y est trop disputée.
-    // (à l'arrondi flottant près : le cadrage y rend un résidu de 1e-14.)
-    expect(cadrageCiel(390, 844).decalage).toBeCloseTo(0, 6)
+    // Sur téléphone on descend davantage : le format est très haut et le train
+    // y tombait trop près du milieu.
+    expect(cadrageCiel(390, 844).decalage).toBeCloseTo(DESCENTE_MOBILE, 0)
+    expect(DESCENTE_MOBILE).toBeGreaterThan(DESCENTE_BUREAU)
   })
 
   test('l’échelle est continue en hauteur de fenêtre', () => {

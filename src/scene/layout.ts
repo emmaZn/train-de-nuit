@@ -389,6 +389,14 @@ export const PLANCHER_REFLET = 55
  */
 export const DESCENTE_BUREAU = 20
 
+/**
+ * Idem sur téléphone, où l'on descend davantage : le format est très haut, le
+ * train y tombe trop près du milieu, et le ciel au-dessus du massif supporte
+ * d'être généreux. Les deux valeurs sont séparées parce que ce sont deux
+ * décisions d'Emmanuelle, prises à deux moments et sur deux formats.
+ */
+export const DESCENTE_MOBILE = 40
+
 /** Plus petite échelle que la résolution puisse retenir. */
 const ECHELLE_MIN = 0.5
 
@@ -445,7 +453,7 @@ export function cadrageCiel(
   // Sur grand écran on s'autorise `DESCENTE_BUREAU` au-delà du jeu : le
   // plafond du reflet, lui, reste le vrai garde-fou — il est ce qui empêche
   // rails et train de sortir par le bas.
-  const marge = jeu + (viewportW >= SEUIL_MOBILE ? DESCENTE_BUREAU : 0)
+  const marge = jeu + (viewportW >= SEUIL_MOBILE ? DESCENTE_BUREAU : DESCENTE_MOBILE)
   const decalage = Math.min(marge, Math.max(0, reflet - PLANCHER_REFLET))
 
   const ciel = (e: number): number => cielAuSommet(viewportW, viewportH, e, decalage)
