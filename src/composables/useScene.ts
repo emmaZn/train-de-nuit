@@ -29,11 +29,19 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
   const detacher: Array<() => void> = []
 
+  function poserFond(hex: string) {
+    document.documentElement.style.setProperty('--fond', hex)
+  }
+
   function appliquerFond(valeur: string) {
     fond.value = valeur
     saveFond(valeur)
-    document.documentElement.style.setProperty('--fond', valeur)
-    scene.value?.setFond(valeur)
+    // On n'écrit pas la couleur ici : la scène la fait fondre sur une seconde
+    // et l'émet à chaque image (CONCEPT §6). Écrire d'un coup ferait basculer
+    // la tache de nuit du formulaire sur une nuit encore en train de changer.
+    // Sans scène — avant l'init — il n'y a pas de fondu : on pose directement.
+    if (scene.value) scene.value.setFond(valeur)
+    else poserFond(valeur)
   }
 
   function surPointeur(event: PointerEvent) {
@@ -63,6 +71,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
     detacher.push(instance.on('progress', (p) => voyage.setProgression(p)))
     detacher.push(instance.on('arrived', () => voyage.finirEtape()))
+    detacher.push(instance.on('fond', poserFond))
 
     // Registered before the first await: an unmount during `init` runs
     // `onBeforeUnmount` at once, and would find nothing to remove.

@@ -99,3 +99,17 @@ test('un échec de chargement laisse la scène démarrer quand même', async () 
   expect(double.instance!.init).toHaveBeenCalled()
   expect(double.instance!.setVoyage).toHaveBeenCalled()
 })
+
+test('la nuit se pose au fil du fondu de la scène, et non d’un coup', async () => {
+  // CONCEPT §6 : la couleur est animée en douceur, ~1 s. Côté scène c'est un
+  // tween GSAP ; si Vue écrivait `--fond` d'un coup, la tache de nuit du
+  // formulaire basculerait en une image sur l'ancienne nuit encore en train de
+  // fondre — un rectangle de la nouvelle couleur par-dessus l'ancienne.
+  monter()
+  await flushPromises()
+  const scene = double.instance!
+  const abonnement = scene.on.mock.calls.find((c) => c[0] === 'fond')
+  expect(abonnement, 'useScene doit suivre le fondu de la scène').toBeDefined()
+  ;(abonnement![1] as (hex: string) => void)('#1a120b')
+  expect(document.documentElement.style.getPropertyValue('--fond')).toBe('#1a120b')
+})

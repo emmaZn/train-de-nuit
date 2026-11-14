@@ -422,21 +422,31 @@ onBeforeUnmount(() => {
  * and a positioned ::before belongs to its box: without it, the patch would
  * steal the hover from stars lying in the band it overhangs.
  *
- * It holds its density further out than the bubble's (45 % and 72 % against
- * 35 % and 62 %): the block is ten lines tall, not one, and its title and meta
- * line sit at the very edges where the bubble has nothing.
+ * The stops are the bubble's, to the number. They set the EDGE: with
+ * `ellipse at center` the implicit `farthest-corner` puts the middle of each
+ * side at 1/√2 ≈ 71 % of the ray whatever the box's size, so the box cuts a
+ * gradient still ~60 % opaque — the straight step Emmanuelle looked at and
+ * accepted for the bubble. Moving them further out would harden that step, and
+ * on a phone the block spans the screen: its top and bottom edges would draw
+ * two lines right across it.
+ *
+ * What the block does need is cover at its corners, where the title and the
+ * meta line sit and where a bubble has nothing. That is bought with a wider
+ * `inset`, not with later stops: at -40/-56 the block's own corner falls at
+ * ~68 % of the ray instead of ~75 %, which is ~65 % opaque instead of ~51 %.
+ * Geometry, not a harder edge.
  */
 .trace::before {
   content: '';
   position: absolute;
-  inset: -28px -40px;
+  inset: -40px -56px;
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(
     ellipse at center,
     color-mix(in srgb, var(--fond) 94%, transparent) 0%,
-    color-mix(in srgb, var(--fond) 90%, transparent) 45%,
-    color-mix(in srgb, var(--fond) 80%, transparent) 72%,
+    color-mix(in srgb, var(--fond) 88%, transparent) 35%,
+    color-mix(in srgb, var(--fond) 78%, transparent) 62%,
     color-mix(in srgb, var(--fond) 0%, transparent) 100%
   );
 }

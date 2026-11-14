@@ -316,8 +316,33 @@ test('la tache de nuit se prend sur le fond, jamais sur une couleur figée', () 
   expect(tacheDeNuit()).not.toMatch(/#[0-9a-f]{3,6}/i)
 })
 
+test('la tache garde exactement l’arête que la bulle a fait accepter', () => {
+  // Le cadrage dit « dérogation déjà actée pour la bulle, reprise ici — rien de
+  // plus ». L'arête, c'est-à-dire l'opacité à laquelle la boîte coupe le
+  // dégradé, est fixée par les arrêts : des arrêts plus tardifs donnent une
+  // arête plus dure que celle qu'Emmanuelle a regardée et acceptée. Les deux
+  // recettes doivent donc porter les mêmes. La couverture des coins se gagne
+  // par un `inset` plus large, pas en durcissant l'arête.
+  const arrets = (src: string, sel: string): string[] =>
+    [...(new RegExp(`${sel}[^}]*\\}`).exec(src)?.[0] ?? '').matchAll(/(\d+)%\s*,?\s*transparent\)\s*(\d+)%/g)]
+      .map((m) => `${m[1]}/${m[2]}`)
+  const bulle = arrets(readFileSync('src/components/StarTooltip.vue', 'utf8'), '\\.bulle::before')
+  const tache = arrets(readFileSync('src/components/gares/GareLaHaut.vue', 'utf8'), '\\.trace::before')
+  expect(bulle.length).toBeGreaterThan(0)
+  expect(tache).toEqual(bulle)
+})
+
 test('la tache reste derrière le texte du formulaire', () => {
   expect(tacheDeNuit()).toMatch(/z-index:\s*-1/)
+})
+
+test('la tache a un `content`, sans quoi elle n’existe pas du tout', () => {
+  // La seule ligne dont le retrait fait disparaître la tache entièrement en
+  // laissant tous les autres gardes verts : le bloc garderait son `--fond`,
+  // son `z-index`, son `pointer-events` et son `background`. C'est la classe de
+  // défaut qui a déjà mordu une fois ici — une tache strictement invisible que
+  // les tests ne voyaient pas.
+  expect(tacheDeNuit()).toMatch(/content:/)
 })
 
 test('la tache ne capte pas le pointeur des étoiles qu’elle recouvre', () => {

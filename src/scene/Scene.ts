@@ -386,6 +386,10 @@ export class Scene {
           Math.round(melange[2] * 255)
         if (this.recolor) setRecolorFond(this.recolor, couleur)
         if (this.vivante) this.app.renderer.background.color = couleur
+        // Vue écoute pour écrire `--fond` au même rythme : tout ce qui est en
+        // CSS — la tache de nuit du formulaire, celle de la bulle — fond avec
+        // la scène au lieu de sauter d'une image.
+        this.emitter.emit('fond', '#' + couleur.toString(16).padStart(6, '0'))
       },
     })
   }
