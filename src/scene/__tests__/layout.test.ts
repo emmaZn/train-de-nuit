@@ -1,7 +1,21 @@
+import { readFileSync } from 'node:fs'
+
+import { CRETE, CRETE_BIN } from '@/scene/crete'
 import { GARES } from '@/stores/voyage'
 
 import {
   ANCRE_FRISE,
+  HAUTEUR_FRISE,
+  HAUT_VOIE,
+  CIEL_SOMMET,
+  DESCENTE_BUREAU,
+  DESCENTE_MOBILE,
+  PLANCHER_REFLET,
+  cadrageCiel,
+  cadrageScene,
+  cretePx,
+  hautDuVoilePx,
+  regionCiel,
   ANCRE_FRISE_MOBILE,
   DEGRADE_HAUTEUR,
   DUREE_ETAPE,
@@ -24,7 +38,9 @@ import {
   cadreMontagnes,
   fenetreVisible,
   fitStage,
+  fonduFrise,
   margeVoie,
+  margeVoieDroite,
   toursMassif,
 } from '@/scene/layout'
 
@@ -105,6 +121,30 @@ test('les deux gares du téléphone occupent la largeur aussi', () => {
   const l = 390
   const e = ecartFrise(l, 2)
   expect(ANCRE_FRISE_MOBILE + e).toBeCloseTo(l - MARGE_FRISE_MOBILE, 6)
+})
+
+test('la première gare naît là où le masque est déjà opaque', () => {
+  // La frise s'efface aux bords : transparente jusqu'à `margeVoie`, opaque
+  // seulement `fonduFrise` plus loin. Une ancre posée avant cette limite fait
+  // naître la première gare en plein fondu — « ici » à moitié effacé. Le fondu
+  // de bureau est réglé pour une ancre de 120 px ; sur téléphone, où elle vaut
+  // moins du quart, il doit se resserrer d'autant.
+  for (const l of [390, 430, 360, 1280, 1512, 1920]) {
+    const ancre = l < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
+    expect(margeVoie(l) + fonduFrise(l), `${l}px`).toBeLessThanOrEqual(ancre)
+  }
+})
+
+test('le téléphone ne montre que la gare à quai et la suivante', () => {
+  // CONCEPT §11 : « frise réduite (gare actuelle + prochaine) ». Rien ne
+  // l'imposait : la frise est une piste qui glisse, et c'est l'écartement qui
+  // décide combien de gares tombent dans la bande visible. Trop resserrer en
+  // fait entrer une troisième, coupée par le fondu de droite. La troisième doit
+  // donc naître au-delà du bord où le masque redevient transparent.
+  for (const l of [320, 360, 390, 430]) {
+    const troisieme = ANCRE_FRISE_MOBILE + 2 * ecartFrise(l, 2)
+    expect(troisieme, `${l}px`).toBeGreaterThanOrEqual(l - margeVoieDroite(l))
+  }
 })
 
 test('l’écartement grandit avec l’écran', () => {
@@ -231,4 +271,166 @@ test('la marge ne mord jamais sur l’ancre', () => {
 
 test('sur téléphone, la marge se réduit au lieu de cacher le marqueur', () => {
   expect(margeVoie(390)).toBeLessThan(margeVoie(1512))
+})
+
+describe('la région libre du ciel', () => {
+  test('là où il n’y a pas de massif, la région s’arrête au haut du voile', () => {
+    expect(cretePx(2, 844, 390, 1.555, 26)).toBeCloseTo(hautDuVoilePx(844, 390, 26), 0)
+  })
+
+  test('la région ne descend jamais sous le haut du voile', () => {
+    for (const x of [0, 200, 422, 700, 844]) {
+      const r = regionCiel(x, 844, 390, 1.555, 26)
+      expect(r.top + r.height).toBeLessThanOrEqual(hautDuVoilePx(844, 390, 26) + 0.5)
+    }
+  })
+
+  test('une région écrasée garde une hauteur utilisable', () => {
+    const r = regionCiel(400, 800, 200, 2.2, 0)
+    expect(r.height).toBeGreaterThan(0)
+    expect(Number.isFinite(r.height)).toBe(true)
+  })
+
+  test('la crête est brute : valeur absolue sur un bord de paquet, sans marge', () => {
+    // Bord entre les paquets 26 et 27 : la crête y vaut min(386, 348) = 348.
+    const [w, h, echelle, decalage] = [1512, 771, 2.153, 11]
+    const frame = fitStage(w, h)
+    const c = cadreMontagnes(echelle)
+    const f = (STAGE.width / MOUNTAIN_SOURCE.width) * echelle
+    const x = (c.x + 27 * CRETE_BIN * f) * frame.scale + frame.offsetX
+    const attendu = (c.y + Math.min(CRETE[26], CRETE[27]) * f) * frame.scale + frame.offsetY + decalage
+    expect(cretePx(x, w, h, echelle, decalage)).toBeCloseTo(attendu, 5)
+  })
+
+  test('la crête rendue ne descend jamais sous le minimum de son paquet', () => {
+    for (const [w, h, echelle] of [[1512, 771, 2.153], [2560, 1440, 2.2], [1280, 800, 2.2]]) {
+      const frame = fitStage(w, h)
+      const c = cadreMontagnes(echelle)
+      const f = (STAGE.width / MOUNTAIN_SOURCE.width) * echelle
+      for (let x = 0; x <= w; x += 0.5) {
+        const sx = ((x - frame.offsetX) / frame.scale - c.x) / f
+        const i = Math.min(Math.max(Math.floor(sx / CRETE_BIN), 0), CRETE.length - 1)
+        const borne = (c.y + CRETE[i] * f) * frame.scale + frame.offsetY
+        expect(cretePx(x, w, h, echelle, 0)).toBeLessThanOrEqual(borne + 1e-6)
+      }
+    }
+  })
+
+  test('la crête varie en continu, sans marches', () => {
+    let max = 0
+    for (let x = 300; x < 1200; x++) {
+      const d = Math.abs(cretePx(x + 1, 1512, 771, 2.153, 0) - cretePx(x, 1512, 771, 2.153, 0))
+      max = Math.max(max, d)
+    }
+    expect(max).toBeLessThan(6)
+  })
+
+  test('le décalage descend la crête d’autant, en pixels d’écran', () => {
+    const a = cretePx(756, 1512, 771, 2.153, 0)
+    expect(cretePx(756, 1512, 771, 2.153, 30)).toBeCloseTo(a + 30, 5)
+  })
+
+  test('HAUTEUR_FRISE est la somme des deux morceaux de CSS qui la font', () => {
+    const base = readFileSync('src/styles/base.css', 'utf8')
+    const frise = readFileSync('src/components/NavFrise.vue', 'utf8')
+    const voie = Number(/--haut-voie:\s*(\d+)px/.exec(base)?.[1])
+    const marge = Number(/height:\s*calc\(var\(--haut-voie\)\s*\+\s*(\d+)px\)/.exec(frise)?.[1])
+    expect(voie).toBe(HAUT_VOIE)
+    expect(Number.isFinite(marge)).toBe(true)
+    expect(voie + marge).toBe(HAUTEUR_FRISE)
+  })
+})
+
+test('la frise fait 96 px', () => {
+  expect(HAUTEUR_FRISE).toBe(96)
+})
+
+test('l’œil se pose sur la ligne de voie, pas au-dessus', async () => {
+  // Il était centré dans la bande au-dessus de la voie ; cette bande passe de
+  // 64 à 44 px et un bouton de 36 px n'y tient plus proprement.
+  const css = (await import('@/components/EyeButton.vue?raw')).default
+  expect(css).toMatch(/top:\s*calc\(var\(--haut-voie\)\s*-\s*18px\)/)
+})
+
+describe('la règle de dégagement', () => {
+  const colonnes = (w: number): number[] => Array.from({ length: Math.ceil(w) + 1 }, (_, i) => i)
+
+  // Sur grand écran, `DESCENTE_BUREAU` s'ajoute au jeu de couverture : la scène
+  // descend de 20 px pour dégager du ciel. Conséquence heureuse, l'échelle du
+  // massif n'a plus besoin d'être résolue plus bas sur les formats de bureau —
+  // les 20 px suffisent à tenir `CIEL_SOMMET`, et elle reste pleine à 2,2.
+  test.each([
+    [1512, 771, 31, 2.2],
+    [1280, 800, 20, 2.2],
+    [1440, 900, 20, 2.2],
+    [1728, 1117, 20, 2.2],
+    [390, 844, 60, 2.2],
+    [844, 390, 26, 1.555],
+  ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
+    const c = cadrageCiel(w, h)
+    expect(c.decalage).toBeCloseTo(decalage, 0)
+    expect(c.echelle).toBeCloseTo(echelle, 2)
+  })
+
+  test('la descente s’ajoute au jeu vertical, et vaut plus sur téléphone', () => {
+    // Le jeu de couverture reste nul dès que la fenêtre est pilotée par sa
+    // hauteur : c'est une propriété de `fitStage`, et elle n'a pas bougé. Ce
+    // qui a changé, c'est que le décalage ne s'y limite plus sur grand écran.
+    expect(fitStage(1440, 900).offsetY).toBeCloseTo(0, 0)
+    expect(cadrageCiel(1440, 900).decalage).toBeCloseTo(DESCENTE_BUREAU, 0)
+    // La bande découverte en haut est du ciel, que la couche d'écran remplit
+    // de toute façon — c'est ce qui rend la manœuvre possible aujourd'hui.
+    expect(cadrageCiel(1512, 771).decalage).toBeGreaterThan(DESCENTE_BUREAU)
+    // Sur téléphone on descend davantage : le format est très haut et le train
+    // y tombait trop près du milieu.
+    expect(cadrageCiel(390, 844).decalage).toBeCloseTo(DESCENTE_MOBILE, 0)
+    expect(DESCENTE_MOBILE).toBeGreaterThan(DESCENTE_BUREAU)
+  })
+
+  test('l’échelle est continue en hauteur de fenêtre', () => {
+    for (const w of [360, 390, 600, 1000]) {
+      for (let h = 300; h < 900; h += 1) {
+        const a = cadrageCiel(w, h).echelle
+        const b = cadrageCiel(w, h + 1).echelle
+        expect(Math.abs(a - b), `${w}x${h}`).toBeLessThan(0.02)
+      }
+    }
+  })
+
+  test.each([
+    [1512, 500],
+    [1920, 700],
+    [1280, 480],
+    [915, 356],
+    // Étroite et basse : c'est là que le plafond du reflet mord sur téléphone,
+    // d'autant plus depuis que DESCENTE_MOBILE demande 60 px.
+    [360, 440],
+  ])('les rails restent visibles sur une fenêtre serrée (%ix%i)', (w, h) => {
+    const frame = fitStage(w, h)
+    const { decalage } = cadrageCiel(w, h)
+    const reflet = h - (HORIZON * frame.scale + frame.offsetY + decalage)
+    expect(reflet).toBeGreaterThan(0)
+    // the shift never eats into the floor: it stops where the reflection hits it
+    const avant = h - (HORIZON * frame.scale + frame.offsetY)
+    expect(decalage).toBeLessThanOrEqual(Math.max(0, avant - PLANCHER_REFLET) + 1e-6)
+  })
+
+  test('la cible de 60 px est tenue partout', () => {
+    for (const [w, h] of [[1512, 771], [1280, 800], [1440, 900], [390, 844], [844, 390], [1024, 600]]) {
+      const { decalage, echelle } = cadrageCiel(w, h)
+      const sommet = Math.min(...colonnes(w).map((x) => cretePx(x, w, h, echelle, decalage)))
+      expect(sommet - HAUTEUR_FRISE).toBeGreaterThanOrEqual(CIEL_SOMMET - 0.5)
+    }
+  })
+})
+
+test.each([
+  [1512, 771],
+  [844, 390],
+  [1440, 900],
+])('le cadre de la scène porte le décalage de cadrageCiel (%i x %i)', (w, h) => {
+  const { frame, decalage } = cadrageScene(w, h)
+  expect(decalage).toBe(cadrageCiel(w, h).decalage)
+  expect(frame.offsetY).toBeCloseTo(fitStage(w, h).offsetY + decalage, 9)
+  expect(frame.scale).toBe(fitStage(w, h).scale)
 })

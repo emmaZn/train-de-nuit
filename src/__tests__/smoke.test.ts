@@ -6,9 +6,13 @@ import { createAppRouter } from '@/router'
 
 // jsdom n'a pas de WebGL : la scène ne peut pas s'initialiser ici. Ce qu'on
 // vérifie, c'est que la couche HTML se monte autour d'elle.
-vi.mock('@/composables/useScene', async () => {
+// `SCENE_KEY` vient du vrai module : App.vue la fournit aux gares, et deux
+// symboles différents feraient une injection qui ne trouve rien.
+vi.mock('@/composables/useScene', async (importOriginal) => {
   const { ref } = await import('vue')
+  const reel = await importOriginal<typeof import('@/composables/useScene')>()
   return {
+    ...reel,
     useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), changerFond: () => {} }),
   }
 })

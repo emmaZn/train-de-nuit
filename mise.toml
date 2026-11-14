@@ -7,3 +7,7 @@
 # automatiquement, remplacer par "24".
 [tools]
 node = "24.20.0"
+
+# Java 21 : la CLI Firebase v15 a retiré le support des Java antérieurs à 21,
+# et l'émulateur Firestore est un programme Java.
+java = "temurin-21"

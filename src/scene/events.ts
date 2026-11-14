@@ -11,6 +11,12 @@ export type SceneEvents = {
    * we are.
    */
   arrived: () => void
+  /**
+   * La couleur de la nuit, à chaque image du fondu de `setFond`. Vue s'en sert
+   * pour écrire `--fond` : sans ça, le CSS basculerait d'un coup pendant que la
+   * scène, elle, fond sur une seconde (CONCEPT §6).
+   */
+  fond: (hex: string) => void
   starHover: (trace: Trace | null, x: number, y: number) => void
   birdFell: (x: number, y: number) => void
 }
