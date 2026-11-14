@@ -395,12 +395,50 @@ onBeforeUnmount(() => {
 /* À droite, dans le ciel, sans cadre (§4.3). */
 .trace {
   position: absolute;
+  /* Sans ça, le `z-index: -1` de la tache ne la met pas derrière ce texte-ci :
+     faute d'ancêtre qui crée un contexte d'empilement, il l'envoie derrière le
+     canvas de la scène, où elle ne se voit plus du tout. */
+  isolation: isolate;
   top: 176px;
   right: 56px;
   width: 280px;
   pointer-events: auto;
   /* Temps 1 et 5 : le formulaire s'efface, puis revient. */
   transition: opacity 0.7s ease;
+}
+
+/*
+ * A patch of night behind the form, so its four texts can be read over the
+ * white grain of the massif — the placeholder, the counter and « laisser ↵ »
+ * are the palest of them and go first. Black becomes the colour of the night
+ * everywhere (CONCEPT §6), so the patch is mixed from `--fond` and follows the
+ * eye on its own.
+ *
+ * Same derogation as the bubble's: the site has one material and its forms are
+ * frameless (§2, §4.3), yet this patch has an edge. Traded for legibility, on
+ * purpose — docs/superpowers/specs/2026-11-14-formulaire-lisible-design.md.
+ *
+ * `pointer-events: none` is not decoration. `.trace` is `pointer-events: auto`
+ * and a positioned ::before belongs to its box: without it, the patch would
+ * steal the hover from stars lying in the band it overhangs.
+ *
+ * It holds its density further out than the bubble's (45 % and 72 % against
+ * 35 % and 62 %): the block is ten lines tall, not one, and its title and meta
+ * line sit at the very edges where the bubble has nothing.
+ */
+.trace::before {
+  content: '';
+  position: absolute;
+  inset: -28px -40px;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--fond) 94%, transparent) 0%,
+    color-mix(in srgb, var(--fond) 90%, transparent) 45%,
+    color-mix(in srgb, var(--fond) 80%, transparent) 72%,
+    color-mix(in srgb, var(--fond) 0%, transparent) 100%
+  );
 }
 
 .trace[data-envoi='true'] {

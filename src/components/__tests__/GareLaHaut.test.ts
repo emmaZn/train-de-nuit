@@ -289,6 +289,51 @@ test('le champ phrase porte exactement la police que la dissolution rastérise',
   expect(police).toBe(`300 17px ${famille}`)
 })
 
+/* ---- La nuit derrière le formulaire ---- */
+
+// Vitest ne charge pas le CSS scopé d'un SFC : on lit la source, comme le fait
+// déjà le test de la police. Ça ne dit rien du rendu — c'est l'épreuve à l'œil
+// qui en juge — mais ça épingle ce que le cadrage fixe.
+function tacheDeNuit(): string {
+  const gare = readFileSync('src/components/gares/GareLaHaut.vue', 'utf8')
+  return /\.trace::before\s*\{([^}]*)\}/.exec(gare)?.[1] ?? ''
+}
+
+test('le formulaire isole son empilement, sinon la tache passe derrière la scène', () => {
+  // `z-index: -1` place la tache derrière le contenu du contexte d'empilement
+  // le plus proche. Sans `isolation: isolate` sur `.trace`, aucun ancêtre n'en
+  // crée : la tache part alors derrière le canvas de la scène et devient
+  // purement invisible. Constaté au navigateur, pas déduit.
+  const gare = readFileSync('src/components/gares/GareLaHaut.vue', 'utf8')
+  const bloc = /\.trace\s*\{([^}]*)\}/.exec(gare)?.[1] ?? ''
+  expect(bloc).toMatch(/position:\s*absolute/)
+  expect(bloc).toMatch(/isolation:\s*isolate/)
+})
+
+test('la tache de nuit se prend sur le fond, jamais sur une couleur figée', () => {
+  // CONCEPT §6 : l'œil fait défiler cinq fonds, la tache doit suivre sans retouche.
+  expect(tacheDeNuit()).toMatch(/var\(--fond\)/)
+  expect(tacheDeNuit()).not.toMatch(/#[0-9a-f]{3,6}/i)
+})
+
+test('la tache reste derrière le texte du formulaire', () => {
+  expect(tacheDeNuit()).toMatch(/z-index:\s*-1/)
+})
+
+test('la tache ne capte pas le pointeur des étoiles qu’elle recouvre', () => {
+  // `.trace` porte `pointer-events: auto`, et un ::before positionné fait partie
+  // de sa boîte : sans cette ligne il volerait le survol tout autour du bloc.
+  expect(tacheDeNuit()).toMatch(/pointer-events:\s*none/)
+})
+
+test('la tache n’anime rien d’elle-même', () => {
+  // Elle hérite de l'opacité de `.trace`, qui porte déjà sa transition et sa
+  // règle de mouvement réduit. L'assertion positive vient d'abord : sans elle,
+  // un bloc absent ferait passer la négative sans rien prouver.
+  expect(tacheDeNuit()).toMatch(/background/)
+  expect(tacheDeNuit()).not.toMatch(/animation|transition/)
+})
+
 /* ---- Review Focus #2 : les quatre chemins du réseau ---- */
 
 test('succès : la dissolution part avant la réponse, puis l’étoile se pose et le champ se vide', async () => {
