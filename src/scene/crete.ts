@@ -16,9 +16,13 @@ export const CRETE: readonly number[] = [
   944, 944, 944, 944, 944, 944, 944, 944, 944, 944, 829, 822, 815, 809, 791, 773, 755, 726, 681, 629, 581, 533, 515, 486, 472, 441, 386, 348, 346, 345, 345, 346, 348, 388, 441, 471, 489, 517, 535, 586, 635, 687, 729, 758, 775, 795, 811, 816, 825, 829, 944, 944, 944, 944, 944, 944, 944, 944, 944, 944,
 ]
 
-// Safety margin above the crest, in SCREEN pixels: the hover radius of a star
-// (RAYON_SURVOL in StarLayer.ts), which already covers its 9 px halo. The true
-// per-column maximum is stored, not a smoothing, so smoothing error vanishes;
-// what remains is the gap between the GLSL port and the reference render, and
-// the 2 degree sampling of the turn, both small.
-export const MARGE_CRETE = 14
+// Safety margin above the crest, in SCREEN pixels. It used to be the hover
+// radius of a star (RAYON_SURVOL, 14), so that the 9 px halo cleared the rock:
+// a star was never *behind* the mountain, halo included. The sky now draws in
+// FRONT of the massif, so nothing can be behind it any more and that clearance
+// has no job left. What remains is measurement error: the gap between the GLSL
+// port and the reference render, and the 2 degree sampling of the turn, both
+// small. The true per-column maximum is stored, not a smoothing, so smoothing
+// error vanishes. Kept deliberately below the halo radius so a star can graze
+// the ridge line.
+export const MARGE_CRETE = 5

@@ -12,8 +12,13 @@ test('le sommet de la crête est celui que le cadrage déclare', () => {
   expect(Math.min(...CRETE)).toBeLessThanOrEqual(MOUNTAIN_CONTENU.top + 2)
 })
 
-test('la marge absorbe le halo de l’étoile', () => {
-  // RAYON_HALO = 9 dans StarLayer : « jamais derrière la montagne » vaut pour
-  // le halo, pas seulement pour le point.
-  expect(MARGE_CRETE).toBeGreaterThanOrEqual(9)
+test('la marge ne couvre plus que l’erreur de mesure', () => {
+  // Elle absorbait le halo (RAYON_HALO = 9 dans StarLayer) parce qu'une étoile
+  // ne devait jamais passer derrière la montagne. Le ciel se dessine désormais
+  // devant le massif : plus rien ne peut être derrière, et la marge ne couvre
+  // que l'écart GLSL / rendu de référence et l'échantillonnage du tour à 2°.
+  // La borne haute est le vrai garde : repasser au-dessus du halo rendrait aux
+  // étoiles le dégagement qu'on vient de leur retirer, sans le dire.
+  expect(MARGE_CRETE).toBeGreaterThan(0)
+  expect(MARGE_CRETE).toBeLessThan(9)
 })
