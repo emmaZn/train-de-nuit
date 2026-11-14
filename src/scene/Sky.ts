@@ -12,7 +12,7 @@ export type Grain = {
 }
 
 /** One grain per this many square pixels. */
-const DENSITE = 1 / 9000
+const DENSITE = 1 / 600
 /** Below this, a small viewport would end up with an empty sky. */
 const PLANCHER = 60
 /** CONCEPT.md §11: fewer particles on mobile. */

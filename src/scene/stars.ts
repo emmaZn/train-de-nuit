@@ -20,11 +20,6 @@ export function eclat(ageJours: number): number {
   return Math.max(0.16, Math.exp(-ageJours / 18))
 }
 
-/** Only the bright stars carry a halo. */
-export function aHalo(e: number): boolean {
-  return e > 0.55
-}
-
 /** The brighter the star, the more it twinkles. */
 export function amplitudeScintillement(e: number): number {
   return 0.12 + 0.35 * e

@@ -2,7 +2,6 @@ import { ECHELLE_MONTAGNES, HAUTEUR_FRISE, SEUIL_MOBILE, regionCiel } from '../l
 import {
   ETOILES_MAX_BUREAU,
   ETOILES_MAX_MOBILE,
-  aHalo,
   amplitudeScintillement,
   eclat,
   etoileSous,
@@ -44,12 +43,6 @@ test('eclat(0) vaut 1 et décroît avec l’âge', () => {
 
 test('eclat ne descend jamais sous 0.16, même à dix ans', () => {
   expect(eclat(3650)).toBe(0.16)
-})
-
-test('aHalo est vrai au-dessus de 0.55 et faux en dessous', () => {
-  expect(aHalo(0.56)).toBe(true)
-  expect(aHalo(0.55)).toBe(false)
-  expect(aHalo(0.3)).toBe(false)
 })
 
 test('amplitudeScintillement vaut 0.12 à éclat nul et 0.47 à éclat plein', () => {

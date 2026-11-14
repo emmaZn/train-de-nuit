@@ -1,6 +1,6 @@
 import { Container, Graphics } from 'pixi.js'
 import { cadrageCiel } from './layout'
-import { aHalo, amplitudeScintillement, eclat, etoileSous, limiteEtoiles, projeter } from './stars'
+import { amplitudeScintillement, eclat, etoileSous, limiteEtoiles, projeter } from './stars'
 import type { EtoilePosee } from './stars'
 import type { Trace } from './types'
 
@@ -9,8 +9,11 @@ const JOUR_MS = 86_400_000
 const RAYON_SURVOL = 14
 /** A star put out by the limit fades over this many seconds. */
 const DUREE_EXTINCTION = 1.2
-const RAYON_ETOILE = 2.2
-const RAYON_HALO = 9
+/** Reach of a star's glow and radius of its core, in CSS pixels. */
+const RAYON_LUEUR = 16
+const RAYON_COEUR = 1
+/** Concentric rings the glow is built from. */
+const ANNEAUX = 14
 
 type Posee = {
   trace: Trace
@@ -57,6 +60,30 @@ export class Stars {
   constructor(parent: Container, opts: { reducedMotion: boolean }) {
     this.reducedMotion = opts.reducedMotion
     parent.addChild(this.racine)
+  }
+
+  /**
+   * A star is a core plus a glow: concentric rings whose opacity falls away,
+   * so the edge dissolves instead of ending on a hard rim. Every star has one,
+   * not only the recent ones. The glow's REACH follows the brightness, not just
+   * its opacity: a faint star is a *smaller* point, never a wider, paler smudge
+   * — without that, old stars melted into one another.
+   */
+  private dessiner(e: Posee): void {
+    e.gfx.clear()
+    // Brightness is applied once, on the whole object (`gfx.alpha`). Applying
+    // it again here made an old star's glow fall to nothing and left only the
+    // solid core, hard-edged — a button.
+    const portee = RAYON_LUEUR * (0.4 + 0.6 * e.eclat)
+    const coeur = RAYON_COEUR * (0.75 + 0.25 * e.eclat)
+    for (let i = ANNEAUX; i >= 1; i--) {
+      const t = i / ANNEAUX
+      const r = coeur + (portee - coeur) * t
+      // Bell-shaped fall-off: gentle at the centre, long at the edges.
+      e.gfx.circle(0, 0, r).fill({ color: 0xffffff, alpha: 0.16 * Math.pow(1 - t, 2.2) })
+    }
+    e.gfx.circle(0, 0, coeur * 1.6).fill({ color: 0xffffff, alpha: 0.45 })
+    e.gfx.circle(0, 0, coeur).fill({ color: 0xffffff })
   }
 
   /**
@@ -157,8 +184,7 @@ export class Stars {
       vitesse: 0.8 + graine(trace.id + '~') * 1.6,
       extinction: null,
     }
-    if (aHalo(e.eclat)) e.gfx.circle(0, 0, RAYON_HALO).fill({ color: 0xffffff, alpha: 0.15 })
-    e.gfx.circle(0, 0, RAYON_ETOILE).fill({ color: 0xffffff })
+    this.dessiner(e)
     e.gfx.alpha = this.alphaDe(e)
     this.placer(e)
     this.racine.addChild(e.gfx)

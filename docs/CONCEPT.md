@@ -125,7 +125,17 @@ Le nom et le titre sont en haut à gauche (comme sur la maquette). La phrase app
 ```ts
 // âge en jours
 const eclat = Math.max(0.16, Math.exp(-age / 18))   // 1 = neuve, 0.16 = très ancienne
-// halo seulement si eclat > 0.55 ; scintillement d'amplitude 0.12 + 0.35 * eclat
+```
+
+**Chaque** étoile porte une lueur, pas seulement les récentes : des anneaux
+concentriques dont l'opacité retombe, pour que le bord se dissolve au lieu de
+finir net. C'est la **portée** de la lueur qui suit l'éclat, pas seulement son
+opacité — une étoile pâle est un point **plus petit**, jamais une tache plus
+large et plus délavée. Sans ça les anciennes se fondaient les unes dans les
+autres. (L'ancienne règle, « halo seulement au-dessus de 0,55 », ne vaut plus.)
+
+```ts
+// scintillement d'amplitude 0.12 + 0.35 * eclat
 ```
 
 - **Survol** : la phrase apparaît doucement à côté de l'étoile (Inter Light 14 px), puis une ligne mono 10 px : prénom (si donné) · âge relatif (`à l'instant`, `aujourd'hui`, `hier`, `il y a 3 jours`, `il y a 2 mois`). Elle s'efface quand on s'éloigne.
