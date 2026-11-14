@@ -2,6 +2,7 @@ import gsap from 'gsap'
 import { Application, BlurFilter, Container, FillGradient, Graphics, RenderTexture, Sprite } from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
+import { Terre } from './Terre'
 import { Dissolve, grainsDePhrase, poigneeSansAnimation } from './Dissolve'
 import type { Poignee } from './Dissolve'
 import {
@@ -98,6 +99,8 @@ export class Scene {
   private relief: Relief | null = null
   private train: Train | null = null
   private recolor: Filter | null = null
+  /** La terre sous les rails : devant le reflet, devant le train. */
+  private terre: Terre | null = null
 
   private fond = DEFAUT as string
   private phase = 0
@@ -180,6 +183,9 @@ export class Scene {
     // trait blanc, et c'est aussi ce qui éteint la poussière près des rails.
     this.decor.addChild(this.voileDuPied())
     this.train = new Train(this.decor, manifest)
+    // Devant la voie et devant le train : c'est le sol sur lequel il roule.
+    this.terre = new Terre(this.decor)
+    this.cadrer()
 
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
     await this.train.load()
@@ -212,6 +218,17 @@ export class Scene {
    * recolor filter above turns it into the colour of the night — it follows
    * the eye like everything else.
    */
+  /**
+   * La plus grande texture que le GPU accepte : c'est elle qui décide au bout
+   * de combien de temps la bande de terre se répète. Au repli de 4096 texels,
+   * le motif revient toutes les neuf secondes — soit une fois par étape.
+   */
+  private tailleMaxTexture(): number {
+    const gl = (this.app.renderer as unknown as { gl?: WebGL2RenderingContext }).gl
+    const max = gl?.getParameter(gl.MAX_TEXTURE_SIZE)
+    return typeof max === 'number' && max > 0 ? Math.min(max, 16384) : 4096
+  }
+
   private voileDuPied(): Graphics {
     const c = cadreDegrade(DEGRADE_HAUTEUR)
     const degrade = new FillGradient({
@@ -246,6 +263,9 @@ export class Scene {
     // dissolution en cours doit suivre l'écran.
     for (const d of this.dissolutions) d.resize(width, height)
     this.relief?.cadrer(frame, width, height, this.app.renderer.resolution, echelle)
+    // Le grain de la terre se mesure en texels du rendu : il se refait quand
+    // le cadre ou la densité de pixels change.
+    this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
 
     this.refletTexture?.destroy(true)
     this.refletTexture = RenderTexture.create({
@@ -434,6 +454,8 @@ export class Scene {
       if (d.fini) this.dissolutions.delete(d)
     }
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
+    // Même horloge que la voie, à la distance et non au temps.
+    this.terre?.avancer(dt, this.train?.vitesse ?? 0)
     this.rendreReflet()
   }
 
@@ -455,6 +477,7 @@ export class Scene {
   }
 
   dispose(): void {
+    this.terre?.destroy()
     this.emitter.clear()
     this.refletTexture?.destroy(true)
     this.relief?.detruire()
