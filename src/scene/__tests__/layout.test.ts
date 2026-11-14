@@ -8,6 +8,7 @@ import {
   HAUTEUR_FRISE,
   HAUT_VOIE,
   CIEL_SOMMET,
+  DESCENTE_BUREAU,
   PLANCHER_REFLET,
   cadrageCiel,
   cadrageScene,
@@ -327,11 +328,15 @@ test('l’œil se pose sur la ligne de voie, pas au-dessus', async () => {
 describe('la règle de dégagement', () => {
   const colonnes = (w: number): number[] => Array.from({ length: Math.ceil(w) + 1 }, (_, i) => i)
 
+  // Sur grand écran, `DESCENTE_BUREAU` s'ajoute au jeu de couverture : la scène
+  // descend de 20 px pour dégager du ciel. Conséquence heureuse, l'échelle du
+  // massif n'a plus besoin d'être résolue plus bas sur les formats de bureau —
+  // les 20 px suffisent à tenir `CIEL_SOMMET`, et elle reste pleine à 2,2.
   test.each([
-    [1512, 771, 11, 2.153],
-    [1280, 800, 0, 2.16],
-    [1440, 900, 0, 2.2],
-    [1728, 1117, 0, 2.2],
+    [1512, 771, 31, 2.2],
+    [1280, 800, 20, 2.2],
+    [1440, 900, 20, 2.2],
+    [1728, 1117, 20, 2.2],
     [390, 844, 0, 2.2],
     [844, 390, 26, 1.555],
   ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
@@ -340,9 +345,18 @@ describe('la règle de dégagement', () => {
     expect(c.echelle).toBeCloseTo(echelle, 2)
   })
 
-  test('le jeu vertical est nul dès que la fenêtre est pilotée par sa hauteur', () => {
-    expect(cadrageCiel(1440, 900).decalage).toBe(0)
-    expect(cadrageCiel(1512, 771).decalage).toBeGreaterThan(0)
+  test('la descente de bureau s’ajoute au jeu vertical, et rien sur téléphone', () => {
+    // Le jeu de couverture reste nul dès que la fenêtre est pilotée par sa
+    // hauteur : c'est une propriété de `fitStage`, et elle n'a pas bougé. Ce
+    // qui a changé, c'est que le décalage ne s'y limite plus sur grand écran.
+    expect(fitStage(1440, 900).offsetY).toBeCloseTo(0, 0)
+    expect(cadrageCiel(1440, 900).decalage).toBeCloseTo(DESCENTE_BUREAU, 0)
+    // La bande découverte en haut est du ciel, que la couche d'écran remplit
+    // de toute façon — c'est ce qui rend la manœuvre possible aujourd'hui.
+    expect(cadrageCiel(1512, 771).decalage).toBeGreaterThan(DESCENTE_BUREAU)
+    // Sur téléphone on n'ajoute rien : la hauteur y est trop disputée.
+    // (à l'arrondi flottant près : le cadrage y rend un résidu de 1e-14.)
+    expect(cadrageCiel(390, 844).decalage).toBeCloseTo(0, 6)
   })
 
   test('l’échelle est continue en hauteur de fenêtre', () => {

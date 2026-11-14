@@ -109,7 +109,15 @@ export const ANCRE_FRISE = 120
 export const ANCRE_FRISE_MOBILE = 24
 
 /** Ce qu'on garde à droite, pour que la dernière mention ait sa place. */
-export const MARGE_FRISE = 150
+/**
+ * Ce que l'œil occupe au bord droit : 24 px d'icône, 6 de rembourrage de chaque
+ * côté, et 16 px de dégagement. La voie s'effaçait jusqu'ici à `MARGE_VOIE` du
+ * bord, c'est-à-dire exactement là où l'œil commence — ils se superposaient par
+ * construction.
+ */
+export const DEGAGEMENT_OEIL = 36 + 16
+
+export const MARGE_FRISE = 200
 export const MARGE_FRISE_MOBILE = 150
 
 /** Ce que la voie laisse libre de chaque côté de l'écran, en pixels. */
@@ -123,6 +131,11 @@ export const MARGE_VOIE = 40
 export function margeVoie(largeur: number): number {
   const ancre = largeur < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
   return Math.max(0, Math.min(MARGE_VOIE, ancre - 16))
+}
+
+/** Idem à droite, où l'œil se tient : la voie doit s'arrêter avant lui. */
+export function margeVoieDroite(largeur: number): number {
+  return margeVoie(largeur) + DEGAGEMENT_OEIL
 }
 
 /** Écartement minimal : en dessous, deux gares se chevaucheraient. */
@@ -364,6 +377,18 @@ export const CIEL_SOMMET = 60
  */
 export const PLANCHER_REFLET = 55
 
+/**
+ * Ce qu'on descend la scène en plus, sur grand écran, pour dégager du ciel.
+ *
+ * Le décalage est d'ordinaire plafonné par le jeu du cadrage « cover »
+ * (`-offsetY`), qui ne vaut qu'une poignée de pixels sur une fenêtre de bureau
+ * ordinaire : 11 px à 1512 x 771. Au-delà, une bande du haut n'a plus de scène
+ * derrière elle — ce qui condamnait la manœuvre quand la poussière vivait dans
+ * le cadre. Elle se dessine désormais en coordonnées d'écran : cette bande
+ * porte donc le fond et le grain comme le reste du ciel, et ne se voit pas.
+ */
+export const DESCENTE_BUREAU = 20
+
 /** Plus petite échelle que la résolution puisse retenir. */
 const ECHELLE_MIN = 0.5
 
@@ -417,7 +442,11 @@ export function cadrageCiel(
   // fait sortir rails et train sur les fenêtres larges et basses. Si la cible
   // n'est plus atteinte, l'échelle se résout plus bas.
   const reflet = viewportH - (HORIZON * frame.scale + frame.offsetY)
-  const decalage = Math.min(jeu, Math.max(0, reflet - PLANCHER_REFLET))
+  // Sur grand écran on s'autorise `DESCENTE_BUREAU` au-delà du jeu : le
+  // plafond du reflet, lui, reste le vrai garde-fou — il est ce qui empêche
+  // rails et train de sortir par le bas.
+  const marge = jeu + (viewportW >= SEUIL_MOBILE ? DESCENTE_BUREAU : 0)
+  const decalage = Math.min(marge, Math.max(0, reflet - PLANCHER_REFLET))
 
   const ciel = (e: number): number => cielAuSommet(viewportW, viewportH, e, decalage)
   // Quand le haut du voile plafonne la crête, rapetisser ne rend plus de ciel :
