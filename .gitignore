@@ -25,3 +25,8 @@ dist-ssr
 
 # firebase-tools writes firestore-debug.log at the root on each launch
 *-debug.log
+
+# Les plans d'implémentation : instructions pas à pas, exécutées une fois et
+# racontées par les commits. Les cadrages (`specs/`) et les journaux, eux,
+# restent suivis : ils disent le pourquoi et les décisions prises en chemin.
+docs/superpowers/plans/
