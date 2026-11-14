@@ -7,6 +7,7 @@ import {
   SEUIL_MOBILE,
   ecartFrise,
   margeVoie,
+  margeVoieDroite,
   garesVisibles,
 } from '@/scene/layout'
 import type { Gare } from '@/scene/types'
@@ -49,6 +50,7 @@ onBeforeUnmount(() => window.removeEventListener('resize', mesurer))
 const ancre = computed(() => (largeur.value < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE))
 const ecart = computed(() => ecartFrise(largeur.value, garesVisibles(largeur.value)))
 const marge = computed(() => margeVoie(largeur.value))
+const margeDroite = computed(() => margeVoieDroite(largeur.value))
 
 /**
  * Position de la frise, en crans, fractionnaire pendant le trajet : c'est elle
@@ -90,7 +92,7 @@ const entrees = computed(() => {
   <nav
     class="frise"
     aria-label="Les gares du voyage"
-    :style="{ '--ecart': `${ecart}px`, '--ancre': `${ancre}px`, '--marge': `${marge}px` }"
+    :style="{ '--ecart': `${ecart}px`, '--ancre': `${ancre}px`, '--marge': `${marge}px`, '--marge-droite': `${margeDroite}px` }"
   >
     <div class="piste" :class="{ 'en-route': enRoute }" :style="{ '--legs': position }">
       <span class="voie" aria-hidden="true"></span>
@@ -133,8 +135,8 @@ const entrees = computed(() => {
     to right,
     transparent var(--marge),
     #000 calc(var(--marge) + 48px),
-    #000 calc(100% - var(--marge) - 48px),
-    transparent calc(100% - var(--marge))
+    #000 calc(100% - var(--marge-droite) - 48px),
+    transparent calc(100% - var(--marge-droite))
   );
 }
 
