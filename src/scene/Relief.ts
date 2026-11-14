@@ -2,10 +2,14 @@
  * Le massif dans la scène : Three le calcule dans son propre canvas, Pixi le
  * consomme comme n'importe quelle texture.
  *
- * C'est ce qui permet de ne rien changer d'autre — le reflet le reflète, le
- * filtre de recoloration le recolore et la poussière d'étoiles reste derrière,
- * exactement comme du temps de la séquence d'images. La différence est qu'il
- * est calculé à la résolution réelle de l'écran, et qu'il tourne en continu.
+ * C'est ce qui permet de ne rien changer d'autre — le reflet le reflète et le
+ * filtre de recoloration le recolore, exactement comme du temps de la séquence
+ * d'images. La différence est qu'il est calculé à la résolution réelle de
+ * l'écran, et qu'il tourne en continu.
+ *
+ * Le ciel, lui, ne reste plus derrière : il passe **devant** le massif, pour
+ * que son grain continue sur le flanc au lieu de s'arrêter sur la silhouette
+ * (voir `plansDuDecor` dans Scene.ts).
  */
 import { CanvasSource, Container, Sprite, Texture } from 'pixi.js'
 

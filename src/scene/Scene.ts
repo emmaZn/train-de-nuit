@@ -38,6 +38,35 @@ export function poserMonde(noeud: Container, frame: Frame): void {
   noeud.position.set(frame.offsetX, frame.offsetY)
 }
 
+/**
+ * Le contre-transport du ciel. Le ciel se mesure en pixels d'écran — c'est ce
+ * que croient la place d'une étoile et son test de survol — mais il vit
+ * maintenant dans `decor`, qui porte le cadre. Ceci annule `poserMonde` : un
+ * enfant posé en (px, py) retombe sur le pixel d'écran (px, py).
+ */
+export function poserCiel(noeud: Container, frame: Frame): void {
+  const k = 1 / frame.scale
+  noeud.scale.set(k)
+  noeud.position.set(-frame.offsetX * k, -frame.offsetY * k)
+}
+
+/**
+ * L'ordre des plans du décor, du fond vers l'avant : le massif, puis le ciel,
+ * puis tout ce que l'appelant ajoutera ensuite — le voile du pied, les rails
+ * et le train. Le ciel passe donc **devant** la montagne et **derrière** le
+ * train (CONCEPT.md §6).
+ *
+ * Les deux places se réservent ici, en entier et tout de suite : le massif
+ * arrive bien plus tard, et le ciel ne doit pas glisser devant lui en
+ * attendant.
+ */
+export function plansDuDecor(decor: Container): { massif: Container; ciel: Container } {
+  const massif = new Container()
+  const ciel = new Container()
+  decor.addChild(massif, ciel)
+  return { massif, ciel }
+}
+
 export type SceneOptions = { reducedMotion: boolean }
 
 export class Scene {
@@ -50,6 +79,12 @@ export class Scene {
   private readonly monde = new Container()
   /** Mountains and train together: this is what the reflection mirrors. */
   private readonly decor = new Container()
+  /**
+   * Le massif, puis le ciel — poussière et étoiles-voyageuses. Le ciel est
+   * dans `decor` pour partager son filtre de recoloration et passer sous le
+   * voile du pied ; il sort du reflet, lui, à chaque image (`rendreReflet`).
+   */
+  private readonly plans = plansDuDecor(this.decor)
   private readonly refletSprite = new Sprite()
   private refletTexture: RenderTexture | null = null
   /** Les grains des phrases qui se défont : au-dessus de tout le reste. */
@@ -109,12 +144,12 @@ export class Scene {
     this.vivante = true
     this.recolor = createRecolorFilter(fondToHex(this.fond))
 
-    // Stars live in screen space, behind the stage frame that covers the
-    // viewport: a phone shows only a quarter of that frame's width.
-    // La poussière aussi : elle ne se dessine que dans la région libre, qui
-    // se mesure en pixels d'écran.
-    this.sky = new Sky(this.app.stage)
-    this.stars = new Stars(this.app.stage, { reducedMotion: this.reducedMotion })
+    // Le ciel se mesure en pixels d'écran — un téléphone ne voit qu'un quart
+    // de la largeur du cadre —, mais il se dessine entre le massif et le
+    // train : `poserCiel` annule le cadre pour lui, et le reste du décor ne
+    // change pas de repère.
+    this.sky = new Sky(this.plans.ciel)
+    this.stars = new Stars(this.plans.ciel, { reducedMotion: this.reducedMotion })
     this.app.stage.addChild(this.monde, this.dissous)
 
     this.refletSprite.scale.y = -1
@@ -137,12 +172,12 @@ export class Scene {
   }
 
   private async peupler(manifest: Manifest): Promise<void> {
-    // L'ordre des plans se réserve d'abord, et en entier : le massif arrive
-    // plus tard, mais sa place est prise. S'il ne peut pas se construire, le
+    // Les places du massif et du ciel sont déjà prises (`plansDuDecor`) : ce
+    // qu'on ajoute ici vient devant eux. S'il ne peut pas se construire, le
     // voile et le train sont là quand même.
-    const fondDuDecor = new Container()
-    this.decor.addChild(fondDuDecor)
-    // Entre le massif et le train : c'est ce qui détache le trait blanc.
+    const fondDuDecor = this.plans.massif
+    // Devant le ciel, et donc devant le massif : c'est ce qui détache le
+    // trait blanc, et c'est aussi ce qui éteint la poussière près des rails.
     this.decor.addChild(this.voileDuPied())
     this.train = new Train(this.decor, manifest)
 
@@ -198,10 +233,13 @@ export class Scene {
     const { width, height } = this.app.screen
     // `frame.offsetY` porte le décalage : `cretePx` l'ajoute après `fitStage`,
     // et c'est ce même conteneur qui porte massif, voile, rails et train.
-    const { frame, decalage, echelle } = cadrageScene(width, height)
+    const { frame, echelle } = cadrageScene(width, height)
     poserMonde(this.monde, frame)
+    // Le ciel vit dans le décor mais compte en pixels d'écran : son
+    // contre-transport se refait à chaque cadrage, comme celui du monde.
+    poserCiel(this.plans.ciel, frame)
 
-    this.sky?.resize(frame, width, height, width < 720, echelle, decalage)
+    this.sky?.resize(frame, width, height, width < 720)
     this.stars?.setStars(this.traces, width, height)
     this.stars?.resize(width, height)
     // La place d'une étoile est une fraction, sa cible des pixels : une
@@ -395,11 +433,21 @@ export class Scene {
     this.rendreReflet()
   }
 
+  /**
+   * Le reflet ne prend pas le ciel. L'eau renvoie le massif et le train —
+   * les choses solides. La poussière, elle, couvre déjà tout l'écran, reflet
+   * compris : la renvoyer y dessinerait une seconde fois le même grain,
+   * retourné. Et les étoiles-voyageuses y laisseraient des sosies qui ne
+   * répondent à rien, juste sous la voie — précisément la zone que
+   * `regionCiel` leur interdit pour qu'on ne les y cherche pas.
+   */
   private rendreReflet(): void {
     if (!this.refletTexture) return
+    this.plans.ciel.visible = false
     this.decor.scale.set(REFLET_RESOLUTION)
     this.app.renderer.render({ container: this.decor, target: this.refletTexture, clear: true })
     this.decor.scale.set(1)
+    this.plans.ciel.visible = true
   }
 
   dispose(): void {

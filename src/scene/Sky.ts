@@ -1,5 +1,5 @@
 import { Container, Graphics } from 'pixi.js'
-import { STAGE, regionCiel } from './layout'
+import { HORIZON, STAGE } from './layout'
 import type { Frame } from './layout'
 
 export type Grain = {
@@ -53,11 +53,26 @@ export function makeDust(count: number, seed: number, w: number, h: number): Gra
 const PARALLAX = 14
 
 /**
+ * Le plancher de la poussière, en pixels d'écran : la voie. En dessous il n'y
+ * a plus de ciel mais le reflet, et un grain qui continuerait dessus ferait
+ * des étoiles sous l'horizon. Le bas de la fenêtre le borne aussi : inutile de
+ * tirer des grains hors champ.
+ */
+export function plancherPoussiere(frame: Frame, viewportH: number): number {
+  return Math.min(HORIZON * frame.scale + frame.offsetY, viewportH)
+}
+
+/**
  * La poussière du ciel, en pixels d'écran. Les grains sont tirés sur `STAGE`
  * comme toujours, puis posés par le cadre décalé de la scène : taille, souffle
- * et composition restent ceux du cadre. Seuls restent ceux qui tiennent dans
- * la région libre, parallaxe comprise — la poussière transparaît à travers le
- * grain du massif exactement comme une étoile.
+ * et composition restent ceux du cadre.
+ *
+ * Elle couvre tout l'écran jusqu'à la voie. Le ciel se dessine **devant** le
+ * massif (voir `plansDuDecor` dans Scene.ts) : son grain continue donc sur le
+ * flanc au lieu de s'arrêter net sur la silhouette, et le voile du pied, qui
+ * passe devant lui, l'éteint doucement en approchant des rails. C'est le
+ * contraire de ce qu'on faisait : la région libre ne taille plus la poussière,
+ * elle ne sert plus qu'aux étoiles-voyageuses, qui elles se survolent.
  *
  * `PLANCHER` s'applique **après** ce filtre : si trop peu de grains survivent,
  * on en tire davantage (le tirage est stable, les premiers ne changent pas).
@@ -67,11 +82,10 @@ export function poussiereLibre(
   viewportW: number,
   viewportH: number,
   mobile: boolean,
-  echelle: number,
-  decalage: number,
   seed: number,
 ): Grain[] {
   const marge = PARALLAX * frame.scale
+  const plancher = plancherPoussiere(frame, viewportH)
   const garder = (count: number): Grain[] => {
     const libres: Grain[] = []
     for (const g of makeDust(count, seed, STAGE.width, STAGE.height)) {
@@ -79,8 +93,7 @@ export function poussiereLibre(
       const y = g.y * frame.scale + frame.offsetY
       const r = g.r * frame.scale
       if (x < 0 || x > viewportW) continue
-      const region = regionCiel(x, viewportW, viewportH, echelle, decalage)
-      if (y + r + marge <= region.top + region.height) libres.push({ x, y, r, a: g.a })
+      if (y + r + marge <= plancher) libres.push({ x, y, r, a: g.a })
     }
     return libres
   }
@@ -110,17 +123,10 @@ export class Sky {
   }
 
   /** `frame` est celui de `cadrageScene` : son `offsetY` porte le décalage. */
-  resize(
-    frame: Frame,
-    width: number,
-    height: number,
-    mobile: boolean,
-    echelle: number,
-    decalage: number,
-  ): void {
+  resize(frame: Frame, width: number, height: number, mobile: boolean): void {
     this.echelleCadre = frame.scale
     this.grains.clear()
-    for (const g of poussiereLibre(frame, width, height, mobile, echelle, decalage, this.seed)) {
+    for (const g of poussiereLibre(frame, width, height, mobile, this.seed)) {
       this.grains.circle(g.x, g.y, g.r).fill({ color: 0xffffff, alpha: g.a })
     }
   }

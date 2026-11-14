@@ -1,5 +1,5 @@
 import { cadrageScene, regionCiel } from '@/scene/layout'
-import { dustCount, makeDust, poussiereLibre } from '@/scene/Sky'
+import { dustCount, makeDust, plancherPoussiere, poussiereLibre } from '@/scene/Sky'
 
 // Review Focus #5 : viewport minuscule, rotation mobile
 test.each([
@@ -47,28 +47,42 @@ test('makeDust rend exactement le nombre de grains demandé', () => {
   expect(makeDust(123, 5, 800, 600)).toHaveLength(123)
 })
 
-test('aucun grain de poussière ne tombe sous la crête, parallaxe comprise', () => {
+// Décision renversée : la poussière s'arrêtait à la crête, et le flanc du
+// massif restait noir pendant qu'un ciel dense l'entourait. Elle le couvre
+// maintenant — c'est le ciel qui passe devant la montagne (`plansDuDecor`).
+test('la poussière descend sous la crête, sur le flanc du massif', () => {
   for (const [w, h] of [[1512, 771], [844, 390], [1440, 900]]) {
     const { frame, decalage, echelle } = cadrageScene(w, h)
-    const libres = poussiereLibre(frame, w, h, false, echelle, decalage, 7)
+    const libres = poussiereLibre(frame, w, h, false, 7)
+    const sousLaCrete = libres.filter((g) => {
+      const r = regionCiel(g.x, w, h, echelle, decalage)
+      return g.y > r.top + r.height
+    })
+    expect(sousLaCrete.length).toBeGreaterThan(0)
+  }
+})
+
+test('aucun grain ne descend sous la voie, parallaxe comprise', () => {
+  for (const [w, h] of [[1512, 771], [844, 390], [1440, 900]]) {
+    const { frame } = cadrageScene(w, h)
+    const libres = poussiereLibre(frame, w, h, false, 7)
     expect(libres.length).toBeGreaterThan(0)
     for (const g of libres) {
-      const r = regionCiel(g.x, w, h, echelle, decalage)
-      expect(g.y + g.r + 14 * frame.scale).toBeLessThanOrEqual(r.top + r.height)
+      expect(g.y + g.r + 14 * frame.scale).toBeLessThanOrEqual(plancherPoussiere(frame, h))
     }
   }
 })
 
 test('le plancher tient après le filtre : un petit écran garde son ciel', () => {
   for (const [w, h, mobile] of [[390, 844, true], [844, 390, true]] as const) {
-    const { frame, decalage, echelle } = cadrageScene(w, h)
-    expect(poussiereLibre(frame, w, h, mobile, echelle, decalage, 7).length).toBeGreaterThanOrEqual(60)
+    const { frame } = cadrageScene(w, h)
+    expect(poussiereLibre(frame, w, h, mobile, 7).length).toBeGreaterThanOrEqual(60)
   }
 })
 
 test('taille des grains : celle du cadre, mise à l’échelle de l’écran', () => {
-  const { frame, decalage, echelle } = cadrageScene(1512, 771)
-  for (const g of poussiereLibre(frame, 1512, 771, false, echelle, decalage, 7)) {
+  const { frame } = cadrageScene(1512, 771)
+  for (const g of poussiereLibre(frame, 1512, 771, false, 7)) {
     expect(g.r).toBeGreaterThanOrEqual(0.4 * frame.scale - 1e-9)
     expect(g.r).toBeLessThanOrEqual(1.3 * frame.scale + 1e-9)
   }
