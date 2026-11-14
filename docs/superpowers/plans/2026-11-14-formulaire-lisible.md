@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- La tache se prend sur **`--fond`**, jamais sur une couleur figée : « dans tous les assets, le noir devient la couleur du fond » (CONCEPT §6). L'icône œil fait défiler cinq fonds ; la tache doit suivre sans retouche.
+- La tache se prend sur **`--fond`**, jamais sur une couleur figée : « dans tous les assets, le noir devient la couleur du fond » (CONCEPT §6). L'icône œil fait défiler les fonds ; la tache doit suivre sans retouche.
 - **Pas de cadre, pas de boîte, pas de panneau** (CONCEPT §2, §4.3). La tache a une arête : dérogation déjà actée pour la bulle, reprise ici — rien de plus.
 - **Ne pas toucher au texte** : ni couleur, ni graisse, ni opacité. La hiérarchie du §6 (0.95 / 0.6 / 0.42 / 0.2) tient le ton du site.
 - **Ne pas toucher à la place du formulaire** : `top: 176px; right: 56px; width: 280px`, et `left/right: 16px` sous 720 px. Non-but explicite du cadrage.
@@ -98,7 +98,7 @@ Expected: 406 tests + le nouveau, build propre.
 le placeholder, le compteur et `laisser ↵` se lisent sur le grain le plus clair ;
 l'arête du dégradé ne coupe pas l'image en deux, **à 1512 px comme à 390 px** ;
 le survol d'une étoile proche du formulaire marche encore ; l'icône œil fait
-suivre la tache sur les cinq fonds ; et l'envoi d'une phrase efface la tache
+suivre la tache sur chaque fond ; et l'envoi d'une phrase efface la tache
 avec le formulaire, d'un seul mouvement.
 
 C'est l'épreuve qui compte : le test de l'étape 1 ne dit rien du rendu.

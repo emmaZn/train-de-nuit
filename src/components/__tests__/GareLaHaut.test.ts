@@ -311,7 +311,7 @@ test('le formulaire isole son empilement, sinon la tache passe derrière la scè
 })
 
 test('la tache de nuit se prend sur le fond, jamais sur une couleur figée', () => {
-  // CONCEPT §6 : l'œil fait défiler cinq fonds, la tache doit suivre sans retouche.
+  // CONCEPT §6 : l'œil fait défiler les fonds, la tache doit suivre sans retouche.
   expect(tacheDeNuit()).toMatch(/var\(--fond\)/)
   expect(tacheDeNuit()).not.toMatch(/#[0-9a-f]{3,6}/i)
 })
