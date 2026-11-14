@@ -8,6 +8,7 @@ import {
   HAUTEUR_FRISE,
   HAUT_VOIE,
   CIEL_SOMMET,
+  PLANCHER_REFLET,
   cadrageCiel,
   cadrageScene,
   cretePx,
@@ -352,6 +353,21 @@ describe('la règle de dégagement', () => {
         expect(Math.abs(a - b), `${w}x${h}`).toBeLessThan(0.02)
       }
     }
+  })
+
+  test.each([
+    [1512, 500],
+    [1920, 700],
+    [1280, 480],
+    [915, 356],
+  ])('les rails restent visibles sur une fenêtre large et basse (%ix%i)', (w, h) => {
+    const frame = fitStage(w, h)
+    const { decalage } = cadrageCiel(w, h)
+    const reflet = h - (HORIZON * frame.scale + frame.offsetY + decalage)
+    expect(reflet).toBeGreaterThan(0)
+    // the shift never eats into the floor: it stops where the reflection hits it
+    const avant = h - (HORIZON * frame.scale + frame.offsetY)
+    expect(decalage).toBeLessThanOrEqual(Math.max(0, avant - PLANCHER_REFLET) + 1e-6)
   })
 
   test('la cible de 60 px est tenue partout', () => {

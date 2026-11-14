@@ -356,6 +356,14 @@ export function regionCiel(
 /** Ciel qu'on garde au sommet du massif, sous la frise, en pixels d'écran. */
 export const CIEL_SOMMET = 60
 
+/**
+ * Ce qu'on ne réduit pas sous les rails, en pixels d'écran. C'est un plafond
+ * au décalage, pas une garantie : on ne promet pas de l'atteindre. Quand
+ * l'espace sous les rails est déjà inférieur avant tout décalage (il peut même
+ * être négatif, les rails étant alors hors champ), le décalage permis est 0.
+ */
+export const PLANCHER_REFLET = 55
+
 /** Plus petite échelle que la résolution puisse retenir. */
 const ECHELLE_MIN = 0.5
 
@@ -392,7 +400,7 @@ function cielAuSommet(
  *
  * Le décalage ne dépasse ni le jeu vertical du cadrage (`-offsetY`, nul quand
  * la fenêtre est pilotée par sa hauteur : sinon une bande du haut n'aurait plus
- * de scène derrière elle).
+ * de scène derrière elle), ni ce que `PLANCHER_REFLET` autorise sous les rails.
  * Si `CIEL_SOMMET` n'est pas atteint, l'échelle se résout : la plus grande de
  * `[ECHELLE_MIN, ECHELLE_MONTAGNES]` qui tienne la cible. Résolue, elle est
  * continue en hauteur de fenêtre, sans aucun seuil de format.
@@ -403,12 +411,13 @@ export function cadrageCiel(
 ): { decalage: number; echelle: number } {
   const frame = fitStage(viewportW, viewportH)
   const jeu = Math.max(0, -frame.offsetY)
-  // Le jeu de couverture est la seule borne du décalage : tant que les rails
-  // sont visibles il est toujours plus serré que n'importe quel plancher de
-  // reflet, et sur les fenêtres larges et basses, où il est grand, le reflet
-  // est déjà négatif avant décalage (le cadrage « cover » pousse les rails sous
-  // le bord). Un plancher n'aurait donc jamais mordu.
-  const decalage = jeu
+  // Le décalage est plafonné par le jeu de couverture ET par le plafond du
+  // reflet : `max(0, reflet - PLANCHER_REFLET)`, continu en hauteur de fenêtre.
+  // Sans lui, le décalage pris en entier (jeu = -offsetY) remet offsetY à 0 et
+  // fait sortir rails et train sur les fenêtres larges et basses. Si la cible
+  // n'est plus atteinte, l'échelle se résout plus bas.
+  const reflet = viewportH - (HORIZON * frame.scale + frame.offsetY)
+  const decalage = Math.min(jeu, Math.max(0, reflet - PLANCHER_REFLET))
 
   const ciel = (e: number): number => cielAuSommet(viewportW, viewportH, e, decalage)
   // Quand le haut du voile plafonne la crête, rapetisser ne rend plus de ciel :
