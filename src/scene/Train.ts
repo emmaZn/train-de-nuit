@@ -232,6 +232,11 @@ export class Train {
     return this.racine
   }
 
+  /** La rame, pour y poser les vitres allumées des wagons. */
+  get rameContainer(): Container {
+    return this.rame
+  }
+
   get state(): TrainState {
     return this.etat
   }

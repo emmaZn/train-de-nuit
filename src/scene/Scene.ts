@@ -3,6 +3,7 @@ import { Application, BlurFilter, Container, FillGradient, Graphics, RenderTextu
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Terre } from './Terre'
+import { Vitres } from './Vitres'
 import { Dissolve, grainsDePhrase, poigneeSansAnimation } from './Dissolve'
 import type { Poignee } from './Dissolve'
 import {
@@ -20,7 +21,7 @@ import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
-import { Train, avancement } from './Train'
+import { Train, WAGONS, avancement, wagonX } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
@@ -101,6 +102,8 @@ export class Scene {
   private recolor: Filter | null = null
   /** La terre sous les rails : devant le reflet, devant le train. */
   private terre: Terre | null = null
+  /** Les vitres allumées des wagons, dans la rame. */
+  private vitres: Vitres | null = null
 
   private fond = DEFAUT as string
   private phase = 0
@@ -190,6 +193,15 @@ export class Scene {
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
     await this.train.load()
 
+    // Les vitres vivent dans la rame, par-dessus les wagons : elles suivent
+    // son échelle et sa place sans rien avoir à recalculer.
+    const spec = manifest.train
+    const positions = Array.from({ length: WAGONS }, (_, i) =>
+      wagonX(spec.loco, spec.wagon, i + 1),
+    )
+    this.vitres = new Vitres(this.train.rameContainer, manifest, positions, this.reducedMotion)
+    this.cadrer()
+
     let relief: Relief | null = null
     try {
       // Three n'est chargé qu'ici : il pèse 130 Ko compressés, dont la
@@ -266,6 +278,7 @@ export class Scene {
     // Le grain de la terre se mesure en texels du rendu : il se refait quand
     // le cadre ou la densité de pixels change.
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
+    this.vitres?.cadrer(frame, this.app.renderer.resolution)
 
     this.refletTexture?.destroy(true)
     this.refletTexture = RenderTexture.create({
@@ -456,6 +469,9 @@ export class Scene {
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
     // Même horloge que la voie, à la distance et non au temps.
     this.terre?.avancer(dt, this.train?.vitesse ?? 0)
+    // Le vacillement suit l'horloge et non la distance : une lampe ne s'arrête
+    // pas quand le train s'arrête.
+    this.vitres?.update(dt)
     this.rendreReflet()
   }
 
@@ -477,6 +493,7 @@ export class Scene {
   }
 
   dispose(): void {
+    this.vitres?.destroy()
     this.terre?.destroy()
     this.emitter.clear()
     this.refletTexture?.destroy(true)
