@@ -38,7 +38,9 @@ import {
   cadreMontagnes,
   fenetreVisible,
   fitStage,
+  fonduFrise,
   margeVoie,
+  margeVoieDroite,
   toursMassif,
 } from '@/scene/layout'
 
@@ -119,6 +121,30 @@ test('les deux gares du téléphone occupent la largeur aussi', () => {
   const l = 390
   const e = ecartFrise(l, 2)
   expect(ANCRE_FRISE_MOBILE + e).toBeCloseTo(l - MARGE_FRISE_MOBILE, 6)
+})
+
+test('la première gare naît là où le masque est déjà opaque', () => {
+  // La frise s'efface aux bords : transparente jusqu'à `margeVoie`, opaque
+  // seulement `fonduFrise` plus loin. Une ancre posée avant cette limite fait
+  // naître la première gare en plein fondu — « ici » à moitié effacé. Le fondu
+  // de bureau est réglé pour une ancre de 120 px ; sur téléphone, où elle vaut
+  // moins du quart, il doit se resserrer d'autant.
+  for (const l of [390, 430, 360, 1280, 1512, 1920]) {
+    const ancre = l < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
+    expect(margeVoie(l) + fonduFrise(l), `${l}px`).toBeLessThanOrEqual(ancre)
+  }
+})
+
+test('le téléphone ne montre que la gare à quai et la suivante', () => {
+  // CONCEPT §11 : « frise réduite (gare actuelle + prochaine) ». Rien ne
+  // l'imposait : la frise est une piste qui glisse, et c'est l'écartement qui
+  // décide combien de gares tombent dans la bande visible. Trop resserrer en
+  // fait entrer une troisième, coupée par le fondu de droite. La troisième doit
+  // donc naître au-delà du bord où le masque redevient transparent.
+  for (const l of [320, 360, 390, 430]) {
+    const troisieme = ANCRE_FRISE_MOBILE + 2 * ecartFrise(l, 2)
+    expect(troisieme, `${l}px`).toBeGreaterThanOrEqual(l - margeVoieDroite(l))
+  }
 })
 
 test('l’écartement grandit avec l’écran', () => {

@@ -106,7 +106,7 @@ export const SEUIL_MOBILE = 720
 
 /** Où se tient la gare à quai, depuis le bord gauche. */
 export const ANCRE_FRISE = 120
-export const ANCRE_FRISE_MOBILE = 24
+export const ANCRE_FRISE_MOBILE = 44
 
 /** Ce qu'on garde à droite, pour que la dernière mention ait sa place. */
 /**
@@ -118,10 +118,23 @@ export const ANCRE_FRISE_MOBILE = 24
 export const DEGAGEMENT_OEIL = 36 + 16
 
 export const MARGE_FRISE = 200
-export const MARGE_FRISE_MOBILE = 150
+export const MARGE_FRISE_MOBILE = 175
 
 /** Ce que la voie laisse libre de chaque côté de l'écran, en pixels. */
 export const MARGE_VOIE = 40
+
+/**
+ * Sur quelle distance la frise s'efface, après la marge, avant d'être opaque.
+ *
+ * Elle est réglée pour l'ancre du bureau. Sur téléphone, où l'ancre vaut le
+ * tiers, le même fondu ferait naître la première gare en plein dedans — « ici »
+ * à moitié effacé. Il s'y resserre donc, et pas seulement à la moitié :
+ * `margeVoie` est elle-même plafonnée par l'ancre moins 16, si bien qu'un fondu
+ * de 16 px laisserait exactement zéro dégagement. À 10, il en reste six.
+ */
+export function fonduFrise(largeur: number): number {
+  return largeur < SEUIL_MOBILE ? 10 : 48
+}
 
 /**
  * Marge effective, qui ne mord jamais sur l'ancre : sur un téléphone celle-ci

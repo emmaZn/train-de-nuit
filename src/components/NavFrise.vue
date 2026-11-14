@@ -6,6 +6,7 @@ import {
   ANCRE_FRISE_MOBILE,
   SEUIL_MOBILE,
   ecartFrise,
+  fonduFrise,
   margeVoie,
   margeVoieDroite,
   garesVisibles,
@@ -51,6 +52,7 @@ const ancre = computed(() => (largeur.value < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE 
 const ecart = computed(() => ecartFrise(largeur.value, garesVisibles(largeur.value)))
 const marge = computed(() => margeVoie(largeur.value))
 const margeDroite = computed(() => margeVoieDroite(largeur.value))
+const fondu = computed(() => fonduFrise(largeur.value))
 
 /**
  * Position de la frise, en crans, fractionnaire pendant le trajet : c'est elle
@@ -92,7 +94,7 @@ const entrees = computed(() => {
   <nav
     class="frise"
     aria-label="Les gares du voyage"
-    :style="{ '--ecart': `${ecart}px`, '--ancre': `${ancre}px`, '--marge': `${marge}px`, '--marge-droite': `${margeDroite}px` }"
+    :style="{ '--ecart': `${ecart}px`, '--ancre': `${ancre}px`, '--marge': `${marge}px`, '--marge-droite': `${margeDroite}px`, '--fondu': `${fondu}px` }"
   >
     <div class="piste" :class="{ 'en-route': enRoute }" :style="{ '--legs': position }">
       <span class="voie" aria-hidden="true"></span>
@@ -134,8 +136,8 @@ const entrees = computed(() => {
   mask-image: linear-gradient(
     to right,
     transparent var(--marge),
-    #000 calc(var(--marge) + 48px),
-    #000 calc(100% - var(--marge-droite) - 48px),
+    #000 calc(var(--marge) + var(--fondu)),
+    #000 calc(100% - var(--marge-droite) - var(--fondu)),
     transparent calc(100% - var(--marge-droite))
   );
 }
