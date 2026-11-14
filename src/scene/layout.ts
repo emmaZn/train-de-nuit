@@ -395,7 +395,7 @@ export const DESCENTE_BUREAU = 20
  * d'être généreux. Les deux valeurs sont séparées parce que ce sont deux
  * décisions d'Emmanuelle, prises à deux moments et sur deux formats.
  */
-export const DESCENTE_MOBILE = 40
+export const DESCENTE_MOBILE = 60
 
 /** Plus petite échelle que la résolution puisse retenir. */
 const ECHELLE_MIN = 0.5

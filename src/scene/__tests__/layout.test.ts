@@ -338,7 +338,7 @@ describe('la règle de dégagement', () => {
     [1280, 800, 20, 2.2],
     [1440, 900, 20, 2.2],
     [1728, 1117, 20, 2.2],
-    [390, 844, 40, 2.2],
+    [390, 844, 60, 2.2],
     [844, 390, 26, 1.555],
   ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
     const c = cadrageCiel(w, h)
@@ -376,7 +376,10 @@ describe('la règle de dégagement', () => {
     [1920, 700],
     [1280, 480],
     [915, 356],
-  ])('les rails restent visibles sur une fenêtre large et basse (%ix%i)', (w, h) => {
+    // Étroite et basse : c'est là que le plafond du reflet mord sur téléphone,
+    // d'autant plus depuis que DESCENTE_MOBILE demande 60 px.
+    [360, 440],
+  ])('les rails restent visibles sur une fenêtre serrée (%ix%i)', (w, h) => {
     const frame = fitStage(w, h)
     const { decalage } = cadrageCiel(w, h)
     const reflet = h - (HORIZON * frame.scale + frame.offsetY + decalage)
