@@ -158,41 +158,68 @@ L'émulateur est un programme Java : il faut **Java 21 ou plus** (la CLI Firebas
 
 ### Passer au vrai projet
 
-L'émulateur suffit à tout, sauf à être vu. Le jour où le ciel doit recevoir de vraies
-phrases, il faut un projet Firebase — qu'Emmanuelle crée depuis son compte Google, personne
-ne peut le faire à sa place — et cinq variables d'environnement. Elles vivent dans un
-`.env.local` à la racine, que `.gitignore` tient déjà à l'écart par sa règle `*.local` ;
-`.env.example` en donne la liste exacte et ce que chacune commande.
+Le projet existe : **`train-de-nuit`**, créé le 14 novembre 2026, base Firestore en mode
+natif. L'index composite et les règles y sont déjà déposés. Ce qui suit raconte comment on
+y parle, et surtout où ça coince.
+
+**La bascule tient à une seule variable.** `src/firebase.ts` ne regarde que
+`VITE_FIREBASE_PROJECT_ID` : tant qu'elle est absente, l'application se connecte à
+l'émulateur sous `demo-train-de-nuit` ; dès qu'elle porte un vrai identifiant, `npm run dev`
+lui-même parle à la production. `.env.local` garde les cinq valeurs du projet, **commentées**,
+précisément pour que ce basculement soit un geste conscient et non un oubli. Le fichier est
+hors de git par la règle `*.local` ; `.env.example` en donne la liste.
+
+**Le projet par défaut reste la démo.** `.firebaserc` déclare `demo-train-de-nuit` en
+`default` et `train-de-nuit` sous l'alias `prod`. Ne pas faire `firebase use --add`, qui
+ferait du vrai projet le défaut : `npm run emulators` lit ce même défaut, et l'émulateur
+cesserait alors de tourner sous un identifiant `demo-`, qui est ce qui rend la production
+inatteignable par construction. Pour déposer, on nomme la cible :
 
 ```bash
-cp .env.example .env.local   # puis remplir
+npx firebase deploy --only firestore:indexes --project prod
+npx firebase deploy --only firestore:rules   --project prod
 ```
 
-La bascule tient à une seule d'entre elles. `src/firebase.ts` ne regarde que
-`VITE_FIREBASE_PROJECT_ID` : tant qu'elle est vide, l'application se connecte à l'émulateur
-sous `demo-train-de-nuit` ; dès qu'elle porte un vrai identifiant, `npm run dev` lui-même
-parle à la production. Ce n'est donc pas un réglage à laisser à moitié fait : un `.env.local`
-rempli pour un essai envoie dans la vraie base les phrases écrites en développement.
+L'index n'est pas une précaution : la lecture du ciel croise `approuvee` et `creeLe`, ce que
+l'émulateur accepte sans index et que la production refuse. Sans lui, le ciel marche en local
+et reste noir en vrai.
 
-Les règles et l'index, eux, ne partent pas tout seuls. `.firebaserc` ne connaît que
-`demo-train-de-nuit` : un `firebase deploy` lancé tel quel viserait le projet de
-démonstration, sans prévenir. Il faut d'abord lui apprendre le vrai projet, puis déposer les
-deux fichiers que le dépôt tient à jour.
+**L'ordre compte.** Une base Firestore neuve en mode production refuse tout. Nos règles, elles,
+ouvrent la création à n'importe quel visiteur — c'est leur rôle. Entre le dépôt des règles et
+l'armement d'App Check, il existe donc une fenêtre où la collection est publiquement
+inscriptible. On arme App Check **d'abord**, on dépose les règles **ensuite** : la base passe
+de « fermée » à « ouverte et protégée » sans jamais traverser « ouverte à n'importe quel
+script ».
 
-```bash
-firebase use --add                                        # une fois, pour nommer le vrai projet
-firebase deploy --only firestore:rules,firestore:indexes
+#### App Check : le mur, et pourquoi il n'est pas armé
+
+La console ne propose plus le reCAPTCHA v3 classique mais **Fraud Defense**, le nouveau nom de
+reCAPTCHA Enterprise. `src/firebase.ts` utilise donc `ReCaptchaEnterpriseProvider`.
+
+L'enregistrement de l'application réussit, le script reCAPTCHA se charge et la clé est
+reconnue — mais l'échange du jeton échoue :
+
+```
+400 FAILED_PRECONDITION
+Unable to call the reCAPTCHA Enterprise CreateAssessment method; ensure that the
+reCAPTCHA Enterprise API is enabled and that the site key is from the same project
+as the one containing this app.
 ```
 
-L'index n'est pas une précaution. La lecture du ciel croise `approuvee` et `creeLe`, ce qui
-demande un index composite que l'émulateur n'exige pas et que la production réclame : sans ce
-dépôt, le ciel marche en local et reste noir en vrai, sans que rien ne l'explique. Les règles,
-de leur côté, bornent la requête à 120 phrases — la limite du ciel sur grand écran — et c'est
-tout ce qu'un client peut lire d'un coup.
+Fraud Defense s'appuie sur l'API reCAPTCHA Enterprise, un service Google Cloud dont
+l'activation réclame un compte de facturation — donc le plan **Blaze**, alors que le §8 du
+concept prévoyait Spark.
 
-Reste App Check, qui est la seule chose entre cette collection et un script de spam. Le code
-l'initialise déjà si `VITE_RECAPTCHA_KEY` est présente, mais **l'initialiser côté client ne
-protège rien** : il faut, dans la console Firebase, enregistrer le site avec sa clé reCAPTCHA
-v3 puis **armer l'application des règles pour Firestore**. Tant que ce dernier bouton n'est
-pas mis, les jetons partent et personne ne les lit ; `firestore.rules` continue de borner ce
-qu'on peut écrire et lire, mais rien ne limite le nombre d'écritures.
+**Le piège :** armer l'application des règles pendant que l'échange échoue rend la base
+inutilisable. Le client n'obtient aucun jeton, et Firestore refuse **tout**, lectures
+comprises. App Check est donc laissé **désarmé**, et `VITE_RECAPTCHA_KEY` commentée : avec une
+clé et sans API, on bloque tout ; sans clé, App Check reste dormant et ne gêne rien.
+
+**Ce qu'on perd, et pourquoi c'est tenable.** Les règles continuent de borner chaque écriture
+— 80 points de code, `approuvee: false` obligatoire, champs inconnus refusés, lecture plafonnée
+à 120 — et rien n'apparaît dans le ciel sans approbation manuelle. Ce qui manque, c'est la
+limite au **nombre** d'écritures. Or sur Spark, un script qui spamme épuise le quota gratuit
+journalier et la base refuse les écritures jusqu'au lendemain : ça ne coûte rien. Sur Blaze,
+le même script fait tourner le compteur. **Spark sans App Check protège donc mieux le
+portefeuille que Blaze avec.** La question se reposera à l'étape 5, sur le vrai domaine, qui
+est de toute façon le seul endroit où App Check compte.

@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "demo-train-de-nuit"
+    "default": "demo-train-de-nuit",
+    "prod": "train-de-nuit"
   }
 }

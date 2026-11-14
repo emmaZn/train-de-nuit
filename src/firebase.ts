@@ -1,5 +1,5 @@
 import { getApp, getApps, initializeApp } from 'firebase/app'
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check'
 import { collection, connectFirestoreEmulator, doc, getFirestore } from 'firebase/firestore'
 
 // The single Firebase entry point of the client. Without real configuration
@@ -41,7 +41,9 @@ if (surEmulateur()) {
   }
 } else if (env.VITE_RECAPTCHA_KEY && !state.appCheckStarted) {
   initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(env.VITE_RECAPTCHA_KEY),
+    // Fraud Defense, the new name of reCAPTCHA Enterprise: it is what the
+    // Firebase console offers now, and its keys are not the classic v3 ones.
+    provider: new ReCaptchaEnterpriseProvider(env.VITE_RECAPTCHA_KEY),
     isTokenAutoRefreshEnabled: true,
   })
   state.appCheckStarted = true

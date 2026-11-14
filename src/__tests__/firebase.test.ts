@@ -2,8 +2,8 @@
 // open a connection. Firestore connects lazily, so the real SDK is safe here;
 // App Check is mocked because it would otherwise start loading reCAPTCHA.
 const initializeAppCheck = vi.fn()
-const ReCaptchaV3Provider = vi.fn()
-vi.mock('firebase/app-check', () => ({ initializeAppCheck, ReCaptchaV3Provider }))
+const ReCaptchaEnterpriseProvider = vi.fn()
+vi.mock('firebase/app-check', () => ({ initializeAppCheck, ReCaptchaEnterpriseProvider }))
 
 // Real Firestore, with the emulator connection spied on to count calls.
 const connectFirestoreEmulator = vi.fn()
@@ -19,7 +19,7 @@ async function charger() {
 
 beforeEach(() => {
   initializeAppCheck.mockClear()
-  ReCaptchaV3Provider.mockClear()
+  ReCaptchaEnterpriseProvider.mockClear()
   connectFirestoreEmulator.mockClear()
   // The HMR guard lives on globalThis; start each test from a fresh page session.
   delete (globalThis as Record<string, unknown>).__trainDeNuitFirebase
@@ -86,6 +86,6 @@ test('App Check s’initialise avec reCAPTCHA v3 sur un vrai projet doté d’un
   vi.stubEnv('VITE_FIREBASE_API_KEY', 'cle-reelle')
   vi.stubEnv('VITE_RECAPTCHA_KEY', 'cle-recaptcha')
   await charger()
-  expect(ReCaptchaV3Provider).toHaveBeenCalledWith('cle-recaptcha')
+  expect(ReCaptchaEnterpriseProvider).toHaveBeenCalledWith('cle-recaptcha')
   expect(initializeAppCheck).toHaveBeenCalledTimes(1)
 })
