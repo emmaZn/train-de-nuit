@@ -1,5 +1,5 @@
-import { cadrageCiel, regionCiel } from '@/scene/layout'
-import { dustCount, grainsLibres, makeDust } from '@/scene/Sky'
+import { cadrageScene, regionCiel } from '@/scene/layout'
+import { dustCount, makeDust, poussiereLibre } from '@/scene/Sky'
 
 // Review Focus #5 : viewport minuscule, rotation mobile
 test.each([
@@ -49,12 +49,27 @@ test('makeDust rend exactement le nombre de grains demandé', () => {
 
 test('aucun grain de poussière ne tombe sous la crête, parallaxe comprise', () => {
   for (const [w, h] of [[1512, 771], [844, 390], [1440, 900]]) {
-    const { decalage, echelle } = cadrageCiel(w, h)
-    const libres = grainsLibres(makeDust(600, 1, w, h), w, h, echelle, decalage)
+    const { frame, decalage, echelle } = cadrageScene(w, h)
+    const libres = poussiereLibre(frame, w, h, false, echelle, decalage, 7)
     expect(libres.length).toBeGreaterThan(0)
     for (const g of libres) {
       const r = regionCiel(g.x, w, h, echelle, decalage)
-      expect(g.y + g.r + 14).toBeLessThanOrEqual(r.top + r.height)
+      expect(g.y + g.r + 14 * frame.scale).toBeLessThanOrEqual(r.top + r.height)
     }
+  }
+})
+
+test('le plancher tient après le filtre : un petit écran garde son ciel', () => {
+  for (const [w, h, mobile] of [[390, 844, true], [844, 390, true]] as const) {
+    const { frame, decalage, echelle } = cadrageScene(w, h)
+    expect(poussiereLibre(frame, w, h, mobile, echelle, decalage, 7).length).toBeGreaterThanOrEqual(60)
+  }
+})
+
+test('taille des grains : celle du cadre, mise à l’échelle de l’écran', () => {
+  const { frame, decalage, echelle } = cadrageScene(1512, 771)
+  for (const g of poussiereLibre(frame, 1512, 771, false, echelle, decalage, 7)) {
+    expect(g.r).toBeGreaterThanOrEqual(0.4 * frame.scale - 1e-9)
+    expect(g.r).toBeLessThanOrEqual(1.3 * frame.scale + 1e-9)
   }
 })

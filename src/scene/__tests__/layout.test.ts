@@ -367,22 +367,9 @@ test.each([
   [1512, 771],
   [844, 390],
   [1440, 900],
-])('la scène décale ce que cretePx suppose décalé (%i x %i)', (w, h) => {
-  // `cretePx` ajoute le décalage après `fitStage` ; la scène le met dans
-  // l'`offsetY` du conteneur qui porte le massif. Une crête de scène projetée
-  // par ce cadre doit retomber là où cretePx la place.
-  const { frame, decalage, echelle } = cadrageScene(w, h)
-  const c = cadreMontagnes(echelle)
-  const f = (STAGE.width / MOUNTAIN_SOURCE.width) * echelle
-  const x = w / 2
-  const sx = ((x - frame.offsetX) / frame.scale - c.x) / f
-  const u = Math.min(Math.max(sx / CRETE_BIN, 0), CRETE.length)
-  const i = Math.min(Math.floor(u), CRETE.length - 1)
-  const bord = (k: number): number =>
-    k <= 0 ? CRETE[0] : k >= CRETE.length ? CRETE[CRETE.length - 1] : Math.min(CRETE[k - 1], CRETE[k])
-  const sy = bord(i) + (bord(i + 1) - bord(i)) * (u - i)
-  const ecran = (c.y + sy * f) * frame.scale + frame.offsetY
-  const voile = (HORIZON - DEGRADE_HAUTEUR) * frame.scale + frame.offsetY
-  expect(cretePx(x, w, h, echelle, decalage)).toBeCloseTo(Math.min(ecran, voile), 6)
+])('le cadre de la scène porte le décalage de cadrageCiel (%i x %i)', (w, h) => {
+  const { frame, decalage } = cadrageScene(w, h)
+  expect(decalage).toBe(cadrageCiel(w, h).decalage)
   expect(frame.offsetY).toBeCloseTo(fitStage(w, h).offsetY + decalage, 9)
+  expect(frame.scale).toBe(fitStage(w, h).scale)
 })

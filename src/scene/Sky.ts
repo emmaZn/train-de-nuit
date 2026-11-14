@@ -1,5 +1,6 @@
 import { Container, Graphics } from 'pixi.js'
-import { regionCiel } from './layout'
+import { STAGE, regionCiel } from './layout'
+import type { Frame } from './layout'
 
 export type Grain = {
   x: number
@@ -48,31 +49,58 @@ export function makeDust(count: number, seed: number, w: number, h: number): Gra
   return grains
 }
 
-/** How far the dust lags behind the pointer, in pixels. */
+/** How far the dust lags behind the pointer, in stage pixels. */
 const PARALLAX = 14
 
 /**
- * Garde les grains qui tiennent dans la région libre, parallaxe comprise : la
- * poussière transparaît à travers le grain du massif exactement comme une
- * étoile, et le souffle du pointeur la déplace de `PARALLAX` pixels.
+ * La poussière du ciel, en pixels d'écran. Les grains sont tirés sur `STAGE`
+ * comme toujours, puis posés par le cadre décalé de la scène : taille, souffle
+ * et composition restent ceux du cadre. Seuls restent ceux qui tiennent dans
+ * la région libre, parallaxe comprise — la poussière transparaît à travers le
+ * grain du massif exactement comme une étoile.
+ *
+ * `PLANCHER` s'applique **après** ce filtre : si trop peu de grains survivent,
+ * on en tire davantage (le tirage est stable, les premiers ne changent pas).
  */
-export function grainsLibres(
-  grains: Grain[],
+export function poussiereLibre(
+  frame: Frame,
   viewportW: number,
   viewportH: number,
+  mobile: boolean,
   echelle: number,
   decalage: number,
+  seed: number,
 ): Grain[] {
-  return grains.filter((g) => {
-    const { top, height } = regionCiel(g.x, viewportW, viewportH, echelle, decalage)
-    return g.y + g.r + PARALLAX <= top + height
-  })
+  const marge = PARALLAX * frame.scale
+  const garder = (count: number): Grain[] => {
+    const libres: Grain[] = []
+    for (const g of makeDust(count, seed, STAGE.width, STAGE.height)) {
+      const x = g.x * frame.scale + frame.offsetX
+      const y = g.y * frame.scale + frame.offsetY
+      const r = g.r * frame.scale
+      if (x < 0 || x > viewportW) continue
+      const region = regionCiel(x, viewportW, viewportH, echelle, decalage)
+      if (y + r + marge <= region.top + region.height) libres.push({ x, y, r, a: g.a })
+    }
+    return libres
+  }
+  let count = dustCount(STAGE.width, STAGE.height, mobile)
+  let libres = garder(count)
+  while (libres.length < PLANCHER && count < PLAFOND_TIRAGE) {
+    count *= 2
+    libres = garder(count)
+  }
+  return libres
 }
+
+/** Garde-fou : une région libre quasi vide ne doit pas boucler. */
+const PLAFOND_TIRAGE = 20_000
 
 export class Sky {
   private readonly racine = new Container()
   private readonly grains = new Graphics()
-  private cible = { x: 0, y: 0 }
+  private pointeur = { x: 0, y: 0 }
+  private echelleCadre = 1
   private readonly seed: number
 
   constructor(parent: Container, seed = 7) {
@@ -81,24 +109,32 @@ export class Sky {
     parent.addChild(this.racine)
   }
 
-  /** En pixels d'écran, comme les étoiles : la région libre est mesurée là. */
-  resize(width: number, height: number, mobile: boolean, echelle: number, decalage: number): void {
+  /** `frame` est celui de `cadrageScene` : son `offsetY` porte le décalage. */
+  resize(
+    frame: Frame,
+    width: number,
+    height: number,
+    mobile: boolean,
+    echelle: number,
+    decalage: number,
+  ): void {
+    this.echelleCadre = frame.scale
     this.grains.clear()
-    const poussiere = makeDust(dustCount(width, height, mobile), this.seed, width, height)
-    for (const grain of grainsLibres(poussiere, width, height, echelle, decalage)) {
-      this.grains.circle(grain.x, grain.y, grain.r).fill({ color: 0xffffff, alpha: grain.a })
+    for (const g of poussiereLibre(frame, width, height, mobile, echelle, decalage, this.seed)) {
+      this.grains.circle(g.x, g.y, g.r).fill({ color: 0xffffff, alpha: g.a })
     }
   }
 
   /** `x` and `y` are the pointer position, normalised to -1…1. */
   setPointer(x: number, y: number): void {
-    this.cible = { x: -x * PARALLAX, y: -y * PARALLAX }
+    this.pointeur = { x, y }
   }
 
   update(): void {
     // Lent, comme un souffle : on s'approche de la cible sans jamais l'atteindre d'un coup.
-    this.racine.x += (this.cible.x - this.racine.x) * 0.02
-    this.racine.y += (this.cible.y - this.racine.y) * 0.02
+    const portee = PARALLAX * this.echelleCadre
+    this.racine.x += (-this.pointeur.x * portee - this.racine.x) * 0.02
+    this.racine.y += (-this.pointeur.y * portee - this.racine.y) * 0.02
   }
 
   destroy(): void {

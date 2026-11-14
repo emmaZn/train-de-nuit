@@ -1,4 +1,6 @@
-import { Scene } from '@/scene/Scene'
+import { Container } from 'pixi.js'
+import { Scene, poserMonde } from '@/scene/Scene'
+import { cadrageScene } from '@/scene/layout'
 
 function sceneSansRendu(reducedMotion = false) {
   // Sans init(), la scène n'a pas de contexte WebGL : c'est exactement l'état
@@ -38,4 +40,15 @@ test('à quai, rien n’arrive', async () => {
   scene.setVoyage(false, 0)
   await Promise.resolve()
   expect(arrivees).toBe(0)
+})
+
+test('poserMonde pose le décalage dans la position du conteneur du décor', () => {
+  // Format où le décalage n'est pas nul : 1512x771 -> 11 px.
+  const { frame, decalage } = cadrageScene(1512, 771)
+  expect(decalage).toBeGreaterThan(0)
+  const monde = new Container()
+  poserMonde(monde, frame)
+  expect(monde.y).toBeCloseTo(frame.offsetY)
+  expect(monde.x).toBeCloseTo(frame.offsetX)
+  expect(monde.scale.x).toBeCloseTo(frame.scale)
 })

@@ -13,6 +13,7 @@ import {
   cadrageScene,
   cadreDegrade,
 } from './layout'
+import type { Frame } from './layout'
 import type { Relief } from './Relief'
 import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
@@ -27,6 +28,15 @@ import type { Manifest, Trace } from './types'
 /** The reflection is rendered at half resolution: it is blurred anyway. */
 const REFLET_RESOLUTION = 0.5
 const REFLET_OPACITE = 0.16
+
+/**
+ * Pose le conteneur qui porte tout le décor. `frame` vient de `cadrageScene` :
+ * son `offsetY` porte le décalage que `cretePx` ajoute après `fitStage`.
+ */
+export function poserMonde(noeud: Container, frame: Frame): void {
+  noeud.scale.set(frame.scale)
+  noeud.position.set(frame.offsetX, frame.offsetY)
+}
 
 export type SceneOptions = { reducedMotion: boolean }
 
@@ -189,12 +199,9 @@ export class Scene {
     // `frame.offsetY` porte le décalage : `cretePx` l'ajoute après `fitStage`,
     // et c'est ce même conteneur qui porte massif, voile, rails et train.
     const { frame, decalage, echelle } = cadrageScene(width, height)
-    for (const noeud of [this.monde]) {
-      noeud.scale.set(frame.scale)
-      noeud.position.set(frame.offsetX, frame.offsetY)
-    }
+    poserMonde(this.monde, frame)
 
-    this.sky?.resize(width, height, width < 720, echelle, decalage)
+    this.sky?.resize(frame, width, height, width < 720, echelle, decalage)
     this.stars?.setStars(this.traces, width, height)
     this.stars?.resize(width, height)
     // La place d'une étoile est une fraction, sa cible des pixels : une
