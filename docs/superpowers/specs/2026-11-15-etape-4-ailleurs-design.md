@@ -176,11 +176,19 @@ reflété dans l'eau, comme les câbles.
   s'éclaircit vers le sol, comme le massif. C'est ce qui le fait appartenir au
   site.
 - **Les carreaux de la porte** : même règle. Du grain, pas du gris.
-- **Plan** : le bâtiment se dessine **derrière le ciel**, comme le massif
-  (§6 : le ciel passe devant la montagne). Son pignon monte dans la bande des
-  étoiles (§5), et une étoile de voyageur doit pouvoir s'allumer devant son
-  mur plutôt que disparaître derrière. *Appel du constructeur, à regarder dans
-  la scène en mouvement avec Emmanuelle.*
+- **Plan** : le bâtiment se dessine **devant le ciel**. C'est une exception à
+  l'ordre du §6, où le ciel passe devant la montagne. Le pignon monte dans la
+  bande des étoiles (§5), donc **les étoiles qui tombent derrière le bâtiment
+  sont cachées tant qu'on est à « ailleurs »**. Le coût a été posé et accepté :
+  Emmanuelle, « le bâtiment se dessine devant le ciel, tant pis si on la voit
+  pas pendant ce moment-là ».
+
+  Conséquence à ne pas oublier : la raison pour laquelle le ciel passe devant
+  le massif, c'est que son grain continue sur le flanc au lieu de s'arrêter net
+  sur la silhouette. Le bâtiment n'aura donc **pas** de poussière sur son mur —
+  et c'est bien ce qu'on veut : une maison est pleine, une montagne ne l'est
+  pas. Raison de plus pour que sa masse soit du grain à elle (§4), sans quoi
+  elle sera le seul trou noir de l'écran.
 
 ### 6.2 Le faisceau du réverbère
 
@@ -423,9 +431,16 @@ publique indexable.** Appel du rédacteur, non contredit : on garde le mail et
 
 #### Comment elle arrive
 
-- **Route `/ailleurs/cv`**, partageable, comme les quatre gares (§3).
-- **La gare reste derrière**, toujours assombrie ; la page s'écrit par-dessus
-  en dissolution.
+- **Le CV s'ouvre *dans* la gare**, confirmé par Emmanuelle. Ce n'est pas une
+  autre page : on ne quitte pas « ailleurs ». La gare reste là, derrière,
+  toujours assombrie, avec son réverbère allumé et son train à quai ; le CV
+  s'écrit par-dessus en dissolution, et se referme de même.
+- **Route `/ailleurs/cv`**, partageable, comme les quatre gares (§3) — une
+  route imbriquée sous « ailleurs », pas une route sœur : l'URL dit exactement
+  ce que l'écran montre, une gare avec quelque chose d'ouvert dedans.
+- **Arriver directement sur `/ailleurs/cv`** (lien partagé) doit donc poser la
+  gare d'« ailleurs », assombrie, CV ouvert — le même chemin que `poserGare`
+  au §6.3.
 - **C'est le premier endroit du site où l'on fait défiler quelque chose.** Tout
   le reste tient en un écran et ne bouge qu'à la vitesse du train ; un CV est
   plus haut qu'un écran. Dit explicitement pour que ça ne surprenne personne :
