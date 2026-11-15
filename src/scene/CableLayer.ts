@@ -84,6 +84,34 @@ function isolateurs(x: number, bras: (typeof POTEAU.bras)[number], p: Pinceau): 
 }
 
 /**
+ * Un isolateur de près : une tige, une cloche plus large, un chapeau.
+ *
+ * C'est la pièce qui dit « ligne électrique » plus sûrement que le poteau
+ * lui-même — mais il faut qu'elle ait une silhouette, pas juste un bloc.
+ */
+function isolateurDetaille(ix: number, base: number, p: Pinceau): void {
+  p.ligne(ix, base, ix, base - u(8))
+  p.plein(ix - u(3.5), base - u(11), ix + u(3.5), base - u(8))
+  p.plein(ix - u(2), base - u(13), ix + u(2), base - u(11))
+}
+
+/** Le fût, en tronc de cône : plus large au pied qu'au sommet. */
+function futEffile(x: number, p: Pinceau, haut: number, bas: number): void {
+  const tranches = 7
+  const pas = (HORIZON - POTEAU.epaule) / tranches
+  for (let i = 0; i < tranches; i += 1) {
+    const y = POTEAU.epaule + i * pas
+    const demi = haut + ((bas - haut) * i) / tranches
+    p.masse(x - demi, y, x + demi, y + pas + 1)
+  }
+  for (const cote of [-1, 1]) {
+    p.ligne(x + cote * haut, POTEAU.epaule, x + cote * bas, HORIZON)
+  }
+  p.ligne(x - haut, POTEAU.epaule, x, POTEAU.sommet)
+  p.ligne(x, POTEAU.sommet, x + haut, POTEAU.epaule)
+}
+
+/**
  * Quatre façons de tenir deux fils à la même hauteur. Elles ne se départagent
  * pas en texte : elles se regardent, dans la scène.
  */
@@ -91,18 +119,46 @@ export const MODELES: { nom: string; dessiner: (x: number, p: Pinceau) => void }
   {
     nom: 'deux bras',
     dessiner(x, p) {
-      fut(x, p)
-      for (const bras of POTEAU.bras) {
-        p.masse(x - bras.demi, bras.y, x + bras.demi, bras.y + bras.epaisseur)
-        p.ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
-        p.ligne(x - bras.demi, bras.y + bras.epaisseur, x + bras.demi, bras.y + bras.epaisseur)
-        p.ligne(x - bras.demi, bras.y, x - bras.demi, bras.y + bras.epaisseur)
-        p.ligne(x + bras.demi, bras.y, x + bras.demi, bras.y + bras.epaisseur)
-        const pied = bras.y + bras.hauban
-        p.ligne(x - bras.isolateurs + u(8), bras.y + bras.epaisseur, x - POTEAU.demiFut, pied)
-        p.ligne(x + bras.isolateurs - u(8), bras.y + bras.epaisseur, x + POTEAU.demiFut, pied)
-        isolateurs(x, bras, p)
+      const haut = POTEAU.demiFut
+      const bas = POTEAU.demiFut * 1.6
+      futEffile(x, p, haut, bas)
+
+      // Les échelons, en quinconce : de quoi monter réparer la ligne. C'est
+      // le détail qui donne l'échelle du poteau.
+      const demiA = (y: number) =>
+        haut + ((bas - haut) * (y - POTEAU.epaule)) / (HORIZON - POTEAU.epaule)
+      for (let y = POTEAU.bras[1].y + u(26), i = 0; y < HORIZON - u(24); y += u(26), i += 1) {
+        const cote = i % 2 === 0 ? -1 : 1
+        p.ligne(x + cote * demiA(y), y, x + cote * (demiA(y) + u(9)), y)
       }
+
+      for (const bras of POTEAU.bras) {
+        const bd = bras.y + bras.epaisseur
+        p.masse(x - bras.demi, bras.y, x + bras.demi, bd)
+        p.ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
+        p.ligne(x - bras.demi, bd, x + bras.demi, bd)
+        p.ligne(x - bras.demi, bras.y, x - bras.demi, bd)
+        p.ligne(x + bras.demi, bras.y, x + bras.demi, bd)
+
+        // Les deux jambes de force, et leur boulon sur le fût.
+        const pied = bras.y + bras.hauban
+        for (const cote of [-1, 1]) {
+          p.ligne(x + cote * (bras.isolateurs - u(8)), bd, x + cote * demiA(pied), pied)
+          p.plein(x + cote * demiA(pied) - u(2), pied - u(2), x + cote * demiA(pied) + u(2), pied + u(2))
+        }
+
+        // La boulonnerie qui tient le bras au fût.
+        p.plein(x - u(6), bras.y + u(1), x - u(3), bd - u(1))
+        p.plein(x + u(3), bras.y + u(1), x + u(6), bd - u(1))
+
+        for (const cote of [-1, 1]) {
+          isolateurDetaille(x + cote * bras.isolateurs, bras.y, p)
+        }
+      }
+
+      // Le pied, là où le bois entre dans le ballast : un peu plus large.
+      p.masse(x - bas - u(2), HORIZON - u(10), x + bas + u(2), HORIZON)
+      p.ligne(x - bas - u(2), HORIZON - u(10), x + bas + u(2), HORIZON - u(10))
     },
   },
   {
