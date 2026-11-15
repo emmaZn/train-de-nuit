@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { Container } from 'pixi.js'
+import { ColorMatrixFilter, Container } from 'pixi.js'
 
 import { nuitDeLaGare } from '@/scene/nuit'
-import { plansDuDecor, poserLumieres } from '@/scene/Scene'
+import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { NUIT_CIEL, NUIT_PROFONDEUR, opaciteVoile } from '@/scene/layout'
 import { PHASE_FREINAGE, PHASE_ROULE } from '@/scene/Train'
 
@@ -85,54 +85,62 @@ describe('nuitDeLaGare', () => {
   })
 })
 
-/** Les enfants du décor, par nom, dans l'ordre où on les dessine. */
-function ordreDuDecor(decor: Container): string[] {
-  return decor.children.map((c) => c.label)
+/** Le premier coefficient de la matrice : la luminance que le filtre laisse passer. */
+function luminance(f: ColorMatrixFilter): number {
+  return f.enabled ? f.matrix[0] : 1
 }
 
-describe('les voiles de la nuit', () => {
-  // Ce que `peupler` monte, dans l'ordre : le train et ses compagnons d'abord,
-  // les lumières en dernier.
+describe('l’assombrissement par groupe', () => {
   function decorMonte() {
     const decor = new Container()
-    plansDuDecor(decor)
-    for (const nom of ['voile-pied', 'cables', 'train', 'terre', 'oiseaux']) {
-      const c = new Container()
-      c.label = nom
-      decor.addChild(c)
-    }
-    poserLumieres(decor)
-    return decor
+    return { decor, plans: plansDuDecor(decor) }
   }
 
-  it('le voile du décor couvre le massif mais pas les vitres du train', () => {
-    const ordre = ordreDuDecor(decorMonte())
-    expect(ordre.indexOf('massif')).toBeLessThan(ordre.indexOf('voile-nuit'))
-    expect(ordre.indexOf('voile-nuit')).toBeLessThan(ordre.indexOf('vitres'))
+  it('range les groupes du fond vers l’avant, les vitres hors de tout filtre', () => {
+    const { decor, plans } = decorMonte()
+    expect(decor.children.map((c) => c.label)).toEqual(['massif', 'ciel', 'plateau', 'vitres'])
+    expect(plans.vitres.filters ?? []).toHaveLength(0)
   })
 
-  it('le voile du décor couvre aussi le corps du train, la terre et les oiseaux', () => {
-    const ordre = ordreDuDecor(decorMonte())
-    for (const nom of ['train', 'terre', 'oiseaux']) {
-      expect(ordre.indexOf(nom)).toBeLessThan(ordre.indexOf('voile-nuit'))
+  it('les mêmes groupes que ceux où peupler monte ses objets', () => {
+    const { decor, plans } = decorMonte()
+    for (const g of [plans.massif, plans.ciel, plans.plateau]) {
+      expect(decor.children).toContain(g)
+      expect(g.filters).toHaveLength(1)
     }
   })
 
-  it('le voile du ciel est juste au-dessus du ciel, sous tout le reste', () => {
-    const ordre = ordreDuDecor(decorMonte())
-    expect(ordre.indexOf('voile-nuit-ciel')).toBe(ordre.indexOf('ciel') + 1)
+  it('à nuit nulle, aucun filtre ne travaille et rien ne s’assombrit', () => {
+    const { plans } = decorMonte()
+    appliquerNuit(plans, 0)
+    for (const f of Object.values(plans.nuit)) expect(luminance(f)).toBe(1)
   })
 
-  it('le voile du ciel est moins opaque que celui du décor à nuit égale', () => {
-    expect(opaciteVoile(1, NUIT_CIEL)).toBeLessThan(opaciteVoile(1, NUIT_PROFONDEUR))
+  it('à pleine nuit, le ciel reste plus clair que le massif et le plateau', () => {
+    const { plans } = decorMonte()
+    appliquerNuit(plans, 1)
+    expect(luminance(plans.nuit.massif)).toBeCloseTo(1 - NUIT_PROFONDEUR)
+    expect(luminance(plans.nuit.plateau)).toBeCloseTo(1 - NUIT_PROFONDEUR)
+    expect(luminance(plans.nuit.ciel)).toBeCloseTo(1 - NUIT_CIEL)
+    expect(luminance(plans.nuit.ciel)).toBeGreaterThan(luminance(plans.nuit.massif))
+    expect(luminance(plans.nuit.ciel)).toBeGreaterThan(luminance(plans.nuit.plateau))
   })
 
-  it('les deux voiles sont transparents à nuit nulle', () => {
+  it('à mi-nuit, le ciel est encore plus clair', () => {
+    const { plans } = decorMonte()
+    appliquerNuit(plans, 0.5)
+    expect(luminance(plans.nuit.ciel)).toBeGreaterThan(luminance(plans.nuit.massif))
+    expect(luminance(plans.nuit.massif)).toBeLessThan(1)
+  })
+})
+
+describe('opaciteVoile', () => {
+  it('est nulle à nuit nulle', () => {
     expect(opaciteVoile(0, NUIT_PROFONDEUR)).toBe(0)
     expect(opaciteVoile(0, NUIT_CIEL)).toBe(0)
   })
 
-  it('l’opacité suit la nuit et ne dépasse jamais le maximum', () => {
+  it('suit la nuit et ne dépasse jamais le maximum', () => {
     expect(opaciteVoile(1, NUIT_PROFONDEUR)).toBeCloseTo(NUIT_PROFONDEUR)
     expect(opaciteVoile(0.5, NUIT_PROFONDEUR)).toBeCloseTo(NUIT_PROFONDEUR / 2)
     expect(opaciteVoile(2, NUIT_PROFONDEUR)).toBeCloseTo(NUIT_PROFONDEUR)

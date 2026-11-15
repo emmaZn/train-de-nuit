@@ -8,6 +8,7 @@ import {
   Sprite,
   Texture,
 } from 'pixi.js'
+import { ColorMatrixFilter } from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Birds } from './Birds'
@@ -77,60 +78,72 @@ export function poserCiel(noeud: Container, frame: Frame): void {
   noeud.position.set(-frame.offsetX * k, -frame.offsetY * k)
 }
 
-/** Un rectangle noir qui déborde largement du cadre : il couvre tout l'écran. */
-function voileNoir(label: string): Graphics {
-  const g = new Graphics()
-    .rect(-STAGE.width, -STAGE.height, STAGE.width * 3, STAGE.height * 3)
-    .fill(0x000000)
-  g.label = label
-  g.alpha = 0
-  return g
+/** Un groupe qui s'assombrit : son conteneur, et le filtre qui le fait descendre. */
+function groupeSombre(label: string): { groupe: Container; filtre: ColorMatrixFilter } {
+  const groupe = new Container()
+  groupe.label = label
+  const filtre = new ColorMatrixFilter()
+  // Éteint tant que la nuit est nulle : pas de passe de rendu en plein jour.
+  filtre.enabled = false
+  groupe.filters = [filtre]
+  return { groupe, filtre }
 }
 
 /**
  * L'ordre des plans du décor, du fond vers l'avant : le massif, puis le ciel,
- * puis le voile du ciel, puis tout ce que l'appelant ajoutera ensuite — le
- * voile du pied, les rails et le train. Le ciel passe donc **devant** la
- * montagne et **derrière** le train (CONCEPT.md §6).
+ * puis le plateau (voile du pied, câbles, rails et train, terre, oiseaux),
+ * puis les vitres. Le ciel passe donc **devant** la montagne et **derrière**
+ * le train (CONCEPT.md §6).
  *
- * Les places se réservent ici, en entier et tout de suite : le massif
+ * Toutes les places se réservent ici, en entier et tout de suite : le massif
  * arrive bien plus tard, et le ciel ne doit pas glisser devant lui en
- * attendant. Le voile du ciel est juste au-dessus du ciel : il n'éteint que la
- * poussière et les étoiles, et rien de ce qui est ajouté après.
+ * attendant.
+ *
+ * **La règle des lumières** (spec §6.3) : ce qui s'éteint, c'est tout ce qui
+ * n'est pas une lumière. Le massif, le ciel et le plateau portent chacun un
+ * filtre de luminance — il isole son groupe, ce qu'un rectangle noir plein
+ * cadre ne ferait pas : il assombrirait aussi tout ce qui est dessiné
+ * dessous. Le filtre de recoloration est sur `decor`, donc il passe après :
+ * descendre vers le noir, c'est descendre vers la couleur du fond.
+ * Le ciel reçoit `NUIT_CIEL` (le plus léger), le massif et le plateau
+ * `NUIT_PROFONDEUR`.
+ *
+ * Les **vitres** sont hors de tout groupe filtré : elles restent allumées.
+ * Les tâches 5 et 6 y branchent le cadre du panneau, le réverbère et son
+ * faisceau : après `vitres`, jamais dans le massif, le ciel ni le plateau.
  */
 export function plansDuDecor(decor: Container): {
   massif: Container
   ciel: Container
-  voileCiel: Graphics
+  plateau: Container
+  vitres: Container
+  nuit: { massif: ColorMatrixFilter; ciel: ColorMatrixFilter; plateau: ColorMatrixFilter }
 } {
-  const massif = new Container()
-  massif.label = 'massif'
-  const ciel = new Container()
-  ciel.label = 'ciel'
-  const voileCiel = voileNoir('voile-nuit-ciel')
-  decor.addChild(massif, ciel, voileCiel)
-  return { massif, ciel, voileCiel }
-}
-
-/**
- * Les lumières, montées en **dernier** : tout ce qui est au-dessus du voile de
- * la nuit reste allumé, tout ce qui est en dessous s'éteint (spec §6.3). La
- * règle est un ordre de plans, pas une liste d'objets.
- *
- * Éteint (monté avant l'appel) : massif, quai, rails, corps du train, terre,
- * oiseaux. Allumé (rendu ici) : les vitres du train — « les seules lumières de
- * la scène, et ce sont des voyageurs ». Le plan `vitres` est à poser à la
- * place de la rame (échelle et position), puisqu'il n'en est plus enfant.
- *
- * Les tâches suivantes se branchent ICI, après `vitres` : le cadre du panneau
- * des départs, puis le réverbère et son faisceau.
- */
-export function poserLumieres(decor: Container): { voile: Graphics; vitres: Container } {
-  const voile = voileNoir('voile-nuit')
+  const massif = groupeSombre('massif')
+  const ciel = groupeSombre('ciel')
+  const plateau = groupeSombre('plateau')
   const vitres = new Container()
   vitres.label = 'vitres'
-  decor.addChild(voile, vitres)
-  return { voile, vitres }
+  decor.addChild(massif.groupe, ciel.groupe, plateau.groupe, vitres)
+  return {
+    massif: massif.groupe,
+    ciel: ciel.groupe,
+    plateau: plateau.groupe,
+    vitres,
+    nuit: { massif: massif.filtre, ciel: ciel.filtre, plateau: plateau.filtre },
+  }
+}
+
+/** Pose la nuit (0 à 1) sur les trois groupes : luminance = 1 - opacité du voile. */
+export function appliquerNuit(plans: ReturnType<typeof plansDuDecor>, nuit: number): void {
+  const regler = (f: ColorMatrixFilter, max: number) => {
+    const luminance = 1 - opaciteVoile(nuit, max)
+    f.enabled = luminance < 1
+    f.brightness(luminance, false)
+  }
+  regler(plans.nuit.massif, NUIT_PROFONDEUR)
+  regler(plans.nuit.ciel, NUIT_CIEL)
+  regler(plans.nuit.plateau, NUIT_PROFONDEUR)
 }
 
 export type SceneOptions = { reducedMotion: boolean }
@@ -151,8 +164,6 @@ export class Scene {
    * voile du pied ; il sort du reflet, lui, à chaque image (`rendreReflet`).
    */
   private readonly plans = plansDuDecor(this.decor)
-  /** Le voile de la nuit, et le plan des vitres qui reste allumé au-dessus. */
-  private voileNuit: Graphics | null = null
   private readonly refletSprite = new Sprite()
   private refletTexture: RenderTexture | null = null
   /** Les grains des phrases qui se défont : au-dessus de tout le reste. */
@@ -168,7 +179,7 @@ export class Scene {
   private recolor: Filter | null = null
   /** La terre sous les rails : devant le reflet, devant le train. */
   private terre: Terre | null = null
-  /** Les vitres allumées des wagons, dans la rame. */
+  /** Les vitres allumées des wagons : dans `plans.vitres`, au-dessus du plateau assombri. */
   private vitres: Vitres | null = null
   /** La fumée de la locomotive. */
   private fumee: Fumee | null = null
@@ -289,21 +300,17 @@ export class Scene {
     const fondDuDecor = this.plans.massif
     // Devant le ciel, et donc devant le massif : c'est ce qui détache le
     // trait blanc, et c'est aussi ce qui éteint la poussière près des rails.
-    this.decor.addChild(this.voileDuPied())
+    this.plans.plateau.addChild(this.voileDuPied())
     // Les câbles passent **derrière** la rame et les oiseaux **devant** : sinon
     // la chute traverse la silhouette du train et l'oiseau disparaît à
     // mi-course (cadrage §7.14).
     const planCables = new Container()
-    this.decor.addChild(planCables)
-    this.train = new Train(this.decor, manifest)
+    this.plans.plateau.addChild(planCables)
+    this.train = new Train(this.plans.plateau, manifest)
     // Devant la voie et devant le train : c'est le sol sur lequel il roule.
-    this.terre = new Terre(this.decor)
+    this.terre = new Terre(this.plans.plateau)
     const planOiseaux = new Container()
-    this.decor.addChild(planOiseaux)
-    // Les lumières en dernier : le voile de la nuit éteint tout ce qui est
-    // monté avant, et les vitres, montées après lui, restent allumées.
-    const lumieres = poserLumieres(this.decor)
-    this.voileNuit = lumieres.voile
+    this.plans.plateau.addChild(planOiseaux)
     this.cables = new Cables(planCables)
     this.oiseaux = new Birds(planOiseaux, this.cables, { reducedMotion: this.reducedMotion })
     this.oiseaux.surChute = () => this.emitter.emit('birdFell')
@@ -313,18 +320,18 @@ export class Scene {
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
     await this.train.load()
 
-    // Les vitres vivent dans la rame, par-dessus les wagons : elles suivent
+    // Les vitres sont posées par-dessus les wagons, à leur place : elles suivent
     // son échelle et sa place sans rien avoir à recalculer.
     const spec = manifest.train
     const positions = Array.from({ length: WAGONS }, (_, i) =>
       wagonX(spec.loco, spec.wagon, i + 1),
     )
-    // Au-dessus du voile de la nuit, donc hors de la rame : le plan `vitres`
-    // prend sa place et son échelle, la rame ne bouge plus une fois posée.
+    // Hors du plateau filtré, donc allumées : le plan `vitres` prend la place
+    // et l'échelle de la rame, qui ne bougent plus une fois posées.
     const rame = this.train.rameContainer
-    lumieres.vitres.scale.copyFrom(rame.scale)
-    lumieres.vitres.position.copyFrom(rame.position)
-    this.vitres = new Vitres(lumieres.vitres, manifest, positions, this.reducedMotion)
+    this.plans.vitres.scale.copyFrom(rame.scale)
+    this.plans.vitres.position.copyFrom(rame.position)
+    this.vitres = new Vitres(this.plans.vitres, manifest, positions, this.reducedMotion)
     // La fumée vit dans la rame : la cheminée est à ses coordonnées
     // du cadre source, et l'échelle du train s'applique toute seule.
     // La fumée sort de la cheminée, donc elle vit dans la rame elle aussi.
@@ -738,7 +745,7 @@ export class Scene {
     this.rendreReflet()
   }
 
-  /** La nuit de la gare, lue dans l'état du voyage, devient l'opacité des deux voiles. */
+  /** La nuit de la gare, lue dans l'état du voyage, devient la luminance des trois groupes. */
   private assombrir(): void {
     const nuit = nuitDeLaGare({
       gare: this.gare,
@@ -748,8 +755,7 @@ export class Scene {
       derniereEtape: this.etapesRestantes <= 1,
       reducedMotion: this.reducedMotion,
     })
-    this.plans.voileCiel.alpha = opaciteVoile(nuit, NUIT_CIEL)
-    if (this.voileNuit) this.voileNuit.alpha = opaciteVoile(nuit, NUIT_PROFONDEUR)
+    appliquerNuit(this.plans, nuit)
   }
 
   /**
@@ -763,12 +769,10 @@ export class Scene {
   private rendreReflet(): void {
     if (!this.refletTexture) return
     this.plans.ciel.visible = false
-    this.plans.voileCiel.visible = false
     this.decor.scale.set(REFLET_RESOLUTION)
     this.app.renderer.render({ container: this.decor, target: this.refletTexture, clear: true })
     this.decor.scale.set(1)
     this.plans.ciel.visible = true
-    this.plans.voileCiel.visible = true
   }
 
   dispose(): void {
