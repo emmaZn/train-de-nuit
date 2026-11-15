@@ -22,6 +22,44 @@ export type Place = { fil: number; u: number }
 export type Geste = 'demi-tour' | 'pas' | 'ebouriffe'
 
 /**
+ * La part des fils qu'on voit vraiment, en abscisse continue.
+ *
+ * La scène est cadrée en « cover » : un téléphone n'en montre qu'environ un
+ * quart de la largeur. Des oiseaux répartis sur toute l'île tombent alors
+ * presque tous hors champ, et la gare paraît vide. On ne s'assied donc que là
+ * où l'on peut être vu.
+ */
+export function champSurLesFils(
+  xMinVisible: number,
+  xMaxVisible: number,
+  decalage: number,
+  travee: number,
+  travees: number,
+): { uMin: number; uMax: number } {
+  const borne = (x: number) => (x - decalage) / travee
+  const uMin = Math.max(MARGE_TRAVEE, borne(xMinVisible))
+  const uMax = Math.min(travees - MARGE_TRAVEE, borne(xMaxVisible))
+  // Un champ vide — l'île est hors écran — ne doit pas rendre une plage
+  // retournée : on garde alors la travée du milieu, faute de mieux.
+  if (uMax <= uMin) {
+    const milieu = travees / 2
+    return { uMin: milieu - MARGE_TRAVEE, uMax: milieu + MARGE_TRAVEE }
+  }
+  return { uMin, uMax }
+}
+
+/**
+ * Combien d'oiseaux tiennent dans ce qu'on voit, sans se marcher dessus.
+ *
+ * Jamais moins de trois : une gare avec un seul oiseau n'est pas une gare où
+ * il se passe quelque chose.
+ */
+export function placesTenables(largeurU: number): number {
+  const tiennent = Math.round((largeurU / ECART_MINIMAL) * 0.55)
+  return Math.max(3, Math.min(PLACES_SIMULTANEES, tiennent))
+}
+
+/**
  * Une place libre sur les fils, ou `null` s'il n'y en a plus.
  *
  * Le tirage est répété plutôt que calculé : chercher la place optimale ferait
@@ -31,14 +69,13 @@ export type Geste = 'demi-tour' | 'pas' | 'ebouriffe'
 export function placeLibre(
   occupees: ReadonlyArray<Place>,
   fils: number,
-  travees: number,
+  champ: { uMin: number; uMax: number },
   tirage: () => number,
 ): Place | null {
   for (let essai = 0; essai < ESSAIS; essai += 1) {
     const fil = Math.min(fils - 1, Math.floor(tirage() * fils))
-    const travee = Math.min(travees - 1, Math.floor(tirage() * travees))
-    const t = MARGE_TRAVEE + tirage() * (1 - 2 * MARGE_TRAVEE)
-    const u = travee + t
+    tirage()
+    const u = champ.uMin + tirage() * (champ.uMax - champ.uMin)
     const gene = occupees.some((o) => o.fil === fil && Math.abs(o.u - u) < ECART_MINIMAL)
     if (!gene) return { fil, u }
   }

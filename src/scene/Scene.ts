@@ -353,7 +353,7 @@ export class Scene {
     // le cadre ou la densité de pixels change.
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
     this.cables?.cadrer(frame, this.app.renderer.resolution)
-    this.oiseaux?.cadrer(frame, this.app.renderer.resolution)
+    this.oiseaux?.cadrer(frame, this.app.renderer.resolution, width)
     this.vitres?.cadrer(frame, this.app.renderer.resolution)
     this.fumee?.cadrer(frame, this.app.renderer.resolution)
 

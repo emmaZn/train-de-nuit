@@ -9,14 +9,15 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
 import { HORIZON } from './layout'
 import type { Frame } from './layout'
-import { u } from './cables'
+import { FILS, TRAVEE, u } from './cables'
 import type { Cables } from './CableLayer'
 import {
   DUREE_PAS,
-  PLACES_SIMULTANEES,
   avancementDuPas,
+  champSurLesFils,
   choisirGeste,
   dureeAuSol,
+  placesTenables,
   placeLibre,
   poseDuGeste,
   prochainGeste,
@@ -93,6 +94,8 @@ export class Birds {
   private textures = new Map<string, Texture>()
   private horloge = 0
   private parCadre = 1
+  /** La part des fils qu'on voit : on ne s'assied que là. */
+  private champ = { uMin: 0.08, uMax: 1.92 }
   private detruit = false
   private prochaineArrivee = 0
 
@@ -127,7 +130,16 @@ export class Birds {
     await this.refaireTextures()
   }
 
-  cadrer(frame: Frame, resolution: number): void {
+  cadrer(frame: Frame, resolution: number, largeurEcran = 0): void {
+    if (largeurEcran > 0) {
+      this.champ = champSurLesFils(
+        -frame.offsetX / frame.scale,
+        (largeurEcran - frame.offsetX) / frame.scale,
+        this.cables.decalage,
+        TRAVEE,
+        this.cables.travees,
+      )
+    }
     const parCadre = frame.scale * resolution
     if (parCadre === this.parCadre) return
     this.parCadre = parCadre
@@ -208,9 +220,13 @@ export class Birds {
     return this.oiseaux.filter((o) => o.etat !== 'sol').length
   }
 
+  private get places(): number {
+    return placesTenables(this.champ.uMax - this.champ.uMin)
+  }
+
   private semer(): void {
-    for (let i = 0; i < PLACES_SIMULTANEES; i += 1) {
-      const place = placeLibre(this.occupees(), 2, this.cables.travees, this.r)
+    for (let i = 0; i < this.places; i += 1) {
+      const place = placeLibre(this.occupees(), FILS.length, this.champ, this.r)
       if (!place) break
       this.ajouter(place, 'pose')
     }
@@ -296,8 +312,8 @@ export class Birds {
   avancer(dt: number): void {
     this.horloge += dt
 
-    if (this.surLesFils() < PLACES_SIMULTANEES && this.horloge >= this.prochaineArrivee) {
-      const place = placeLibre(this.occupees(), 2, this.cables.travees, this.r)
+    if (this.surLesFils() < this.places && this.horloge >= this.prochaineArrivee) {
+      const place = placeLibre(this.occupees(), FILS.length, this.champ, this.r)
       if (place) this.ajouter(place, 'arrivee')
       this.prochaineArrivee = this.horloge + 1.2 + this.r() * 1.2
     }
