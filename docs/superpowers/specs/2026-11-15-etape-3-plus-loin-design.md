@@ -321,9 +321,17 @@ gauche est la **même, retournée** au rendu. Il faut donc `perche`,
 `perche-ebouriffe`, `sonne`, et deux images de vol — ailes hautes et ailes
 basses suffisent à faire un battement.
 
-Trois poses témoins existent sur la branche de l'essai (`essai-perche`,
-`essai-sonne`, `essai-vol-haut`, `essai-vol-bas`). Elles ont servi à vérifier le
-**genre** de dessin, pas à être gardées.
+Quatre poses témoins existent sur la branche de l'essai (`essai-perche`,
+`essai-sonne`, `essai-vol-haut`, `essai-vol-bas`), et Emmanuelle les a trouvées
+« beaucoup plus sympa » que les siennes passées au trait.
+
+**C'est moi qui dessine le jeu définitif.** Elle a dit ne pas savoir redessiner
+dans cette langue, et il n'y a aucune raison qu'elle apprenne un métier pour
+débloquer une étape : la répartition qui marche depuis le début de ce cadrage,
+c'est qu'elle juge et qu'elle corrige à l'œil. Les poses se montrent donc dans
+la scène, et elle les dirige — « la tête plus grosse », « la queue plus
+carrée », « les pattes plus écartées ». Si elle préfère y remettre sa main, un
+croquis, même pris en photo, suffit : je le traduis dans la langue du projet.
 
 ### La recette de matière
 
@@ -362,7 +370,8 @@ src/components/
 
 ## 12. Ce qui revient à Emmanuelle
 
-- **Redessiner les poses** selon les six règles du §10.
+- **Diriger les poses** : je les dessine (§10), elle les corrige en les
+  regardant dans la scène.
 - **Régler les deux vitesses** et la **taille des poteaux**.
 - **Juger la profondeur de la terre** : elle fait 46 px de cadre, un oiseau
   couché en fait ~60. Posés dessus, les corps ont l'air d'être *sur* la voie ;
