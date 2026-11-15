@@ -33,7 +33,7 @@ const GRIS = 0xededed
 
 /** Les pièces qui viennent d'un dessin. La bordure et le cadre se tracent ici. */
 const PIECES_DESSINEES = ['reverbere', 'banc', 'valise', 'batiment'] as const
-type PieceDessinee = (typeof PIECES_DESSINEES)[number]
+export type PieceDessinee = (typeof PIECES_DESSINEES)[number]
 
 /**
  * Ce qui reste allumé. Les trois sources qu'Emmanuelle a arrêtées sont le
@@ -47,10 +47,6 @@ const PANNEAU_FILET = 8
 
 /** La hauteur de l'en-tête `PROCHAINS DÉPARTS`, sous laquelle court un filet. PROVISOIRE (§7). */
 const PANNEAU_ENTETE = 56
-
-/** Le halo de la lanterne, qui monte avec la nuit. PROVISOIRE (§7). */
-const HALO_RAYONS = [26, 38, 50]
-const HALO_ALPHA = 0.5
 
 /**
  * Les angles des deux aiguilles, en degrés. **0° = midi, sens horaire.**
@@ -132,7 +128,6 @@ export class Quai {
   private readonly bordure = new Graphics()
   private readonly aiguilles = new Graphics()
   private readonly cadrePanneau = new Graphics()
-  private readonly halo = new Graphics()
 
   private readonly svgs = new Map<PieceDessinee, string>()
   private readonly sprites = new Map<PieceDessinee, Sprite>()
@@ -160,7 +155,7 @@ export class Quai {
     parent.addChild(this.racineEteinte)
     lumieres.addChild(this.racineAllumee)
     this.racineEteinte.addChild(this.bordure, this.aiguilles)
-    this.racineAllumee.addChild(this.halo, this.cadrePanneau)
+    this.racineAllumee.addChild(this.cadrePanneau)
     // Tant qu'on ne sait pas où est la gare, l'île n'est nulle part : la scène
     // tourne sa première image avant que Vue ne lui dise d'où l'on part, et
     // une île qui se pose quand même s'ancre à quai — à « ailleurs ».
@@ -187,6 +182,11 @@ export class Quai {
   /** Combien de dessins ont été trouvés. Une pièce manquante est sautée. */
   get piecesChargees(): number {
     return this.svgs.size
+  }
+
+  /** La texture que porte une pièce, s'il y en a une. */
+  texture(piece: PieceDessinee): Texture | null {
+    return this.textures.get(piece) ?? null
   }
 
   /** A-t-on dit à l'île où elle était ? */
@@ -238,8 +238,14 @@ export class Quai {
    *
    * Les deux racines prennent la même abscisse — c'est ce qui fait qu'une île
    * coupée en deux plans reste une seule chose posée sur un seul sol.
+   *
+   * **`nuit` ne sert encore à rien ici**, et c'est voulu : les lumières du quai
+   * ne s'éteignent pas, et rien d'autre n'a été arrêté. Le paramètre est gardé
+   * — préfixé, donc explicitement inutilisé — parce que c'est la variable du
+   * faisceau de la tâche 6, qui vivra dans la même racine allumée. Le tenir ici
+   * évite de changer la signature quand il arrivera.
    */
-  avancer(distance: number, nuit: number): void {
+  avancer(distance: number, _nuit: number): void {
     this.racineEteinte.x = distance
     this.racineAllumee.x = distance
     if (!this.posee) {
@@ -247,9 +253,6 @@ export class Quai {
       this.racineEteinte.visible = true
       this.racineAllumee.visible = true
     }
-    // Le halo de la lanterne monte avec la nuit : une lampe ne se remarque pas
-    // en plein jour. PROVISOIRE (§7).
-    this.halo.alpha = HALO_ALPHA * Math.min(1, Math.max(0, nuit))
     this.tracerAiguilles()
   }
 
@@ -262,7 +265,6 @@ export class Quai {
   private redessiner(): void {
     this.tracerBordure()
     this.tracerCadrePanneau()
-    this.tracerHalo()
     this.minuteTracee = -1
     this.tracerAiguilles()
   }
@@ -304,30 +306,6 @@ export class Quai {
   }
 
   /**
-   * Le halo de la lanterne. Ce n'est **pas** le faisceau : celui-ci est une
-   * population de grains dans un cône (spec §6.2), et il vient avec la tâche 6,
-   * dans cette même racine allumée.
-   */
-  private tracerHalo(): void {
-    const g = this.halo
-    g.clear()
-    const b = boite('reverbere')
-    // Le corps de la lanterne, en unités du SVG du réverbère : y 48 à 86.
-    const k = b.largeur / CADRES.reverbere.largeur
-    const cx = PIECES.reverbere.x
-    const cy = b.y + ((48 + 86) / 2) * k
-    const c = this.cellule
-    for (const rayon of HALO_RAYONS) {
-      const n = Math.max(8, Math.round((2 * Math.PI * rayon) / (c * 2.5)))
-      for (let i = 0; i < n; i += 1) {
-        const a = (i / n) * Math.PI * 2
-        g.rect(cx + Math.cos(a) * rayon - c / 2, cy + Math.sin(a) * rayon - c / 2, c, c)
-      }
-    }
-    g.fill({ color: GRIS })
-  }
-
-  /**
    * Les aiguilles, à la vraie heure. Elles vivent dans la racine **éteinte** :
    * l'horloge n'est pas une des trois sources de lumière.
    */
@@ -362,6 +340,12 @@ export class Quai {
    * rendu, et une texture détruite encore montée fait tomber tout Pixi. Mêmes
    * trois chemins dégradés que `Birds.refaireTextures` : un cadrage qui en
    * double un autre, un démontage au milieu, et une pièce qui échoue.
+   *
+   * Sur ce dernier, on s'écarte de `Birds`, qui abandonne la fournée entière
+   * dès qu'une pose manque — un oiseau a besoin de **toutes** ses poses. Les
+   * pièces du quai sont indépendantes : on échange donc **pièce par pièce**, et
+   * celle qui a échoué garde sa texture d'avant. La détruire quand même
+   * laisserait son sprite sur une texture morte, qui fait tomber tout le rendu.
    */
   private async refaireTextures(): Promise<void> {
     // Sans contexte 2D — jsdom, ou un canvas refusé par la carte — il n'y a
@@ -386,16 +370,18 @@ export class Quai {
     }
     if (this.detruite || jeton !== this.cuisson) return
 
-    const anciennes = [...this.textures.values()]
-    this.textures.clear()
+    const remplacees: Texture[] = []
     for (const [piece, canvas] of faites) {
       const texture = Texture.from(canvas)
       texture.source.scaleMode = 'nearest'
+      const ancienne = this.textures.get(piece)
       this.textures.set(piece, texture)
       this.poser(piece, texture)
+      // Seule l'ancienne d'une pièce **effectivement remplacée** meurt, et
+      // seulement une fois la neuve montée sur son sprite.
+      if (ancienne) remplacees.push(ancienne)
     }
-    // Les anciennes ne meurent qu'une fois les neuves montées partout.
-    for (const texture of anciennes) texture.destroy(true)
+    for (const texture of remplacees) texture.destroy(true)
   }
 
   private poser(piece: PieceDessinee, texture: Texture): void {

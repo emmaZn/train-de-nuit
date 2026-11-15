@@ -825,8 +825,8 @@ export class Scene {
     // pas quand le train s'arrête.
     this.vitres?.update(dt)
     const nuit = this.assombrir()
-    // Le quai suit le sol comme les câbles, et lit la nuit : ses lumières ne
-    // s'éteignent pas, mais le halo de sa lanterne monte avec elle.
+    // Le quai suit le sol comme les câbles. La nuit lui est passée pour le
+    // faisceau de la tâche 6 : ses lumières, elles, ne s'éteignent pas.
     // Rien tant qu'on ne sait pas d'où l'on part : une île posée quand même
     // s'ancrerait à « distance zéro », c'est-à-dire à quai, où qu'on soit.
     if (this.ileAilleurs.distance !== null) {

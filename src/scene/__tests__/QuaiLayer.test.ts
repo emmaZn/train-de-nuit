@@ -1,11 +1,37 @@
 import { readFileSync } from 'node:fs'
 import { Container } from 'pixi.js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { Quai, anglesHorloge } from '@/scene/QuaiLayer'
+import { fabriquerPiece } from '@/scene/poses'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
+import { PIECES } from '@/scene/quai'
 import { DUREE_ETAPE, STAGE } from '@/scene/layout'
+
+vi.mock('@/scene/poses', async (importOriginal) => {
+  const vrai = await importOriginal<typeof import('@/scene/poses')>()
+  return { ...vrai, fabriquerPiece: vi.fn() }
+})
+
+/**
+ * Un contexte 2D crédible, et une toile de taille plausible : `refaireTextures`
+ * sort tout de suite sans contexte, et `Texture.from` veut des dimensions.
+ */
+function avecContexte2D(): () => void {
+  const original = HTMLCanvasElement.prototype.getContext
+  HTMLCanvasElement.prototype.getContext = (() => ({})) as unknown as typeof original
+  return () => {
+    HTMLCanvasElement.prototype.getContext = original
+  }
+}
+
+function toile(): HTMLCanvasElement {
+  const c = document.createElement('canvas')
+  c.width = 32
+  c.height = 32
+  return c
+}
 
 /** Le quai monté là où la scène le monte : décor éteint au fond, lumières à part. */
 function poser() {
@@ -149,6 +175,42 @@ describe('le quai qui défile', () => {
     expect(quai.horsChamp(0)).toBe(false)
     expect(quai.horsChamp(-5000)).toBe(true)
     expect(quai.horsChamp(5000)).toBe(true)
+  })
+
+  /**
+   * Le piège que le commentaire de `Birds.refaireTextures` signale : une pièce
+   * qui échoue à la **recuisson** garde son ancienne texture, et détruire la
+   * fournée d'avant en bloc laisserait son sprite sur une texture morte — ce
+   * qui fait tomber tout le rendu Pixi.
+   */
+  it('une pièce qui échoue à la recuisson garde sa texture, vivante', async () => {
+    const rendre2D = avecContexte2D()
+    const restaurer = stubFetchEnEchec('rien-du-tout')
+    const fabrique = vi.mocked(fabriquerPiece)
+    try {
+      fabrique.mockReset()
+      // Première cuisson : les quatre pièces sortent.
+      fabrique.mockImplementation(async () => toile())
+      const { quai } = poser()
+      await quai.charger()
+      const avant = quai.texture('valise')
+      expect(avant).not.toBeNull()
+
+      // Seconde cuisson : la valise échoue, les autres passent.
+      fabrique.mockImplementation(async (_svg, largeur) =>
+        largeur === PIECES.valise.largeur ? null : toile(),
+      )
+      await quai.charger()
+
+      // Elle garde la sienne, et cette texture est toujours vivante.
+      expect(quai.texture('valise')).toBe(avant)
+      expect(avant!.destroyed).toBe(false)
+      // Et une pièce qui a bien recuit a bien changé de texture.
+      expect(quai.texture('batiment')).not.toBeNull()
+    } finally {
+      restaurer()
+      rendre2D()
+    }
   })
 
   it('une pièce manquante n’arrête pas la couche', async () => {
