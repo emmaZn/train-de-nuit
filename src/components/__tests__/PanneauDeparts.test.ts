@@ -71,8 +71,10 @@ describe('PanneauDeparts', () => {
   })
 
   it('l’adresse n’apparaît pas en clair dans le source du composant', () => {
-    const source = readFileSync('src/components/PanneauDeparts.vue', 'utf8')
-    expect(source).not.toMatch(ADRESSE)
+    // `liens.ts` est le fichier où l'adresse vit vraiment : on le garde aussi.
+    for (const f of ['src/components/PanneauDeparts.vue', 'src/contenu/liens.ts']) {
+      expect(readFileSync(f, 'utf8'), f).not.toMatch(ADRESSE)
+    }
   })
 
   it('l’adresse n’apparaît pas en clair dans le texte rendu', () => {
@@ -90,7 +92,11 @@ describe('PanneauDeparts', () => {
       expect(a.attributes('href')).toBeTruthy()
       expect(a.attributes('tabindex')).toBeUndefined()
     }
-    expect(liens.map((a) => a.text()[0] === undefined ? '' : a.text())).toEqual([
+    for (const a of liens) {
+      ;(a.element as HTMLElement).focus()
+      expect(document.activeElement).toBe(a.element)
+    }
+    expect(liens.map((a) => a.text())).toEqual([
       expect.stringContaining('LINKEDIN'),
       expect.stringContaining('CV'),
       expect.stringContaining('ÉCRIRE'),

@@ -111,7 +111,7 @@ const place = computed(() => {
   font-family: var(--police-mono);
   font-weight: 300;
   font-size: 13px;
-  color: #fff;
+  color: var(--texte);
   /* Le texte ne bloque rien : seuls les liens reçoivent le pointeur. */
   pointer-events: none;
 }
@@ -153,7 +153,7 @@ const place = computed(() => {
 /* La ligne s'inverse : fond clair, texte en couleur de fond. */
 .reel:hover,
 .reel:focus-visible {
-  background: #fff;
+  background: var(--texte);
   color: var(--fond);
   outline: none;
 }
