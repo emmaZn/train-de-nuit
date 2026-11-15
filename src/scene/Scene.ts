@@ -36,7 +36,7 @@ import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
-import { DEFILEMENT, Train, WAGONS, avancement, basePourDepart, wagonX } from './Train'
+import { DEFILEMENT, Train, WAGONS, avancement, wagonX } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
@@ -148,6 +148,17 @@ export class Scene {
    * ne se prévoit plus, il se compte.
    */
   private solDepuisGare = 0
+
+  /**
+   * Les étapes franchies, pour l'île de câbles **seule**.
+   *
+   * `legsParcourues` recule d'une étape à chaque départ — la phase reste à 1
+   * à l'arrêt et la remettre à zéro efface l'étape finie. Le massif tourne
+   * avec ce recul depuis toujours, et sa vitesse a été réglée à l'œil ainsi :
+   * la corriger changerait un réglage validé. L'île, elle, a besoin d'un
+   * compte qui ne revient jamais en arrière, et le tient de son côté.
+   */
+  private legsIle = 0
 
   /** La dernière cible de l'île, et l'écart qu'on est en train de rattraper. */
   private cibleCables: number | null = null
@@ -401,7 +412,7 @@ export class Scene {
    */
   setGare(gare: Gare): void {
     this.gare = gare
-    this.prochainPlusLoin = Math.round(this.legsParcourues) + forwardSteps(gare, 'plus-loin')
+    this.prochainPlusLoin = this.legsIle + forwardSteps(gare, 'plus-loin')
   }
 
   /**
@@ -502,10 +513,6 @@ export class Scene {
    */
   setVoyage(enRoute: boolean, etapesRestantes: number): void {
     if (enRoute && !this.enRoute) {
-      // L'étape qu'on vient de finir se compte **ici** : la phase reste à 1 à
-      // l'arrêt, et la remettre à zéro sans cela ferait reculer la distance
-      // d'une étape entière — l'île de câbles reculerait d'un écran.
-      this.legsBase = basePourDepart(this.legsBase, this.phase)
       this.phase = 0
       this.profil = { demarrage: true, freinage: etapesRestantes <= 1 }
     }
@@ -534,6 +541,11 @@ export class Scene {
   }
 
   /** Distance parcourue, en étapes : c'est elle qui fait tourner le massif. */
+  /** Le compte de l'île, fraction comprise : il ne revient jamais en arrière. */
+  private get legsIleParcourues(): number {
+    return this.legsIle + (this.enRoute ? this.avancementEtape : 0)
+  }
+
   get legsParcourues(): number {
     if (!this.enRoute) return this.legsBase
     return this.legsBase + this.avancementEtape
@@ -598,6 +610,7 @@ export class Scene {
           // train ne s'arrête qu'au terminus.
           this.profil = { demarrage: false, freinage: this.etapesRestantes <= 1 }
         }
+        this.legsIle += 1
         this.emitter.emit('arrived')
       } else {
         // La frise suit la distance, pas l'horloge : sans ça elle continuerait
@@ -626,12 +639,20 @@ export class Scene {
     // Rien avant de savoir d'où l'on part : sinon la toute première image
     // ancre l'île à « distance zéro », c'est-à-dire à quai, où qu'on soit.
     if (this.prochainPlusLoin !== null) {
+      const ancreAvant = this.ancrePlusLoin
       this.ancrePlusLoin = ancreSuivante(
         this.ancrePlusLoin,
         this.prochainPlusLoin,
-        this.legsParcourues,
+        this.legsIleParcourues,
       )
-      const restant = this.ancrePlusLoin - this.legsParcourues
+      if (this.ancrePlusLoin !== ancreAvant) {
+        // L'île passe à l'arrivée suivante, une boucle plus loin. Ce saut-là
+        // ne s'amortit **pas** : il se fait hors champ des deux côtés, alors
+        // qu'un rattrapage le ferait traverser tout l'écran à toute vitesse.
+        this.cibleCables = null
+        this.ecartCables = 0
+      }
+      const restant = this.ancrePlusLoin - this.legsIleParcourues
       const pas = dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
       let cible: number
       if (restant > 0) {

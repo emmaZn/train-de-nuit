@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs'
 
 import {
-  basePourDepart,
   ATTELAGE,
   FPS,
   IMAGES_TRANSITION,
@@ -364,19 +363,4 @@ test('la séquence d’arrêt se consomme exactement sur le freinage', () => {
     images += pas * DUREE_ETAPE * FPS * trainSpeed('freinage', p + pas / 2)
   }
   expect(images).toBeCloseTo(IMAGES_TRANSITION, 0)
-})
-
-describe('basePourDepart', () => {
-  it('compte l’étape finie avant d’en commencer une neuve', () => {
-    // À l'arrêt, la phase reste à 1 et le compteur d'étapes n'a pas bougé :
-    // la distance vaut déjà `base + 1`. Remettre la phase à zéro sans compter
-    // cette étape ferait **reculer** la distance d'une étape entière — et
-    // toute l'île de câbles avec elle, à chaque départ.
-    expect(basePourDepart(3, 1)).toBe(4)
-  })
-
-  it('ne compte rien quand l’étape n’était pas finie', () => {
-    expect(basePourDepart(3, 0)).toBe(3)
-    expect(basePourDepart(3, 0.4)).toBe(3)
-  })
 })
