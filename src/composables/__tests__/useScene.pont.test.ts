@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { useScene } from '@/composables/useScene'
 import { useTraces } from '@/stores/traces'
+import { useVoyage } from '@/stores/voyage'
 import type { Trace } from '@/scene/types'
 
 /**
@@ -21,6 +22,7 @@ vi.mock('@/scene/Scene', () => ({
     setPointer = vi.fn()
     setFond = vi.fn()
     setVoyage = vi.fn()
+    setGare = vi.fn()
     setLegs = vi.fn()
     dispose = vi.fn()
     on = vi.fn(() => () => {})
@@ -123,4 +125,13 @@ test('un clic qui touche un oiseau n’ouvre pas aussi la bulle d’une étoile'
   await nextTick()
   expect(scene.clicPx).toHaveBeenCalledWith(12, 34)
   expect(scene.setPointerPx).not.toHaveBeenCalled()
+})
+
+test('dit à la scène quelle gare le train vient de quitter', async () => {
+  await monter()
+  const scene = double.instance!
+  expect(scene.setGare).toHaveBeenCalledWith('ici')
+  useVoyage().gare = 'plus-loin'
+  await nextTick()
+  expect(scene.setGare).toHaveBeenLastCalledWith('plus-loin')
 })

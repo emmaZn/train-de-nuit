@@ -357,7 +357,10 @@ oiseau d'environ 50 px pour un train de 180.
 
 ```
 src/scene/
-  Cables.ts     les deux rangées, leur défilement à la distance, la vibration
+  cables.ts     la géométrie : mesures, flèche, vibration (fonctions pures)
+  CableLayer.ts les deux rangées, leur défilement à la distance, la vibration.
+                Pas `Cables.ts` : sur macOS, c'est le même fichier que
+                `cables.ts` — précédent de `stars.ts` / `StarLayer.ts`
   Birds.ts      les bouvreuils : poses, gestes sur le fil, chute, tas, arrivées
   oiseaux.ts    les fonctions pures : places libres, choix du geste, soupape
 src/components/

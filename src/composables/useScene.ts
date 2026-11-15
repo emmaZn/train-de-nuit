@@ -23,7 +23,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   const scene = shallowRef<Scene | null>(null)
   const fond = ref<string>(loadFond())
   const voyage = useVoyage()
-  const { enRoute, etapesRestantes, legs } = storeToRefs(voyage)
+  const { enRoute, etapesRestantes, gare, legs } = storeToRefs(voyage)
   const traces = useTraces()
   const { etoiles } = storeToRefs(traces)
 
@@ -83,6 +83,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
     await instance.init()
     instance.setFond(fond.value)
+    instance.setGare(gare.value)
     instance.setVoyage(enRoute.value, etapesRestantes.value)
     instance.setLegs(legs.value)
     instance.setStars(etoiles.value)
@@ -101,6 +102,12 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
   watch(legs, (valeur) => {
     scene.value?.setLegs(valeur)
+  })
+
+  // La scène a besoin de savoir où est « plus loin » sur la ligne, pour y
+  // poser ses câbles. Elle ne connaît que le nom de la gare quittée.
+  watch(gare, (valeur) => {
+    scene.value?.setGare(valeur)
   })
 
   // The only road by which a star confirmed late joins the sky: its handle

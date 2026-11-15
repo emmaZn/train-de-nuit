@@ -48,3 +48,19 @@ export type Manifest = {
   rails: RailsSpec
   train: Record<TrainSequence, SequenceSpec>
 }
+
+/**
+ * La boucle, dans l'ordre du voyage. Elle vit ici et non dans le magasin :
+ * la scène en a besoin pour savoir où est « plus loin » sur la ligne, et la
+ * scène ne connaît pas Vue (CONCEPT.md §8). Le magasin la réexporte.
+ */
+export const GARES = ['ici', 'plus-loin', 'la-haut', 'ailleurs'] as const
+
+/** Combien d'étapes vers l'avant. Reculer, c'est faire tout le tour. */
+export function forwardSteps(from: Gare, to: Gare): number {
+  return (GARES.indexOf(to) - GARES.indexOf(from) + GARES.length) % GARES.length
+}
+
+export function gareSuivante(gare: Gare): Gare {
+  return GARES[(GARES.indexOf(gare) + 1) % GARES.length]
+}

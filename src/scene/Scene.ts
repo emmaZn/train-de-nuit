@@ -10,7 +10,9 @@ import {
 } from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
-import type { Birds } from './Birds'
+import { Birds } from './Birds'
+import { Cables } from './CableLayer'
+import { distanceGare, solParEtape } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
 import { Fumee } from './Fumee'
@@ -24,6 +26,7 @@ import {
   HORIZON,
   STAGE,
   cadrageScene,
+  versCadre,
   cadreDegrade,
 } from './layout'
 import type { Frame } from './layout'
@@ -36,7 +39,8 @@ import { Train, WAGONS, avancement, wagonX } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
-import type { Manifest, Trace } from './types'
+import { forwardSteps } from './types'
+import type { Gare, Manifest, Trace } from './types'
 
 // Le reflet est rendu à la taille du cadre : au demi, l'agrandissement
 // rééchantillonnait son grain binaire en gris.
@@ -123,9 +127,13 @@ export class Scene {
   /** La fumée de la locomotive. */
   private fumee: Fumee | null = null
 
-  /** Les bouvreuils de « plus loin ». Peuplés avec le reste du décor. */
+  /** Les câbles et les bouvreuils de « plus loin ». */
+  private cables: Cables | null = null
   private oiseaux: Birds | null = null
   private frameCourante: Frame | null = null
+
+  /** La gare derrière le train : c'est d'elle que part l'étape en cours. */
+  private gare: Gare = 'ici'
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
@@ -208,9 +216,20 @@ export class Scene {
     // Devant le ciel, et donc devant le massif : c'est ce qui détache le
     // trait blanc, et c'est aussi ce qui éteint la poussière près des rails.
     this.decor.addChild(this.voileDuPied())
+    // Les câbles passent **derrière** la rame et les oiseaux **devant** : sinon
+    // la chute traverse la silhouette du train et l'oiseau disparaît à
+    // mi-course (cadrage §7.14).
+    const planCables = new Container()
+    this.decor.addChild(planCables)
     this.train = new Train(this.decor, manifest)
     // Devant la voie et devant le train : c'est le sol sur lequel il roule.
     this.terre = new Terre(this.decor)
+    const planOiseaux = new Container()
+    this.decor.addChild(planOiseaux)
+    this.cables = new Cables(planCables)
+    this.oiseaux = new Birds(planOiseaux, this.cables, { reducedMotion: this.reducedMotion })
+    this.oiseaux.surChute = () => this.emitter.emit('birdFell')
+    void this.oiseaux.charger()
     this.cadrer()
 
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
@@ -306,6 +325,8 @@ export class Scene {
     // Le grain de la terre se mesure en texels du rendu : il se refait quand
     // le cadre ou la densité de pixels change.
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
+    this.cables?.cadrer(frame, this.app.renderer.resolution)
+    this.oiseaux?.cadrer(frame, this.app.renderer.resolution)
     this.vitres?.cadrer(frame, this.app.renderer.resolution)
     this.fumee?.cadrer(frame, this.app.renderer.resolution)
 
@@ -351,7 +372,17 @@ export class Scene {
   clicPx(px: number, py: number): boolean {
     const f = this.frameCourante
     if (!f || !this.oiseaux) return false
-    return this.oiseaux.cliquer((px - f.offsetX) / f.scale, (py - f.offsetY) / f.scale)
+    const cadre = versCadre(px, py, f)
+    return this.oiseaux.cliquer(cadre.x, cadre.y)
+  }
+
+  /**
+   * Quelle gare le train vient de quitter — ou celle où il est à quai. La
+   * scène n'en a besoin que pour savoir où est « plus loin » sur la ligne ;
+   * elle ne lit aucun magasin.
+   */
+  setGare(gare: Gare): void {
+    this.gare = gare
   }
 
   /** Le chemin du clavier : faire tomber un oiseau sans en viser un. */
@@ -540,6 +571,18 @@ export class Scene {
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
     // Même horloge que la voie, à la distance et non au temps.
     this.terre?.avancer(dt, this.train?.vitesse ?? 0)
+    // Les câbles se calent sur le sol qui reste jusqu'à « plus loin », et non
+    // sur une position absolue : le sol parcouru n'est pas le même selon qu'on
+    // y arrive en une étape ou en deux (cadrage §7.12).
+    this.cables?.placer(
+      distanceGare(
+        forwardSteps(this.gare, 'plus-loin'),
+        this.enRoute ? this.avancementEtape : 0,
+        solParEtape(this.profil.demarrage, this.profil.freinage),
+      ),
+    )
+    this.cables?.avancer(dt)
+    this.oiseaux?.avancer(dt)
     // Le vacillement suit l'horloge et non la distance : une lampe ne s'arrête
     // pas quand le train s'arrête.
     this.vitres?.update(dt)
@@ -566,6 +609,8 @@ export class Scene {
   }
 
   dispose(): void {
+    this.oiseaux?.destroy()
+    this.cables?.destroy()
     this.fumee?.destroy()
     this.vitres?.destroy()
     this.terre?.destroy()

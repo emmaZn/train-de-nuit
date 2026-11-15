@@ -8,7 +8,8 @@
  * Rien ici ne dessine : ce module ne contient que des nombres et des fonctions
  * pures, pour que tout ce qui se vérifie se vérifie sans canvas.
  */
-import { HORIZON, STAGE } from './layout'
+import { DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE } from './layout'
+import { DEFILEMENT, PHASE_FREINAGE, PHASE_ROULE } from './Train'
 
 /** Le cadre dans lequel le SVG des câbles est dessiné, rail compris. */
 export const CADRE_CABLE = { largeur: 1280, rail: 586 } as const
@@ -91,3 +92,19 @@ export const distanceGare = (
   avancementEtape: number,
   solParEtape: number,
 ): number => (etapesAvantGare - avancementEtape) * solParEtape
+
+/**
+ * Le sol que couvre une étape, en pixels de cadre.
+ *
+ * Les étapes ne se valent pas : une étape de passage se fait à vitesse
+ * constante, une étape avec arrêt perd la moitié de ses rampes. C'est
+ * l'intégrale de la vitesse, en pixels et non ramenée à 1 — `avancement()`
+ * fait l'autre moitié du travail, côté train.
+ */
+export function solParEtape(demarrage: boolean, freinage: boolean): number {
+  const montee = demarrage ? PHASE_ROULE : 0
+  const descente = freinage ? 1 - PHASE_FREINAGE : 0
+  const plein = 1 - montee - descente
+  const part = montee / 2 + plein + descente / 2
+  return DEFILEMENT * ECHELLE_TRAIN * DUREE_ETAPE * part
+}

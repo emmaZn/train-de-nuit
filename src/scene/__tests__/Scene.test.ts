@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { Container } from 'pixi.js'
 import { Scene, plansDuDecor, poserCiel, poserMonde } from '@/scene/Scene'
 import { cadrageScene } from '@/scene/layout'
@@ -96,4 +97,26 @@ test('poserMonde pose le décalage dans la position du conteneur du décor', () 
   expect(monde.y).toBeCloseTo(frame.offsetY)
   expect(monde.x).toBeCloseTo(frame.offsetX)
   expect(monde.scale.x).toBeCloseTo(frame.scale)
+})
+
+describe('l’ordre des plans du décor', () => {
+  const source = readFileSync('src/scene/Scene.ts', 'utf8')
+
+  it('met les câbles derrière la rame et les oiseaux devant', () => {
+    // Sinon la chute traverse la silhouette du train et l'oiseau disparaît à
+    // mi-course (cadrage §7.14).
+    const cables = source.indexOf('planCables')
+    const train = source.indexOf('new Train(')
+    const terre = source.indexOf('new Terre(')
+    const oiseaux = source.indexOf('planOiseaux')
+    expect(cables).toBeGreaterThan(0)
+    expect(oiseaux).toBeGreaterThan(0)
+    expect(cables).toBeLessThan(train)
+    expect(train).toBeLessThan(terre)
+    expect(terre).toBeLessThan(oiseaux)
+  })
+
+  it('convertit un clic en pixels CSS vers le cadre avant de le passer', () => {
+    expect(source).toContain('versCadre(')
+  })
 })

@@ -1,17 +1,11 @@
 import { defineStore } from 'pinia'
+import { GARES, forwardSteps, gareSuivante } from '@/scene/types'
 import type { Gare } from '@/scene/types'
 
-/** The loop, in travel order. The train never goes back (CONCEPT.md §3). */
-export const GARES = ['ici', 'plus-loin', 'la-haut', 'ailleurs'] as const
+// La boucle vit dans la scène, qui en a besoin sans connaître Vue. Le magasin
+// la réexporte : tout ce qui l'importait d'ici continue de marcher.
+export { GARES, forwardSteps, gareSuivante }
 
-/** How many legs forward, 0 to 3. Going "back" means going all the way round. */
-export function forwardSteps(from: Gare, to: Gare): number {
-  return (GARES.indexOf(to) - GARES.indexOf(from) + GARES.length) % GARES.length
-}
-
-export function gareSuivante(gare: Gare): Gare {
-  return GARES[(GARES.indexOf(gare) + 1) % GARES.length]
-}
 
 export const useVoyage = defineStore('voyage', {
   state: () => ({

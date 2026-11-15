@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { HORIZON, STAGE } from '@/scene/layout'
+import { forwardSteps } from '@/scene/types'
 import {
   ECHELLE_CABLE,
   FILS,
@@ -9,6 +10,7 @@ import {
   amortir,
   creux,
   distanceGare,
+  solParEtape,
   yCadre,
   yFil,
 } from '@/scene/cables'
@@ -90,5 +92,41 @@ describe('distanceGare', () => {
 
   it('devient négative une fois la gare dépassée', () => {
     expect(distanceGare(0, 0.5, 2273)).toBeLessThan(0)
+  })
+})
+
+describe('solParEtape', () => {
+  it('une étape de passage couvre plus de sol qu’une étape avec arrêt', () => {
+    expect(solParEtape(false, false)).toBeGreaterThan(solParEtape(true, true))
+  })
+
+  it('une étape à pleine vitesse vaut la vitesse de la voie fois sa durée', () => {
+    expect(solParEtape(false, false)).toBeCloseTo(900 * 0.4 * 9, 0)
+  })
+
+  it('freiner coûte plus de sol que démarrer : le freinage est deux fois plus long', () => {
+    const perteFreinage = solParEtape(false, false) - solParEtape(false, true)
+    const perteDemarrage = solParEtape(false, false) - solParEtape(true, false)
+    expect(perteFreinage).toBeGreaterThan(perteDemarrage)
+  })
+})
+
+describe('les câbles sur la ligne', () => {
+  it('sur un lien direct vers « plus loin », ils sont déjà à leur place', () => {
+    // Pas d'approche : la gare est là, l'étape n'a pas commencé.
+    expect(distanceGare(forwardSteps('plus-loin', 'plus-loin'), 0, solParEtape(true, true))).toBe(0)
+  })
+
+  it('depuis « ici », ils sont une étape plus loin et approchent', () => {
+    const sol = solParEtape(true, true)
+    const debut = distanceGare(forwardSteps('ici', 'plus-loin'), 0, sol)
+    const moitie = distanceGare(forwardSteps('ici', 'plus-loin'), 0.5, sol)
+    expect(debut).toBeCloseTo(sol)
+    expect(moitie).toBeLessThan(debut)
+    expect(moitie).toBeGreaterThan(0)
+  })
+
+  it('depuis « là-haut », ils sont loin derrière : trois étapes à faire', () => {
+    expect(forwardSteps('la-haut', 'plus-loin')).toBe(3)
   })
 })
