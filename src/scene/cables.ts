@@ -206,3 +206,22 @@ export const decroitre = (erreur: number, dt: number): number =>
  */
 export const legsDeLIle = (legsIle: number, phase: number, avancementEtape: number): number =>
   legsIle + (phase >= 1 ? 0 : avancementEtape)
+
+/**
+ * Faut-il poser la position d'un coup au lieu de la rattraper ?
+ *
+ * Deux moments seulement. **Au départ**, parce que l'étape apprend là si elle
+ * freine ou si elle traverse, et que les deux ne font pas la même longueur :
+ * la révision est inévitable, mais posée à l'instant précis où le train, le
+ * massif et la frise se mettent tous en marche, elle passe dans le mouvement
+ * général au lieu de glisser toute seule. **Au changement de boucle**, parce
+ * que le saut se fait hors champ des deux côtés.
+ *
+ * Surtout pas à l'arrivée : c'est là qu'on veut de la continuité.
+ */
+export const rompreLeRattrapage = (
+  enRouteAvant: boolean,
+  enRoute: boolean,
+  ancreAvant: number | null,
+  ancre: number | null,
+): boolean => (enRoute && !enRouteAvant) || ancre !== ancreAvant

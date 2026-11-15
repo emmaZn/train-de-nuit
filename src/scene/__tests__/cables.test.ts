@@ -14,6 +14,7 @@ import {
   ancreSuivante,
   decroitre,
   legsDeLIle,
+  rompreLeRattrapage,
   revision,
   solRestant,
   solParEtape,
@@ -317,5 +318,28 @@ describe('legsDeLIle', () => {
     const arret = legsDeLIle(4, 1, 1)
     const depart = legsDeLIle(4, 0, 0)
     expect(depart).toBeCloseTo(arret)
+  })
+})
+
+describe('rompreLeRattrapage', () => {
+  it('rompt au départ : l’étape apprend là si elle freine ou si elle traverse', () => {
+    // À l'arrêt on ne sait pas laquelle Emmanuelle va choisir, et les deux ne
+    // font pas la même longueur — 645 px d'écart. La révision tombe au clic ;
+    // amortie, elle se voit glisser. Posée d'un coup à l'instant où tout se
+    // met en marche, elle passe dans le mouvement général.
+    expect(rompreLeRattrapage(false, true, 4, 4)).toBe(true)
+  })
+
+  it('rompt au passage d’une boucle à la suivante', () => {
+    expect(rompreLeRattrapage(true, true, 4, 8)).toBe(true)
+  })
+
+  it('ne rompt pas le reste du temps', () => {
+    expect(rompreLeRattrapage(true, true, 4, 4)).toBe(false)
+    expect(rompreLeRattrapage(false, false, 4, 4)).toBe(false)
+  })
+
+  it('ne rompt pas à l’arrivée : c’est là qu’on veut de la continuité', () => {
+    expect(rompreLeRattrapage(true, false, 4, 4)).toBe(false)
   })
 })

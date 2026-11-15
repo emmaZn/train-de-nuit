@@ -12,7 +12,14 @@ import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Birds } from './Birds'
 import { Cables } from './CableLayer'
-import { ancreSuivante, decroitre, legsDeLIle, revision, solRestant } from './cables'
+import {
+  ancreSuivante,
+  decroitre,
+  legsDeLIle,
+  revision,
+  rompreLeRattrapage,
+  solRestant,
+} from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
 import { Fumee } from './Fumee'
@@ -159,6 +166,9 @@ export class Scene {
    * compte qui ne revient jamais en arrière, et le tient de son côté.
    */
   private legsIle = 0
+
+  /** Ce que l'île a vu de l'état du voyage à l'image précédente. */
+  private enRouteCables = false
 
   /** La dernière cible de l'île, et l'écart qu'on est en train de rattraper. */
   private cibleCables: number | null = null
@@ -645,13 +655,11 @@ export class Scene {
         this.prochainPlusLoin,
         this.legsIleParcourues,
       )
-      if (this.ancrePlusLoin !== ancreAvant) {
-        // L'île passe à l'arrivée suivante, une boucle plus loin. Ce saut-là
-        // ne s'amortit **pas** : il se fait hors champ des deux côtés, alors
-        // qu'un rattrapage le ferait traverser tout l'écran à toute vitesse.
+      if (rompreLeRattrapage(this.enRouteCables, this.enRoute, ancreAvant, this.ancrePlusLoin)) {
         this.cibleCables = null
         this.ecartCables = 0
       }
+      this.enRouteCables = this.enRoute
       const restant = this.ancrePlusLoin - this.legsIleParcourues
       const pas = dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
       let cible: number
