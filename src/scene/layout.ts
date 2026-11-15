@@ -507,3 +507,14 @@ export function cadrageScene(
   const { decalage, echelle } = cadrageCiel(viewportW, viewportH)
   return { frame: { ...frame, offsetY: frame.offsetY + decalage }, decalage, echelle }
 }
+
+/**
+ * Un pixel CSS, ramené dans le cadre de la scène.
+ *
+ * C'est l'inverse exact de `poserMonde` : ce qui a été posé en (x, y) dans le
+ * cadre se lit à `x * scale + offsetX` à l'écran. Un clic fait le chemin dans
+ * l'autre sens.
+ */
+export function versCadre(px: number, py: number, frame: Frame): { x: number; y: number } {
+  return { x: (px - frame.offsetX) / frame.scale, y: (py - frame.offsetY) / frame.scale }
+}

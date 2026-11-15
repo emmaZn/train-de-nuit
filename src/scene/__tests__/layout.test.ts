@@ -12,6 +12,7 @@ import {
   DESCENTE_MOBILE,
   PLANCHER_REFLET,
   cadrageCiel,
+  versCadre,
   cadrageScene,
   cretePx,
   hautDuVoilePx,
@@ -433,4 +434,21 @@ test.each([
   expect(decalage).toBe(cadrageCiel(w, h).decalage)
   expect(frame.offsetY).toBeCloseTo(fitStage(w, h).offsetY + decalage, 9)
   expect(frame.scale).toBe(fitStage(w, h).scale)
+})
+
+describe('versCadre', () => {
+  it('ramène un pixel CSS dans le cadre de la scène', () => {
+    const frame = { scale: 0.5, offsetX: 100, offsetY: 20 }
+    expect(versCadre(100, 20, frame)).toEqual({ x: 0, y: 0 })
+    expect(versCadre(200, 120, frame)).toEqual({ x: 200, y: 200 })
+  })
+
+  it('est l’inverse exact du placement du monde', () => {
+    const frame = { scale: 0.37, offsetX: -12, offsetY: 44 }
+    const cadre = { x: 1160, y: 921 }
+    const ecran = { x: cadre.x * frame.scale + frame.offsetX, y: cadre.y * frame.scale + frame.offsetY }
+    const retour = versCadre(ecran.x, ecran.y, frame)
+    expect(retour.x).toBeCloseTo(cadre.x)
+    expect(retour.y).toBeCloseTo(cadre.y)
+  })
 })

@@ -64,21 +64,42 @@ Le nom et le titre sont en haut à gauche (comme sur la maquette). La phrase app
 
 ### 4.2 plus loin — les oiseaux
 
-- Deux poteaux électriques et deux niveaux de fils (asset `cables/cables-scene.svg`, aligné sur un cadre 1280 × 832, pied des poteaux sur les rails, **derrière** la loco).
-- Les câbles n'existent **qu'à cette gare** :
-  - **à l'approche** : un poteau isolé passe, puis les fils, puis les oiseaux posés dessus ;
-  - **au départ** : les oiseaux s'envolent tous ensemble (cycle de vol en 4 images), puis les poteaux sortent de l'écran.
-- **Le gag** (façon dessin animé, personne n'est blessé) : on clique sur un oiseau →
-  1. le câble vibre, l'oiseau tombe tout droit en se retournant ;
-  2. il atterrit sur le dos (`bouvreuil-sonne`), petit nuage de grain, trois petites étoiles tournent au-dessus de sa tête ;
-  3. sa réplique apparaît au-dessus de lui (Inter Light 15 px), puis se dissout (~2,8 s, plus pour les longues) ;
-  4. il se relève et s'envole en arc vers une place libre du câble, **loin de la souris** ; le câble vibre quand il se pose.
+- **Une rangée de poteaux et deux fils.** Une seconde rangée, plus lente et
+  plus petite, a été essayée puis retirée : posée sur la même ligne de rail,
+  ses fils tombaient plus bas que les autres et les croisaient — cohérent, mais
+  ça se lisait comme de l'encombrement, pas comme de la distance.
+- **Quelques poteaux seuls, sans fils, avant et après.** Un poteau isolé passe,
+  puis les fils, puis les oiseaux : la gare s'annonce au lieu de surgir, et un
+  dernier poteau la referme après le départ.
+- L'asset `cables/cables-scene.svg` sert de **mesures**, pas de texture : on
+  redessine sa géométrie en points, c'est ce qui permet au fil de vibrer.
+- Les câbles n'existent **qu'à cette gare**, derrière la rame — mais ils y sont
+  **toujours**, y compris quand le train traverse sans s'arrêter : les poteaux
+  défilent alors à pleine vitesse et les oiseaux restent posés.
+- **Neuf places à la fois** sur les fils. Ils y **vivent** : toutes les 3 à 8 secondes
+  l'un d'eux se retourne, fait un pas sur le fil — le fil vibre quand il se
+  repose — ou s'ébouriffe.
+- **Le gag** (façon dessin animé, personne n'est blessé) : on clique sur un
+  oiseau →
+  1. le fil vibre, et **sa réplique paraît aussitôt, en haut de l'écran au
+     centre** — toujours au même endroit, une seule à la fois ;
+  2. il tombe en culbutant et se plante dans la terre sous les rails : on n'en
+     voit plus qu'une **bosse**, deux pattes dépassant du ventre, et trois
+     petites étoiles qui tournent au-dessus ;
+  3. **il ne se relève pas, et plus rien ne le déplace** — ni lui-même, ni le
+     passage du train ;
+  4. un autre bouvreuil arrive en vol et prend la place libre. On peut
+     recommencer indéfiniment : les fils ne se vident jamais et les bosses
+     s'accumulent.
+- **La gare ne se réinitialise jamais.** On revient après un tour de boucle et
+  les bosses d'avant sont là : la terre s'encombre au fil de la visite, et c'est
+  le but.
 - **Répliques**, dans l'ordre, quel que soit l'oiseau cliqué :
   1. « Je suis dev web front. »
   2. « J'aime la peinture. »
   3. « J'aime photographier les animaux. »
   4. « Et photographier les étoiles. »
-  5. « Et je danse. » *(l'oiseau fait une pirouette sur le câble avant de tomber)*
+  5. « Et je danse. » *(l'oiseau fait une pirouette sur le fil avant de tomber)*
   6. « Et j'essaie de rendre ma mère fière. »
   7. « Aïe. »
   8. « Encore ? »
@@ -87,9 +108,13 @@ Le nom et le titre sont en haut à gauche (comme sur la maquette). La phrase app
   11. « Je vais le dire au chat. »
   12. « Si vous voulez lui parler, c'est ailleurs. »
   13. « Vous feriez mieux d'aller laisser une phrase, là-haut. »
-  14. « … » *(l'oiseau se relève et vous fixe ~2 s avant de repartir)*
+  14. « … » *(il reste au sol plus longtemps avant la fin de sa séquence)*
   - ensuite, au hasard : « aïe », « encore ? », « pfff », « hé ! »
-- Accessibilité : un bouton visible au focus clavier « faire tomber un oiseau » ; les répliques sont annoncées (`aria-live="polite"`).
+- Accessibilité : un bouton visible au focus clavier « faire tomber un oiseau » ;
+  les répliques sont annoncées (`aria-live="polite"`). Elles vivent **hors des
+  routes** : l'URL change à l'instant du clic sur une autre gare, bien avant que
+  le train ne bouge, et dans une gare le composant serait détruit au milieu
+  d'une phrase.
 
 ### 4.3 là-haut — laisser une trace
 
@@ -190,8 +215,9 @@ Tous dans `~/projet_zero/` (à copier ou convertir dans le dépôt, voir §10) :
 | `PTITRAIN_grain_blanc/` | l'étape d'avant : même chose sans `--corps` ni `--trous`, corps vide. Garde la seule `01_rails` au bon gris |
 | `outils/grain_train.py` | génère la version grain. Sans `--trait`, il assombrit chaque pixel du trait (0,65–0,90) : le train devient gris et s'efface dans la montagne. `--trait=1,1 --gris=#EDEDED` applique la règle du massif |
 | `PTITRAIN_grain_vivant/` | version pleine avec grain vivant, corps noir (non retenue ; on y prend seulement `01_rails`, la seule voie disponible) |
-| `oiseaux/bouvreuil-*.svg / .png` | 8 poses : `perche`, `perche-vers-la-gauche`, `perche-ebouriffe`, `sonne`, `vol-1-ailes-hautes` → `vol-4-ailes-repliees` (cycle de vol 1→2→3→4). SVG viewBox 120 × 90, pattes à `y = 82` |
-| `cables/cables-scene.svg / .png`, `cables/poteau.svg` | poteaux + fils, cadre 1280 × 832 |
+| `oiseaux/bouvreuil-*.svg / .png` | les 8 poses d'origine, **plus utilisées** : dessinées pour l'aplat et la couleur, elles perdaient leur œil en passant au trait |
+| `public/assets/oiseaux/*.svg` | **les cinq poses retenues**, redessinées pour la ligne : `perche`, `perche-ebouriffe`, `sonne`, `vol-haut`, `vol-bas`. Profil strict, silhouette fermée remplie de `#0b0b0c` qui masse comme le train, rien à l'intérieur hors des marques qui portent un sens. Celle qui regarde à gauche est la même, retournée au rendu. viewBox 120 × 90 |
+| `cables/cables-scene.svg / .png`, `cables/poteau.svg` | poteaux + fils, cadre 1280 × 832. Sert de **mesures**, pas de texture : la scène en relit la géométrie et la redessine en points |
 | `ailleurs/panneau-ailleurs.svg` | poteau indicateur, cadre 1280 × 832, une flèche = un groupe (`fleche-linkedin`, `fleche-cv`, `fleche-ecrire`) |
 | `rails.png` | la voie |
 
@@ -232,7 +258,12 @@ src/
     Vitres.ts               les fenêtres allumées des wagons, leur vacillement et leur lueur
     Fumee.ts                les bouffées de la cheminée
     reflet.ts               le masque de grain du reflet, et l'assombrissement de l'eau
-    Birds.ts                câbles, bouvreuils, chute, envol (gare « plus loin »)
+    cables.ts               la géométrie des câbles : mesures, flèche, vibration (fonctions pures)
+    CableLayer.ts           la rangée dans la scène (classe `Cables`). Pas `Cables.ts` :
+                            sur macOS il entrerait en collision avec `cables.ts`
+    oiseaux.ts              les choix des bouvreuils : places libres, gestes (fonctions pures)
+    poses.ts                les cinq poses et leur passage au grain
+    Birds.ts                les bouvreuils : vie sur le fil, chute, bosses, arrivées
     Dissolve.ts             phrase → grains → un grain qui monte → étoile
     events.ts               petit émetteur d'événements typé
   stores/
@@ -243,6 +274,8 @@ src/
   components/
     NavFrise.vue            la frise en boucle
     StarTooltip.vue         la phrase au survol (ou à l'appui) d'une étoile
+    RepliquesOiseaux.vue    les répliques des bouvreuils et le bouton clavier, **hors des
+                            routes** : une phrase doit survivre au départ du train
     EtoilesListe.vue        la liste des étoiles, masquée visuellement
     gares/
       GareIci.vue

@@ -10,6 +10,9 @@ import {
 } from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
+import { Birds } from './Birds'
+import { Cables } from './CableLayer'
+import { ancreSuivante, legsDeLIle, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
 import { Fumee } from './Fumee'
@@ -22,7 +25,9 @@ import {
   DUREE_ETAPE,
   HORIZON,
   STAGE,
+  ECHELLE_TRAIN,
   cadrageScene,
+  versCadre,
   cadreDegrade,
 } from './layout'
 import type { Frame } from './layout'
@@ -31,11 +36,12 @@ import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
-import { Train, WAGONS, avancement, wagonX } from './Train'
+import { DEFILEMENT, Train, WAGONS, avancement, wagonX } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
-import type { Manifest, Trace } from './types'
+import { forwardSteps } from './types'
+import type { Gare, Manifest, Trace } from './types'
 
 // Le reflet est rendu à la taille du cadre : au demi, l'agrandissement
 // rééchantillonnait son grain binaire en gris.
@@ -121,6 +127,40 @@ export class Scene {
   private vitres: Vitres | null = null
   /** La fumée de la locomotive. */
   private fumee: Fumee | null = null
+
+  /** Les câbles et les bouvreuils de « plus loin ». */
+  private cables: Cables | null = null
+  private oiseaux: Birds | null = null
+  private frameCourante: Frame | null = null
+
+  /** Où le train est, ou d'où il part : le gag n'existe qu'à « plus loin ». */
+  private gare: Gare = 'ici'
+
+  /** À quel leg l'île de câbles est accrochée, et où est la prochaine. */
+  private ancrePlusLoin: number | null = null
+  private prochainPlusLoin: number | null = null
+
+  /**
+   * Les étapes franchies, pour l'île de câbles **seule**.
+   *
+   * `legsParcourues` recule d'une étape à chaque départ — la phase reste à 1
+   * à l'arrêt et la remettre à zéro efface l'étape finie. Le massif tourne
+   * avec ce recul depuis toujours, et sa vitesse a été réglée à l'œil ainsi :
+   * la corriger changerait un réglage validé. L'île, elle, a besoin d'un
+   * compte qui ne revient jamais en arrière, et le tient de son côté.
+   */
+  private legsIle = 0
+
+  /**
+   * Où l'île est posée, en pixels de cadre devant la gare.
+   *
+   * **Elle ne se recalcule pas.** Une île est une chose posée sur le sol :
+   * une fois placée, elle suit le sol et rien d'autre. On ne la replace que
+   * lorsqu'elle est entièrement hors de l'écran — c'est-à-dire quand personne
+   * ne la regarde. Toute estimation se révise ; celle-ci ne se révise qu'à
+   * l'abri des regards.
+   */
+  private distanceCables: number | null = null
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
@@ -203,9 +243,20 @@ export class Scene {
     // Devant le ciel, et donc devant le massif : c'est ce qui détache le
     // trait blanc, et c'est aussi ce qui éteint la poussière près des rails.
     this.decor.addChild(this.voileDuPied())
+    // Les câbles passent **derrière** la rame et les oiseaux **devant** : sinon
+    // la chute traverse la silhouette du train et l'oiseau disparaît à
+    // mi-course (cadrage §7.14).
+    const planCables = new Container()
+    this.decor.addChild(planCables)
     this.train = new Train(this.decor, manifest)
     // Devant la voie et devant le train : c'est le sol sur lequel il roule.
     this.terre = new Terre(this.decor)
+    const planOiseaux = new Container()
+    this.decor.addChild(planOiseaux)
+    this.cables = new Cables(planCables)
+    this.oiseaux = new Birds(planOiseaux, this.cables, { reducedMotion: this.reducedMotion })
+    this.oiseaux.surChute = () => this.emitter.emit('birdFell')
+    void this.oiseaux.charger()
     this.cadrer()
 
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
@@ -285,6 +336,7 @@ export class Scene {
     // `frame.offsetY` porte le décalage : `cretePx` l'ajoute après `fitStage`,
     // et c'est ce même conteneur qui porte massif, voile, rails et train.
     const { frame, echelle } = cadrageScene(width, height)
+    this.frameCourante = frame
     poserMonde(this.monde, frame)
     // Le ciel vit dans le décor mais compte en pixels d'écran : son
     // contre-transport se refait à chaque cadrage, comme celui du monde.
@@ -300,6 +352,8 @@ export class Scene {
     // Le grain de la terre se mesure en texels du rendu : il se refait quand
     // le cadre ou la densité de pixels change.
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
+    this.cables?.cadrer(frame, this.app.renderer.resolution)
+    this.oiseaux?.cadrer(frame, this.app.renderer.resolution, width)
     this.vitres?.cadrer(frame, this.app.renderer.resolution)
     this.fumee?.cadrer(frame, this.app.renderer.resolution)
 
@@ -336,6 +390,64 @@ export class Scene {
 
   resize(): void {
     this.cadrer()
+  }
+
+  /**
+   * Un clic, en pixels CSS. Rend `true` s'il a touché un oiseau — l'appelant
+   * sait alors qu'il ne doit pas aussi ouvrir la bulle d'une étoile.
+   */
+  clicPx(px: number, py: number): boolean {
+    const f = this.frameCourante
+    if (!f || !this.oiseaux || !this.gagOuvert) return false
+    const cadre = versCadre(px, py, f)
+    return this.oiseaux.cliquer(cadre.x, cadre.y)
+  }
+
+  /**
+   * Quelle gare le train vient de quitter — ou celle où il est à quai. La
+   * scène n'en a besoin que pour savoir où est « plus loin » sur la ligne ;
+   * elle ne lit aucun magasin.
+   */
+  setGare(gare: Gare): void {
+    this.gare = gare
+    this.prochainPlusLoin = this.legsIle + forwardSteps(gare, 'plus-loin')
+  }
+
+  /**
+   * Le gag n'est ouvert qu'à quai, et qu'à « plus loin ».
+   *
+   * Ailleurs, un visiteur au clavier brûlerait les quatorze phrases ordonnées
+   * sans rien voir tomber ; en marche, l'oiseau visé n'est plus là quand la
+   * chute se jouerait (cadrage §7.6).
+   */
+  get gagOuvert(): boolean {
+    return !this.enRoute && this.gare === 'plus-loin'
+  }
+
+  /**
+   * Le chemin du clavier : faire tomber un oiseau sans en viser un.
+   *
+   * Sans WebGL il n'y a pas d'oiseau à faire tomber — mais la réplique sort
+   * quand même. C'est le seul endroit du site où l'on apprend qui est
+   * Emmanuelle : le contenu est le but, la chute est le plaisir. La scène a
+   * déjà ce réflexe ailleurs (`beginDissolve` sans animation, le rattrapage de
+   * `setVoyage`).
+   */
+  faireTomberUnOiseau(): boolean {
+    if (!this.gagOuvert) return false
+    if (!this.oiseaux) {
+      this.emitter.emit('birdFell')
+      return true
+    }
+    return this.oiseaux.faireTomberUn()
+  }
+
+  /**
+   * Ce que la prochaine chute doit jouer. Vue le pousse en avance, parce que
+   * la pirouette part avant que la phrase ne soit choisie (cadrage §7.7).
+   */
+  setProchaineVariante(v: { pirouette: boolean; regard: boolean }): void {
+    if (this.oiseaux) this.oiseaux.variante = v
   }
 
   /** The pointer, normalised to -1…1, for the sky parallax. */
@@ -427,6 +539,11 @@ export class Scene {
   }
 
   /** Distance parcourue, en étapes : c'est elle qui fait tourner le massif. */
+  /** Le compte de l'île, fraction comprise : il ne revient jamais en arrière. */
+  private get legsIleParcourues(): number {
+    return legsDeLIle(this.legsIle, this.phase, this.avancementEtape)
+  }
+
   get legsParcourues(): number {
     if (!this.enRoute) return this.legsBase
     return this.legsBase + this.avancementEtape
@@ -491,6 +608,7 @@ export class Scene {
           // train ne s'arrête qu'au terminus.
           this.profil = { demarrage: false, freinage: this.etapesRestantes <= 1 }
         }
+        this.legsIle += 1
         this.emitter.emit('arrived')
       } else {
         // La frise suit la distance, pas l'horloge : sans ça elle continuerait
@@ -511,6 +629,49 @@ export class Scene {
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
     // Même horloge que la voie, à la distance et non au temps.
     this.terre?.avancer(dt, this.train?.vitesse ?? 0)
+    // Les câbles se calent sur le sol qui reste jusqu'à « plus loin », et non
+    // sur une position absolue : le sol parcouru n'est pas le même selon qu'on
+    // y arrive en une étape ou en deux (cadrage §7.12).
+    // L'ancre ne change qu'une fois l'île sortie du champ : sinon les poteaux
+    // se téléporteraient de l'autre côté de la boucle au changement de gare.
+    // Rien avant de savoir d'où l'on part : sinon la toute première image
+    // ancre l'île à « distance zéro », c'est-à-dire à quai, où qu'on soit.
+    if (this.prochainPlusLoin !== null) {
+      const ancreAvant = this.ancrePlusLoin
+      this.ancrePlusLoin = ancreSuivante(
+        this.ancrePlusLoin,
+        this.prochainPlusLoin,
+        this.legsIleParcourues,
+      )
+      const restant = this.ancrePlusLoin - this.legsIleParcourues
+      const estimation =
+        restant > 0
+          ? solRestant(
+              restant,
+              this.etapesRestantes,
+              // À l'arrêt, l'étape à venir n'est pas encore décidée : on la
+              // prend telle qu'elle sera au départ.
+              this.enRoute ? this.profil : { demarrage: true, freinage: true },
+            )
+          : null
+
+      // On ne replace l'île que si personne ne peut la voir bouger : jamais
+      // posée, ancre changée, ou entièrement hors champ. Sinon elle suit le
+      // sol, et rien que le sol.
+      const posable =
+        this.distanceCables === null ||
+        this.ancrePlusLoin !== ancreAvant ||
+        (this.cables?.horsChamp(this.distanceCables) ?? true)
+      if (posable && estimation !== null) {
+        this.distanceCables = estimation
+      } else {
+        this.distanceCables =
+          (this.distanceCables ?? 0) - dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
+      }
+      this.cables?.placer(this.distanceCables)
+    }
+    this.cables?.avancer(dt)
+    this.oiseaux?.avancer(dt)
     // Le vacillement suit l'horloge et non la distance : une lampe ne s'arrête
     // pas quand le train s'arrête.
     this.vitres?.update(dt)
@@ -537,6 +698,8 @@ export class Scene {
   }
 
   dispose(): void {
+    this.oiseaux?.destroy()
+    this.cables?.destroy()
     this.fumee?.destroy()
     this.vitres?.destroy()
     this.terre?.destroy()

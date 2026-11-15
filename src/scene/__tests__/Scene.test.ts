@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { Container } from 'pixi.js'
 import { Scene, plansDuDecor, poserCiel, poserMonde } from '@/scene/Scene'
 import { cadrageScene } from '@/scene/layout'
@@ -96,4 +98,74 @@ test('poserMonde pose le décalage dans la position du conteneur du décor', () 
   expect(monde.y).toBeCloseTo(frame.offsetY)
   expect(monde.x).toBeCloseTo(frame.offsetX)
   expect(monde.scale.x).toBeCloseTo(frame.scale)
+})
+
+describe('l’ordre des plans du décor', () => {
+  const source = readFileSync('src/scene/Scene.ts', 'utf8')
+
+  it('met les câbles derrière la rame et les oiseaux devant', () => {
+    // Sinon la chute traverse la silhouette du train et l'oiseau disparaît à
+    // mi-course (cadrage §7.14).
+    const cables = source.indexOf('planCables')
+    const train = source.indexOf('new Train(')
+    const terre = source.indexOf('new Terre(')
+    const oiseaux = source.indexOf('planOiseaux')
+    expect(cables).toBeGreaterThan(0)
+    expect(oiseaux).toBeGreaterThan(0)
+    expect(cables).toBeLessThan(train)
+    expect(train).toBeLessThan(terre)
+    expect(terre).toBeLessThan(oiseaux)
+  })
+
+  it('convertit un clic en pixels CSS vers le cadre avant de le passer', () => {
+    expect(source).toContain('versCadre(')
+  })
+})
+
+describe('sans WebGL', () => {
+  /** jsdom n'a pas de contexte WebGL : `init` échoue et la scène reste nue. */
+  async function sceneNue() {
+    const scene = sceneSansRendu()
+    await scene.init()
+    return scene
+  }
+
+  it('fait quand même parler un oiseau au clavier', async () => {
+    // C'est le seul endroit du site où l'on apprend qui est Emmanuelle : sans
+    // WebGL, la chute n'a pas lieu, mais la phrase doit sortir. Le contenu est
+    // le but, la chute est le plaisir (cadrage §14).
+    const scene = await sceneNue()
+    scene.setGare('plus-loin')
+    let dits = 0
+    scene.on('birdFell', () => {
+      dits += 1
+    })
+    expect(scene.faireTomberUnOiseau()).toBe(true)
+    expect(dits).toBe(1)
+    scene.dispose()
+  })
+})
+
+describe('la porte du gag', () => {
+  it('ne laisse tomber un oiseau qu’à quai, et qu’à « plus loin »', async () => {
+    const scene = sceneSansRendu()
+    await scene.init()
+    let dits = 0
+    scene.on('birdFell', () => {
+      dits += 1
+    })
+
+    scene.setGare('la-haut')
+    expect(scene.faireTomberUnOiseau()).toBe(false)
+    expect(scene.clicPx(600, 400)).toBe(false)
+
+    scene.setGare('plus-loin')
+    scene.setVoyage(true, 2)
+    expect(scene.faireTomberUnOiseau()).toBe(false)
+
+    scene.setVoyage(false, 0)
+    expect(scene.faireTomberUnOiseau()).toBe(true)
+    expect(dits).toBe(1)
+    scene.dispose()
+  })
 })

@@ -192,7 +192,7 @@ export function ancrageRame(
 }
 
 /** Stage pixels the track scrolls through per second at full size. */
-const DEFILEMENT = 900
+export const DEFILEMENT = 900
 
 export class Train {
   private readonly racine = new Container()
