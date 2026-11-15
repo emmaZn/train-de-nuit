@@ -12,10 +12,7 @@ import {
   distanceGare,
   RECUL_HORS_CHAMP,
   ancreSuivante,
-  decroitre,
   legsDeLIle,
-  rompreLeRattrapage,
-  revision,
   solRestant,
   solParEtape,
   yCadre,
@@ -267,39 +264,6 @@ describe('POTEAU', () => {
   })
 })
 
-
-describe('revision', () => {
-  it('ne voit rien à rattraper la première fois', () => {
-    expect(revision(null, 2595, 0)).toBe(0)
-  })
-
-  it('ne voit rien quand l’estimation ne fait que suivre le sol', () => {
-    // C'est le cas courant : à chaque image, ce qui reste décroît exactement
-    // du sol parcouru. Rien n'a été révisé, donc rien à amortir.
-    expect(revision(1000, 980, 20)).toBeCloseTo(0)
-  })
-
-  it('voit la révision quand le profil de l’étape change', () => {
-    // Au clic, l'étape apprend qu'elle va freiner : six cents pixels de moins.
-    expect(revision(3240, 2595 - 20, 20)).toBeCloseTo(-645)
-  })
-})
-
-describe('decroitre', () => {
-  it('ramène l’écart à zéro, sans jamais le dépasser', () => {
-    let e = -645
-    for (let i = 0; i < 300; i += 1) e = decroitre(e, 1 / 60)
-    expect(e).toBeCloseTo(0, 1)
-    expect(e).toBeLessThanOrEqual(0)
-  })
-
-  it('en mange une bonne part en un tiers de seconde', () => {
-    let e = 100
-    for (let i = 0; i < 20; i += 1) e = decroitre(e, 1 / 60)
-    expect(e).toBeLessThan(45)
-  })
-})
-
 describe('legsDeLIle', () => {
   it('avance avec l’étape', () => {
     expect(legsDeLIle(3, 0.4, 0.25)).toBeCloseTo(3.25)
@@ -321,25 +285,3 @@ describe('legsDeLIle', () => {
   })
 })
 
-describe('rompreLeRattrapage', () => {
-  it('rompt au départ : l’étape apprend là si elle freine ou si elle traverse', () => {
-    // À l'arrêt on ne sait pas laquelle Emmanuelle va choisir, et les deux ne
-    // font pas la même longueur — 645 px d'écart. La révision tombe au clic ;
-    // amortie, elle se voit glisser. Posée d'un coup à l'instant où tout se
-    // met en marche, elle passe dans le mouvement général.
-    expect(rompreLeRattrapage(false, true, 4, 4)).toBe(true)
-  })
-
-  it('rompt au passage d’une boucle à la suivante', () => {
-    expect(rompreLeRattrapage(true, true, 4, 8)).toBe(true)
-  })
-
-  it('ne rompt pas le reste du temps', () => {
-    expect(rompreLeRattrapage(true, true, 4, 4)).toBe(false)
-    expect(rompreLeRattrapage(false, false, 4, 4)).toBe(false)
-  })
-
-  it('ne rompt pas à l’arrivée : c’est là qu’on veut de la continuité', () => {
-    expect(rompreLeRattrapage(true, false, 4, 4)).toBe(false)
-  })
-})

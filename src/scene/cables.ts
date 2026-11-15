@@ -175,26 +175,6 @@ export function solRestant(
   return sol
 }
 
-/** En combien de secondes l'île rattrape une révision de l'estimation. */
-export const RATTRAPAGE = 0.35
-
-/**
- * De combien l'estimation vient d'être **révisée**, au-delà du sol parcouru.
- *
- * Tant que rien ne change, ce qui reste jusqu'à la gare décroît exactement du
- * sol parcouru : la révision vaut zéro, et l'île suit le ballast sans traîner
- * d'un pixel. Elle ne devient non nulle qu'aux discontinuités — au clic sur la
- * frise, l'étape apprend qu'elle va freiner et raccourcit de six cents pixels.
- */
-export function revision(cibleAvant: number | null, cible: number, pasDeSol: number): number {
-  if (cibleAvant === null) return 0
-  return cible - (cibleAvant - pasDeSol)
-}
-
-/** Ce qu'il reste d'un écart après `dt`. */
-export const decroitre = (erreur: number, dt: number): number =>
-  erreur * Math.exp(-dt / RATTRAPAGE)
-
 /**
  * Les étapes parcourues, du point de vue de l'île.
  *
@@ -206,22 +186,3 @@ export const decroitre = (erreur: number, dt: number): number =>
  */
 export const legsDeLIle = (legsIle: number, phase: number, avancementEtape: number): number =>
   legsIle + (phase >= 1 ? 0 : avancementEtape)
-
-/**
- * Faut-il poser la position d'un coup au lieu de la rattraper ?
- *
- * Deux moments seulement. **Au départ**, parce que l'étape apprend là si elle
- * freine ou si elle traverse, et que les deux ne font pas la même longueur :
- * la révision est inévitable, mais posée à l'instant précis où le train, le
- * massif et la frise se mettent tous en marche, elle passe dans le mouvement
- * général au lieu de glisser toute seule. **Au changement de boucle**, parce
- * que le saut se fait hors champ des deux côtés.
- *
- * Surtout pas à l'arrivée : c'est là qu'on veut de la continuité.
- */
-export const rompreLeRattrapage = (
-  enRouteAvant: boolean,
-  enRoute: boolean,
-  ancreAvant: number | null,
-  ancre: number | null,
-): boolean => (enRoute && !enRouteAvant) || ancre !== ancreAvant

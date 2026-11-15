@@ -16,7 +16,7 @@
  * C'est le précédent de `stars.ts` / `StarLayer.ts` (CONCEPT.md §9).
  */
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
-import { HORIZON } from './layout'
+import { HORIZON, STAGE } from './layout'
 import type { Frame } from './layout'
 import { FILS, POTEAU, TRAVEE, amortir, u, yFil } from './cables'
 import type { Secousse } from './cables'
@@ -195,6 +195,19 @@ export class Cables {
 
   get decalage(): number {
     return this.rangee.x
+  }
+
+  /**
+   * L'installation est-elle entièrement hors de l'écran, à cette distance ?
+   *
+   * C'est la seule question qui autorise à la **replacer** : tant qu'un seul
+   * poteau est visible, elle ne peut plus que suivre le sol, sans quoi elle
+   * saute sous les yeux.
+   */
+  horsChamp(distance: number): boolean {
+    const gauche = POSITION_A_QUAI + distance + this.emprise.gauche
+    const droite = POSITION_A_QUAI + distance + this.emprise.droite
+    return droite < 0 || gauche > STAGE.width
   }
 
   /** Jusqu'où s'étend l'installation, poteaux seuls compris, en repère d'île. */

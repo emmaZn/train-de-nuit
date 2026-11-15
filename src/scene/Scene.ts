@@ -12,14 +12,7 @@ import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Birds } from './Birds'
 import { Cables } from './CableLayer'
-import {
-  ancreSuivante,
-  decroitre,
-  legsDeLIle,
-  revision,
-  rompreLeRattrapage,
-  solRestant,
-} from './cables'
+import { ancreSuivante, legsDeLIle, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
 import { Fumee } from './Fumee'
@@ -148,15 +141,6 @@ export class Scene {
   private prochainPlusLoin: number | null = null
 
   /**
-   * Le sol réellement parcouru depuis qu'on a dépassé « plus loin ».
-   *
-   * On l'intègre au lieu de le recalculer : une prévision se révise à chaque
-   * changement d'étape, et l'île sautait de la révision. Ce qui est derrière
-   * ne se prévoit plus, il se compte.
-   */
-  private solDepuisGare = 0
-
-  /**
    * Les étapes franchies, pour l'île de câbles **seule**.
    *
    * `legsParcourues` recule d'une étape à chaque départ — la phase reste à 1
@@ -167,12 +151,16 @@ export class Scene {
    */
   private legsIle = 0
 
-  /** Ce que l'île a vu de l'état du voyage à l'image précédente. */
-  private enRouteCables = false
-
-  /** La dernière cible de l'île, et l'écart qu'on est en train de rattraper. */
-  private cibleCables: number | null = null
-  private ecartCables = 0
+  /**
+   * Où l'île est posée, en pixels de cadre devant la gare.
+   *
+   * **Elle ne se recalcule pas.** Une île est une chose posée sur le sol :
+   * une fois placée, elle suit le sol et rien d'autre. On ne la replace que
+   * lorsqu'elle est entièrement hors de l'écran — c'est-à-dire quand personne
+   * ne la regarde. Toute estimation se révise ; celle-ci ne se révise qu'à
+   * l'abri des regards.
+   */
+  private distanceCables: number | null = null
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
@@ -655,33 +643,32 @@ export class Scene {
         this.prochainPlusLoin,
         this.legsIleParcourues,
       )
-      if (rompreLeRattrapage(this.enRouteCables, this.enRoute, ancreAvant, this.ancrePlusLoin)) {
-        this.cibleCables = null
-        this.ecartCables = 0
-      }
-      this.enRouteCables = this.enRoute
       const restant = this.ancrePlusLoin - this.legsIleParcourues
-      const pas = dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
-      let cible: number
-      if (restant > 0) {
-        this.solDepuisGare = 0
-        cible = solRestant(
-          restant,
-          this.etapesRestantes,
-          // À l'arrêt, l'étape à venir n'est pas encore décidée : on la prend
-          // telle qu'elle sera au départ, pour que le clic ne révise rien.
-          this.enRoute ? this.profil : { demarrage: true, freinage: true },
-        )
+      const estimation =
+        restant > 0
+          ? solRestant(
+              restant,
+              this.etapesRestantes,
+              // À l'arrêt, l'étape à venir n'est pas encore décidée : on la
+              // prend telle qu'elle sera au départ.
+              this.enRoute ? this.profil : { demarrage: true, freinage: true },
+            )
+          : null
+
+      // On ne replace l'île que si personne ne peut la voir bouger : jamais
+      // posée, ancre changée, ou entièrement hors champ. Sinon elle suit le
+      // sol, et rien que le sol.
+      const posable =
+        this.distanceCables === null ||
+        this.ancrePlusLoin !== ancreAvant ||
+        (this.cables?.horsChamp(this.distanceCables) ?? true)
+      if (posable && estimation !== null) {
+        this.distanceCables = estimation
       } else {
-        this.solDepuisGare += pas
-        cible = -this.solDepuisGare
+        this.distanceCables =
+          (this.distanceCables ?? 0) - dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
       }
-      // L'île suit le sol exactement ; seules les **révisions** de
-      // l'estimation s'amortissent, pour qu'une étape qui change de profil ne
-      // la téléporte pas.
-      this.ecartCables = decroitre(this.ecartCables + revision(this.cibleCables, cible, pas), dt)
-      this.cibleCables = cible
-      this.cables?.placer(cible - this.ecartCables)
+      this.cables?.placer(this.distanceCables)
     }
     this.cables?.avancer(dt)
     this.oiseaux?.avancer(dt)

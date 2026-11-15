@@ -164,3 +164,21 @@ describe('avant de savoir où est la gare', () => {
     expect(c.placee).toBe(true)
   })
 })
+
+describe('horsChamp', () => {
+  it('dit vrai quand l’installation est entièrement sortie par la gauche', () => {
+    const c = cables()
+    expect(c.horsChamp(-(POTEAUX - 1 + POTEAUX_SEULS) * TRAVEE - POSITION_A_QUAI - 10)).toBe(true)
+  })
+
+  it('dit vrai quand elle n’est pas encore entrée par la droite', () => {
+    expect(cables().horsChamp(STAGE.width + POTEAUX_SEULS * TRAVEE)).toBe(true)
+  })
+
+  it('dit faux dès qu’un seul poteau est à l’écran', () => {
+    const c = cables()
+    expect(c.horsChamp(0)).toBe(false)
+    // Un poteau seul qui dépasse à droite suffit à nous interdire de bouger.
+    expect(c.horsChamp(STAGE.width - 10)).toBe(false)
+  })
+})
