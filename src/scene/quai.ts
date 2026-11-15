@@ -66,7 +66,7 @@ const BORD_DROIT_BATIMENT = 2220
 export const PIECES = {
   reverbere: { x: 1290 - DECALAGE_GARE, pied: HORIZON, hauteur: 560 },
   // Banc et valise se tiennent **devant** le mur (le bâtiment passe derrière
-  // eux, comme derrière le réverbère). La valise s'arrête avant la porte.
+  // eux, comme derrière le réverbère). La valise cache le pied de la porte, qui est au milieu du mur.
   banc: { x: 1480 - DECALAGE_GARE, pied: HORIZON, largeur: 280 },
   valise: { x: 1672 - DECALAGE_GARE, pied: HORIZON, largeur: 96 },
   batiment: {
@@ -75,9 +75,9 @@ export const PIECES = {
     largeur: LARGEUR_BATIMENT,
     hauteur: 500,
   },
-  // En bas à droite, accroché au mur et **débordant à sa droite**, jusque vers
-  // le bord du cadre. La porte cintrée est posée entre la valise et lui :
-  // les trois se voient côte à côte, aucun n'avale l'autre.
+  // En bas à droite, **sur deux pieds** qui descendent jusqu'au rail
+  // (`tracerCadrePanneau`), débordant à droite du mur jusque vers le bord du
+  // cadre. La porte, au milieu du mur, reste à sa gauche : il ne la recouvre pas.
   panneau: { x: 1950 - DECALAGE_GARE, y: 640, largeur: 340, hauteur: 250 },
   quai: { y: HORIZON - 24, epaisseur: 24 },
 } as const
@@ -90,13 +90,16 @@ const SOMMET_BATIMENT = PIECES.batiment.pied - PIECES.batiment.hauteur
 
 /**
  * La porte cintrée, en unités du SVG — **miroir du dessin**, à tenir à jour
- * avec lui. C'est ce qui permet de vérifier que le panneau ne la recouvre pas
+ * avec lui. Elle est **au milieu** du mur (réglage 2), derrière la valise. C'est ce qui permet de vérifier que le panneau ne la recouvre pas
  * sans avoir à rasteriser quoi que ce soit.
  */
-export const PORTE_SVG = { x0: 565, x1: 675 } as const
+export const PORTE_SVG = {
+  x0: CADRES.batiment.largeur / 2 - 55,
+  x1: CADRES.batiment.largeur / 2 + 55,
+} as const
 
-/** L'horloge du pignon, en unités du SVG du bâtiment. */
-export const HORLOGE_SVG = { x: 760, y: 120, rayon: 36 } as const
+/** L'horloge du pignon, en unités du SVG du bâtiment — pignon et porte sont centrés. */
+export const HORLOGE_SVG = { x: CADRES.batiment.largeur / 2, y: 120, rayon: 36 } as const
 
 /** La porte cintrée, en pixels de cadre. */
 export const PORTE = {

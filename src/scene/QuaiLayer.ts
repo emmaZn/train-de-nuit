@@ -28,7 +28,7 @@
  * posés à vue, pas validés.
  */
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
-import { STAGE } from './layout'
+import { HORIZON, STAGE } from './layout'
 import type { Frame } from './layout'
 import { CADRES, DEBUT_GARE, FIN_GARE, HORLOGE, PIECES } from './quai'
 import { GRAIN_ECRAN, fabriquerPiece } from './poses'
@@ -61,6 +61,12 @@ const HALOS = [
   { rayon: 43 / 36, pas: 8 },
   { rayon: 50 / 36, pas: 12 },
 ] as const
+
+/**
+ * Les deux pieds du panneau : écartement du bord du cadre, et largeur de chaque
+ * pied (deux traits de cellules). Ils descendent jusqu'à `HORIZON`. PROVISOIRE (§7).
+ */
+const PANNEAU_PIED = { retrait: 40, largeur: 14 } as const
 
 /** La hauteur de l'en-tête `PROCHAINS DÉPARTS`, sous laquelle court un filet. PROVISOIRE (§7). */
 const PANNEAU_ENTETE = 56
@@ -316,7 +322,7 @@ export class Quai {
   }
 
   /**
-   * Le cadre du panneau : double trait — un filet extérieur, un cadre
+   * Le cadre du panneau, et ses deux pieds : double trait — un filet extérieur, un cadre
    * intérieur — et un filet sous l'en-tête. **Son intérieur n'est pas rempli** :
    * la nuit se voit au travers, et le texte du panneau est du DOM posé
    * par-dessus (spec §6.6).
@@ -337,6 +343,11 @@ export class Quai {
     )
     const filet = p.y + PANNEAU_ENTETE
     ligneCellules(g, p.x + PANNEAU_FILET, filet, p.x + p.largeur - PANNEAU_FILET, filet, c)
+    // Les pieds : même `Graphics`, donc même racine allumée que le cadre qu'ils
+    // portent. Un pied éteint sous un cadre allumé casserait la jonction.
+    for (const x0 of [p.x + PANNEAU_PIED.retrait, p.x + p.largeur - PANNEAU_PIED.retrait - PANNEAU_PIED.largeur]) {
+      rectCellules(g, x0, p.y + p.hauteur, PANNEAU_PIED.largeur, HORIZON - (p.y + p.hauteur), c)
+    }
     g.fill({ color: GRIS })
   }
 

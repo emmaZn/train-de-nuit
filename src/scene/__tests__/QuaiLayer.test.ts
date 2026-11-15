@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { Container } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Quai, anglesHorloge } from '@/scene/QuaiLayer'
@@ -7,7 +7,7 @@ import { fabriquerPiece } from '@/scene/poses'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
 import { HORLOGE, PIECES } from '@/scene/quai'
-import { DUREE_ETAPE, STAGE } from '@/scene/layout'
+import { DUREE_ETAPE, HORIZON, STAGE } from '@/scene/layout'
 
 vi.mock('@/scene/poses', async (importOriginal) => {
   const vrai = await importOriginal<typeof import('@/scene/poses')>()
@@ -128,6 +128,21 @@ describe('les plans du quai dans le décor', () => {
     expect(quai).toBeGreaterThan(0)
     expect(quai).toBeLessThan(train)
     expect(source).toContain('plateauFond.addChild(planQuai)')
+  })
+})
+
+describe('les pieds du panneau', () => {
+  /** Le cadre est une lumière : ses pieds se dessinent avec lui, allumés. */
+  it('descendent jusqu’au rail, dans le cadre allumé', () => {
+    const { quai } = poser()
+    const cadre = quai.allume.children[0] as Graphics
+    expect(filtresAuDessus(cadre)).toBe(0)
+    const p = PIECES.panneau
+    const b = cadre.getLocalBounds()
+    expect(b.maxY).toBeGreaterThanOrEqual(HORIZON - 1)
+    expect(b.maxY).toBeLessThanOrEqual(HORIZON + 8)
+    expect(b.minX).toBeGreaterThanOrEqual(p.x - 8)
+    expect(b.maxX).toBeLessThanOrEqual(p.x + p.largeur + 8)
   })
 })
 

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { CADRES, DEBUT_GARE, FIN_GARE, PIECES, PORTE, LARGEUR_GARE } from '@/scene/quai'
+import { CADRES, DEBUT_GARE, FIN_GARE, PIECES, PORTE, HORLOGE, LARGEUR_GARE } from '@/scene/quai'
 import { RECUL_HORS_CHAMP, solParEtape } from '@/scene/cables'
 import { HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
 
@@ -75,15 +75,28 @@ describe('la géométrie du quai', () => {
   })
 
   /**
-   * Le mur est large : la porte n'est plus « dans la partie gauche », elle est
-   * posée entre la valise et le panneau, où on la voit — ni cachée derrière la
-   * valise, ni sous le panneau.
+   * Réglage 2 : la porte est au milieu du mur, et le pignon aussi. Ce que
+   * l'ancien test affirmait — la porte entre la valise et le panneau — encodait
+   * son ancienne place et n'est plus vrai : la porte centrée est derrière la
+   * valise. On affirme ce qui est vrai : le centre, le pignon dessus, et que le
+   * banc, lui, ne la cache pas.
    */
-  it('la porte se voit entre la valise et le panneau', () => {
+  it('la porte et le pignon sont centrés sur le bâtiment', () => {
     const b = PIECES.batiment
-    expect(PORTE.x0).toBeGreaterThan(b.x)
-    expect(PORTE.x1).toBeLessThan(b.x + b.largeur)
-    expect(PORTE.x0).toBeGreaterThanOrEqual(PIECES.valise.x + PIECES.valise.largeur / 2)
+    const milieu = b.x + b.largeur / 2
+    expect((PORTE.x0 + PORTE.x1) / 2).toBeCloseTo(milieu, 6)
+    expect(HORLOGE.x).toBeCloseTo(milieu, 6)
+  })
+
+  it('le banc ne cache pas la porte', () => {
+    expect(PIECES.banc.x + PIECES.banc.largeur / 2).toBeLessThanOrEqual(PORTE.x0)
+  })
+
+  /** L'emprise ne bouge pas avec les pieds : ils sont sous le panneau, dans sa largeur. */
+  it('les pieds du panneau arrivent au rail, dans la largeur du panneau', () => {
+    const p = PIECES.panneau
+    expect(p.y + p.hauteur).toBeLessThan(HORIZON)
+    expect(FIN_GARE).toBe(p.x + p.largeur)
   })
 
   /**
