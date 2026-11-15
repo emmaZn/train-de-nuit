@@ -12,7 +12,7 @@ import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Birds } from './Birds'
 import { Cables } from './CableLayer'
-import { distanceGare, solParEtape } from './cables'
+import { ancreSuivante, distanceGare, solParEtape } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
 import { Fumee } from './Fumee'
@@ -132,8 +132,9 @@ export class Scene {
   private oiseaux: Birds | null = null
   private frameCourante: Frame | null = null
 
-  /** La gare derrière le train : c'est d'elle que part l'étape en cours. */
-  private gare: Gare = 'ici'
+  /** À quel leg l'île de câbles est accrochée, et où est la prochaine. */
+  private ancrePlusLoin: number | null = null
+  private prochainPlusLoin = 0
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
@@ -382,7 +383,7 @@ export class Scene {
    * elle ne lit aucun magasin.
    */
   setGare(gare: Gare): void {
-    this.gare = gare
+    this.prochainPlusLoin = this.legsBase + forwardSteps(gare, 'plus-loin')
   }
 
   /** Le chemin du clavier : faire tomber un oiseau sans en viser un. */
@@ -574,10 +575,17 @@ export class Scene {
     // Les câbles se calent sur le sol qui reste jusqu'à « plus loin », et non
     // sur une position absolue : le sol parcouru n'est pas le même selon qu'on
     // y arrive en une étape ou en deux (cadrage §7.12).
+    // L'ancre ne change qu'une fois l'île sortie du champ : sinon les poteaux
+    // se téléporteraient de l'autre côté de la boucle au changement de gare.
+    this.ancrePlusLoin = ancreSuivante(
+      this.ancrePlusLoin,
+      this.prochainPlusLoin,
+      this.legsParcourues,
+    )
     this.cables?.placer(
       distanceGare(
-        forwardSteps(this.gare, 'plus-loin'),
-        this.enRoute ? this.avancementEtape : 0,
+        this.ancrePlusLoin - this.legsParcourues,
+        0,
         solParEtape(this.profil.demarrage, this.profil.freinage),
       ),
     )

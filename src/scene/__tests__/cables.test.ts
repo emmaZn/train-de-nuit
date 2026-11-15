@@ -10,6 +10,8 @@ import {
   amortir,
   creux,
   distanceGare,
+  RECUL_HORS_CHAMP,
+  ancreSuivante,
   solParEtape,
   yCadre,
   yFil,
@@ -128,5 +130,45 @@ describe('les câbles sur la ligne', () => {
 
   it('depuis « là-haut », ils sont loin derrière : trois étapes à faire', () => {
     expect(forwardSteps('la-haut', 'plus-loin')).toBe(3)
+  })
+})
+
+describe('ancreSuivante', () => {
+  it('se pose où elle peut au premier appel', () => {
+    expect(ancreSuivante(null, 3, 0)).toBe(3)
+  })
+
+  it('ne saute pas tant que l’île précédente n’est pas hors champ', () => {
+    // Le train vient de quitter « plus loin » : la gare suivante dit que la
+    // prochaine est à trois étapes. L'île doit continuer de s'éloigner.
+    expect(ancreSuivante(0, 4, 1)).toBe(0)
+    expect(ancreSuivante(0, 4, RECUL_HORS_CHAMP - 0.1)).toBe(0)
+  })
+
+  it('reprend la suivante une fois l’île bien derrière', () => {
+    expect(ancreSuivante(0, 4, RECUL_HORS_CHAMP + 0.1)).toBe(4)
+  })
+
+  it('laisse l’ancre tranquille quand la gare est encore devant', () => {
+    expect(ancreSuivante(3, 3, 1)).toBe(3)
+  })
+})
+
+describe('POTEAU', () => {
+  it('porte ses isolateurs aux bouts des bras, pas au-delà', () => {
+    for (const bras of POTEAU.bras) {
+      expect(bras.isolateurs).toBeGreaterThan(0)
+      expect(bras.isolateurs).toBeLessThan(bras.demi)
+    }
+  })
+
+  it('accroche ses haubans au fût, sous le bras', () => {
+    for (const bras of POTEAU.bras) {
+      expect(bras.hauban).toBeGreaterThan(bras.epaisseur)
+    }
+  })
+
+  it('a un bras plus large en haut qu’en bas', () => {
+    expect(POTEAU.bras[0].demi).toBeGreaterThan(POTEAU.bras[1].demi)
   })
 })

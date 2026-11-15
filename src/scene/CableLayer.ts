@@ -27,8 +27,15 @@ export const POTEAUX = 3
 /** Où se pose le premier poteau porteur de fils, à l'arrêt. */
 export const POSITION_A_QUAI = 60
 
-/** Combien de poteaux seuls, sans fils, de chaque côté de l'île. */
-export const POTEAUX_SEULS = 2
+/**
+ * Combien de poteaux seuls, sans fils, de chaque côté de l'île.
+ *
+ * Un de chaque côté, et pas deux : la boucle fait quatre étapes de sol, et
+ * l'installation doit pouvoir sortir entièrement par la gauche **avant** que
+ * la suivante n'entre par la droite. À deux poteaux seuls, les deux fenêtres
+ * se chevauchent et l'île devrait sauter sous les yeux du visiteur.
+ */
+export const POTEAUX_SEULS = 1
 
 /** Sur quelle longueur les bouts de l'île se dissolvent, au lieu de se couper. */
 export const DISSOLUTION = u(220)
@@ -188,6 +195,16 @@ export class Cables {
       ctx.fillStyle = NOIR
       ctx.fillRect(px(x0), py(y0), (x1 - x0) * k, (y1 - y0) * k)
     }
+    /** Un petit bloc plein, en points serrés : un isolateur. */
+    const plein = (x0: number, y0: number, x1: number, y1: number) => {
+      ctx.fillStyle = GRIS_CSS
+      const pas = Math.max(1, GRAIN_ECRAN)
+      for (let yy = py(y0); yy < py(y1); yy += pas) {
+        for (let xx = px(x0); xx < px(x1); xx += pas) {
+          ctx.fillRect(Math.round(xx), Math.round(yy), pas, pas)
+        }
+      }
+    }
     const ligne = (x0: number, y0: number, x1: number, y1: number) => {
       ctx.fillStyle = GRIS_CSS
       const n = Math.max(2, Math.ceil((Math.hypot(x1 - x0, y1 - y0) * k) / cellule))
@@ -215,6 +232,18 @@ export class Cables {
         masse(x - bras.demi, bras.y, x + bras.demi, bras.y + bras.epaisseur)
         ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
         ligne(x - bras.demi, bras.y + bras.epaisseur, x + bras.demi, bras.y + bras.epaisseur)
+        ligne(x - bras.demi, bras.y, x - bras.demi, bras.y + bras.epaisseur)
+        ligne(x + bras.demi, bras.y, x + bras.demi, bras.y + bras.epaisseur)
+        // Les haubans, en biais sous le bras : c'est ce qui fait tenir le bras
+        // et ce qui fait qu'un poteau n'est pas une croix.
+        const pied = bras.y + bras.hauban
+        ligne(x - bras.isolateurs + u(8), bras.y + bras.epaisseur, x - POTEAU.demiFut, pied)
+        ligne(x + bras.isolateurs - u(8), bras.y + bras.epaisseur, x + POTEAU.demiFut, pied)
+        // Les isolateurs, deux petits blocs pleins posés sur le bras.
+        for (const cote of [-1, 1]) {
+          const ix = x + cote * bras.isolateurs
+          plein(ix - u(2.5), bras.y - u(7), ix + u(2.5), bras.y)
+        }
       }
     }
 

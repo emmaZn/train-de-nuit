@@ -46,14 +46,19 @@ export const FILS = [
   { y: yCadre(349), controle: u(104), densite: 0.65 },
 ] as const
 
-/** Le poteau, pied sur les rails. */
+/**
+ * Le poteau, pied sur les rails. Toutes les mesures viennent du SVG : le fût
+ * et sa pointe, deux bras, leurs isolateurs et leurs haubans. Ce sont ces
+ * petites pièces qui font qu'un poteau ressemble à un poteau et non à une
+ * croix.
+ */
 export const POTEAU = {
   sommet: yCadre(294),
   epaule: yCadre(300),
   demiFut: u(3.5),
   bras: [
-    { y: yCadre(322), demi: u(34), epaisseur: u(5) },
-    { y: yCadre(356), demi: u(26), epaisseur: u(5) },
+    { y: yCadre(322), demi: u(34), epaisseur: u(5), isolateurs: u(30), hauban: u(16) },
+    { y: yCadre(356), demi: u(26), epaisseur: u(5), isolateurs: u(22), hauban: u(16) },
   ],
 } as const
 
@@ -107,4 +112,29 @@ export function solParEtape(demarrage: boolean, freinage: boolean): number {
   const plein = 1 - montee - descente
   const part = montee / 2 + plein + descente / 2
   return DEFILEMENT * ECHELLE_TRAIN * DUREE_ETAPE * part
+}
+
+/**
+ * De combien d'étapes l'île doit s'être éloignée avant qu'on reprenne l'ancre
+ * suivante. En deçà, elle est encore à l'écran : la déplacer la ferait
+ * disparaître d'un coup au lieu de s'en aller.
+ */
+export const RECUL_HORS_CHAMP = 1.6
+
+/**
+ * Quelle arrivée à « plus loin » l'île suit.
+ *
+ * La ligne est infinie vers l'avant : « plus loin » revient tous les quatre
+ * legs. Quand le train la quitte, la gare suivante annonce déjà la prochaine,
+ * trois étapes devant — mais reprendre cette ancre tout de suite téléporterait
+ * les poteaux de l'autre côté de l'écran. On garde donc l'ancienne jusqu'à ce
+ * que l'île soit sortie du champ par la gauche.
+ */
+export function ancreSuivante(
+  ancre: number | null,
+  prochain: number,
+  parcouru: number,
+): number {
+  if (ancre === null) return prochain
+  return ancre < parcouru - RECUL_HORS_CHAMP ? prochain : ancre
 }
