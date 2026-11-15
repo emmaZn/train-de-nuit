@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { provide, ref } from 'vue'
+import { computed, provide, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import EyeButton from '@/components/EyeButton.vue'
 import EtoilesListe from '@/components/EtoilesListe.vue'
 import NavFrise from '@/components/NavFrise.vue'
@@ -14,21 +15,35 @@ const { scene, fond, frame, changerFond } = useScene(canvas)
 // La scène descend aux gares, qui lui demandent une dissolution.
 provide(SCENE_KEY, scene)
 provide(FRAME_KEY, frame)
+
+// Le CV s'écrit par-dessus la gare : tout ce qui est dessous, derrière le
+// voile, ne doit ni prendre le focus ni se laisser activer à l'aveugle.
+const route = useRoute()
+const cvOuvert = computed(() => route.name === 'cv')
 </script>
 
 <template>
   <canvas ref="canvas" class="scene"></canvas>
-  <NavFrise />
+  <!-- Sans boîte propre : ne change aucune mise en page, ne porte que `inert`. -->
+  <div class="dessous" :inert="cvOuvert || undefined">
+    <NavFrise />
+  </div>
   <RouterView />
-  <RepliquesOiseaux />
-  <!-- Hors des routes : il doit pouvoir s'effacer après le changement d'URL. -->
-  <PanneauDeparts />
-  <StarTooltip />
-  <EtoilesListe />
-  <EyeButton :fond="fond" @change="changerFond" />
+  <div class="dessous" :inert="cvOuvert || undefined">
+    <RepliquesOiseaux />
+    <!-- Hors des routes : il doit pouvoir s'effacer après le changement d'URL. -->
+    <PanneauDeparts />
+    <StarTooltip />
+    <EtoilesListe />
+    <EyeButton :fond="fond" @change="changerFond" />
+  </div>
 </template>
 
 <style scoped>
+.dessous {
+  display: contents;
+}
+
 .scene {
   position: fixed;
   inset: 0;

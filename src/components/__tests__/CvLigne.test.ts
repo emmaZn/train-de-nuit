@@ -4,7 +4,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createMemoryHistory } from 'vue-router'
 import { defineComponent, h } from 'vue'
 import { RouterView } from 'vue-router'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import App from '@/App.vue'
 
 import CvLigne from '@/components/CvLigne.vue'
 import GareAilleurs from '@/components/gares/GareAilleurs.vue'
@@ -25,6 +26,23 @@ async function monter(depart: string, chemin?: string) {
   if (chemin) await router.push(chemin)
   await flushPromises()
   return { router, wrapper, voyage: useVoyage() }
+}
+
+vi.mock('@/composables/useScene', async (importOriginal) => {
+  const { ref } = await import('vue')
+  const reel = await importOriginal<typeof import('@/composables/useScene')>()
+  return { ...reel, useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(null), changerFond: () => {} }) }
+})
+
+async function monterApp(chemin: string) {
+  setActivePinia(createPinia())
+  const router = createAppRouter(createMemoryHistory())
+  brancherVoyage(router)
+  await router.push(chemin)
+  await router.isReady()
+  const wrapper = mount(App, { attachTo: document.body, global: { plugins: [router] } })
+  await flushPromises()
+  return { router, wrapper }
 }
 
 describe('contenu du CV', () => {
@@ -110,5 +128,37 @@ describe('CvLigne', () => {
   it('n’utilise aucune couleur en dur', () => {
     const source = readFileSync('src/components/CvLigne.vue', 'utf8')
     expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+  })
+
+  it('le focus entre dans le CV à l’ouverture', async () => {
+    const { wrapper } = await monter('/ailleurs/cv')
+    expect(document.activeElement).toBe(wrapper.find('.cv').element)
+  })
+
+  it('Échap ferme le CV et ramène à /ailleurs, comme « retour »', async () => {
+    const { wrapper, router } = await monter('/ailleurs/cv')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/ailleurs')
+    expect(wrapper.find('a.retour').exists()).toBe(false)
+  })
+
+  it('une autre touche ne ferme rien', async () => {
+    const { router } = await monter('/ailleurs/cv')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' }))
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/ailleurs/cv')
+  })
+
+  it('CV ouvert : frise, panneau, étoiles et œil sont inertes ; fermé : non', async () => {
+    const { wrapper, router } = await monterApp('/ailleurs/cv')
+    const dessous = () => wrapper.findAll('.dessous')
+    expect(dessous()).toHaveLength(2)
+    expect(dessous().every((d) => d.attributes('inert') !== undefined)).toBe(true)
+    expect(dessous()[0].find('nav').exists()).toBe(true)
+    expect(dessous()[1].find('button.oeil').exists()).toBe(true)
+    await router.push('/ailleurs')
+    await flushPromises()
+    expect(dessous().every((d) => d.attributes('inert') === undefined)).toBe(true)
   })
 })

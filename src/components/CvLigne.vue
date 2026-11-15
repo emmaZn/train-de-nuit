@@ -11,15 +11,32 @@
  * Premier endroit du site où l'on fait défiler : la barre est fine et dans la
  * palette (`scrollbar-width: thin`, couleur dérivée de --texte).
  */
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { HORS_DE_LA_VOIE, PARCOURS, TERMINUS } from '@/contenu/cv'
 import { adresseMail } from '@/contenu/liens'
 
 // Assemblée au montage, jamais écrite en clair dans la source ni le HTML.
 const mail = adresseMail()
+
+// Le focus entre dans le CV à l'ouverture : c'est le conteneur (tabindex -1)
+// qui le reçoit, pas le lien « retour » — Page Down défile aussitôt, y compris
+// sous Safari qui ne rend pas les zones défilantes focusables d'elles-mêmes,
+// donc pas de tabindex="0" en plus. Échap ramène à /ailleurs, comme « retour ».
+const cv = ref<HTMLElement | null>(null)
+const router = useRouter()
+function surTouche(e: KeyboardEvent) {
+  if (e.key === 'Escape') router.push('/ailleurs')
+}
+onMounted(() => {
+  cv.value?.focus({ preventScroll: true })
+  window.addEventListener('keydown', surTouche)
+})
+onBeforeUnmount(() => window.removeEventListener('keydown', surTouche))
 </script>
 
 <template>
-  <div class="cv" role="region" aria-label="Curriculum vitæ">
+  <div ref="cv" class="cv" tabindex="-1" role="region" aria-label="Curriculum vitæ">
     <div class="feuille">
       <RouterLink class="retour" to="/ailleurs">← retour</RouterLink>
 
@@ -49,11 +66,13 @@ const mail = adresseMail()
 .cv {
   position: fixed;
   inset: 0;
-  z-index: 5;
+  /* Au-dessus de tout ce qui flotte (bulle d'étoile, répliques : z-index 5). */
+  z-index: 20;
   overflow-y: auto;
   /* La gare reste visible derrière, assombrie ; le voile ne fait que porter le texte. */
   background: color-mix(in srgb, var(--fond) 78%, transparent);
   color: var(--texte);
+  outline: none;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--texte) 25%, transparent) transparent;
 }
