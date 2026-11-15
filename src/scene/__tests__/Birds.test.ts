@@ -134,7 +134,11 @@ describe('Birds', () => {
     expect(positions(birds).some((p) => Math.abs(p.y - SOL) < 1)).toBe(true)
   })
 
-  it('ne garde pas plus de CORPS_MAX bosses', () => {
+  it('laisse le tas grossir tout au long d’une longue visite', () => {
+    // Emmanuelle a tranché « pas d'enfoncement automatique des vieux corps,
+    // seulement si leur nombre finit par nuire » : la butée est un garde-fou
+    // contre l'emballement, pas une règle de composition. Un visiteur obstiné
+    // doit voir son tas grossir, pas se faire effacer ses premières bosses.
     const { birds } = scene()
     for (let i = 0; i < 800; i += 1) {
       birds.faireTomberUn()
@@ -142,9 +146,13 @@ describe('Birds', () => {
     }
     tourner(birds, 20)
     const bosses = positions(birds).filter((p) => Math.abs(p.y - SOL) < 1).length
-    expect(bosses).toBeLessThanOrEqual(CORPS_MAX)
-    // Et la butée a bien servi : sans elle, le tas aurait largement dépassé.
-    expect(bosses).toBeGreaterThan(CORPS_MAX / 2)
+    expect(bosses).toBeGreaterThan(50)
+    expect(bosses).toBeLessThan(CORPS_MAX)
+  })
+
+  it('finit quand même par border le tas, pour ne pas grandir sans fin', () => {
+    expect(CORPS_MAX).toBeGreaterThan(200)
+    expect(Number.isFinite(CORPS_MAX)).toBe(true)
   })
 
   it('garde les bosses en place quand le cadre change', () => {

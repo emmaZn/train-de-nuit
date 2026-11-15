@@ -14,6 +14,7 @@ import type { Cables } from './CableLayer'
 import {
   PLACES_SIMULTANEES,
   choisirGeste,
+  dureeAuSol,
   placeLibre,
   poseDuGeste,
   prochainGeste,
@@ -31,21 +32,15 @@ export const SOL = HORIZON + 55
 /**
  * Combien de bosses on garde à l'écran.
  *
- * « Infini » parle du **gag** — on ne manque jamais d'oiseaux — pas du nombre
- * de corps dessinés. Au-delà, la plus ancienne s'en va : c'est la butée qui
- * empêche une très longue visite de grandir sans fin, et c'est aussi à peu
- * près le nombre où la bande de terre devient un liseré blanc (cadrage §7.5).
+ * « Infini » parle du **gag** — on ne manque jamais d'oiseaux — et le tas doit
+ * grossir tout au long de la visite : c'est Emmanuelle qui dira quand il
+ * devient trop (§12), pas cette constante. Elle n'est qu'un garde-fou contre
+ * l'emballement, posée assez haut pour qu'on ne la rencontre jamais en jouant.
  */
-export const CORPS_MAX = 60
-
-/** Combien de temps les trois étoiles tournent au-dessus d'un sonné tout frais. */
-export const ETOILES = 2.4
+export const CORPS_MAX = 400
 
 /** La pirouette de « Et je danse. », avant la chute. */
 export const PIROUETTE = 0.7
-
-/** Ce que « … » ajoute au sol avant la fin de sa séquence. */
-export const REGARD = 2.6
 
 const DUREE_VOL = 1.4
 const GRIS = 0xededed
@@ -92,6 +87,7 @@ export class Birds {
   private textures = new Map<string, Texture>()
   private horloge = 0
   private parCadre = 1
+  private detruit = false
   private prochaineArrivee = 0
 
   /** Ce que la prochaine chute doit jouer. Posé par la scène avant le clic. */
@@ -137,6 +133,13 @@ export class Birds {
   private async refaireTextures(): Promise<void> {
     // On fabrique tout avant de rien détruire : `fabriquerPose` rend la main au
     // rendu, et une texture détruite encore montée fait tomber tout Pixi.
+    //
+    // Trois chemins dégradés à tenir, tous nés de cet `await` :
+    // un cadrage qui en double un autre, un démontage au milieu, et une pose
+    // sur dix qui échoue — dans ce dernier cas, échanger la carte laisserait
+    // des sprites sur les anciennes textures, qu'on détruirait juste après.
+    const jeton = this.parCadre
+    const attendu = POSES.length * 2
     const neuves = new Map<string, Texture>()
     for (const pose of POSES) {
       const svg = this.svgs.get(pose)
@@ -153,7 +156,12 @@ export class Birds {
         neuves.set(this.cle(pose, retourne), texture)
       }
     }
-    if (!neuves.size) return
+    const perimee = jeton !== this.parCadre
+    if (this.detruit || perimee || neuves.size !== attendu) {
+      // Rien n'est monté : ces textures-là n'appartiennent à personne.
+      for (const t of neuves.values()) t.destroy(true)
+      return
+    }
     const anciennes = this.textures
     this.textures = neuves
     for (const o of this.oiseaux) this.habiller(o)
@@ -404,7 +412,7 @@ export class Birds {
     const cellule = Math.max(1, 1.5 / this.parCadre)
     let une = false
     for (const o of this.oiseaux) {
-      if (o.etat !== 'sol' || o.t > ETOILES) continue
+      if (o.etat !== 'sol' || o.t > dureeAuSol(o.regard)) continue
       une = true
       const cx = this.cables.decalage + o.xIle
       const cy = o.y - TAILLE_OISEAU * 0.42
@@ -420,6 +428,7 @@ export class Birds {
   }
 
   destroy(): void {
+    this.detruit = true
     for (const t of this.textures.values()) t.destroy(true)
     this.textures.clear()
     this.racine.destroy({ children: true })

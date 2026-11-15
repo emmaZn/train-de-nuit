@@ -9,6 +9,25 @@ function cables(): Cables {
   return new Cables(new Container())
 }
 
+/**
+ * jsdom n'a pas de contexte 2D : sans ce bouchon, toute la cuisson des
+ * poteaux sort par sa première porte et n'est jamais exercée.
+ */
+function avecContexte2d(): { canevas: number[]; rendre: () => void } {
+  const canevas: number[] = []
+  const vrai = HTMLCanvasElement.prototype.getContext
+  HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement) {
+    canevas.push(this.width)
+    return {
+      fillStyle: '',
+      fillRect: () => {},
+    } as unknown as CanvasRenderingContext2D
+  } as unknown as HTMLCanvasElement['getContext']
+  return { canevas, rendre: () => (HTMLCanvasElement.prototype.getContext = vrai) }
+}
+
+const CADRE = { scale: 1, offsetX: 0, offsetY: 0 }
+
 describe('Cables', () => {
   it('tient deux travées environ, pas une ligne infinie', () => {
     // Une étape avec arrêt ne parcourt qu'une largeur de cadre de sol : au-delà
@@ -97,5 +116,35 @@ describe('Cables', () => {
 describe('POSITION_A_QUAI', () => {
   it('laisse la deuxième travée entière à droite du nez de la loco', () => {
     expect(POSITION_A_QUAI + TRAVEE).toBeGreaterThanOrEqual(TETE_LOCO * STAGE.width)
+  })
+})
+
+describe('la cuisson des poteaux', () => {
+  it('ne cuit qu’un poteau, et le repose autant de fois qu’il en faut', () => {
+    const { canevas, rendre } = avecContexte2d()
+    try {
+      const parent = new Container()
+      const c = new Cables(parent)
+      c.cadrer(CADRE, 1)
+      // Un seul canevas, et il tient un poteau — pas toute l'installation.
+      expect(canevas).toHaveLength(1)
+      expect(canevas[0]).toBeLessThan(TRAVEE)
+      expect(c.poteauxPoses).toBe(POTEAUX + 2 * POTEAUX_SEULS)
+    } finally {
+      rendre()
+    }
+  })
+
+  it('ne garde jamais deux textures de poteau : la précédente est détruite', () => {
+    const { rendre } = avecContexte2d()
+    try {
+      const c = new Cables(new Container())
+      c.cadrer(CADRE, 1)
+      c.cadrer(CADRE, 2)
+      c.cadrer(CADRE, 3)
+      expect(c.texturesVivantes).toBe(1)
+    } finally {
+      rendre()
+    }
   })
 })

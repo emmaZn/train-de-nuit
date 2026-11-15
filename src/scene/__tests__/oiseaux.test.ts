@@ -6,6 +6,7 @@ import {
   PLACES_SIMULTANEES,
   choisirGeste,
   placeLibre,
+  dureeAuSol,
   poseDuGeste,
   prochainGeste,
 } from '@/scene/oiseaux'
@@ -95,5 +96,16 @@ describe('poseDuGeste', () => {
 describe('PLACES_SIMULTANEES', () => {
   it('tient neuf oiseaux à la fois, pas le total de la visite', () => {
     expect(PLACES_SIMULTANEES).toBe(9)
+  })
+})
+
+describe('dureeAuSol', () => {
+  it('laisse le « … » plus longtemps que les autres', () => {
+    expect(dureeAuSol(true)).toBeGreaterThan(dureeAuSol(false))
+  })
+
+  it('ne fait jamais repartir personne : c’est une durée, pas un retour', () => {
+    expect(dureeAuSol(true)).toBeGreaterThan(0)
+    expect(Number.isFinite(dureeAuSol(true))).toBe(true)
   })
 })

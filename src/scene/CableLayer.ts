@@ -66,23 +66,6 @@ export type Pinceau = {
   plein: (x0: number, y0: number, x1: number, y1: number) => void
 }
 
-/** Le fût, commun à tous les modèles : masse au milieu, deux arêtes, une pointe. */
-function fut(x: number, p: Pinceau, demi = POTEAU.demiFut): void {
-  p.masse(x - demi, POTEAU.epaule, x + demi, HORIZON)
-  p.ligne(x - demi, POTEAU.epaule, x - demi, HORIZON)
-  p.ligne(x + demi, POTEAU.epaule, x + demi, HORIZON)
-  p.ligne(x - demi, POTEAU.epaule, x, POTEAU.sommet)
-  p.ligne(x, POTEAU.sommet, x + demi, POTEAU.epaule)
-}
-
-/** Les deux isolateurs d'un bras, posés dessus. */
-function isolateurs(x: number, bras: (typeof POTEAU.bras)[number], p: Pinceau): void {
-  for (const cote of [-1, 1]) {
-    const ix = x + cote * bras.isolateurs
-    p.plein(ix - u(2.5), bras.y - u(7), ix + u(2.5), bras.y)
-  }
-}
-
 /**
  * Un isolateur de près : une tige, une cloche plus large, un chapeau.
  *
@@ -112,122 +95,63 @@ function futEffile(x: number, p: Pinceau, haut: number, bas: number): void {
 }
 
 /**
- * Quatre façons de tenir deux fils à la même hauteur. Elles ne se départagent
- * pas en texte : elles se regardent, dans la scène.
+ * Le poteau, dessiné une fois pour toutes.
+ *
+ * Trois autres modèles ont été comparés dans la scène — un treillis, un mât
+ * fin, un mât haubané — et c'est celui-ci qu'Emmanuelle a retenu, « avec plus
+ * de détail, de réalisme ». D'où le fût en tronc de cône, les échelons en
+ * quinconce, les isolateurs en trois pièces, la boulonnerie et le pied élargi :
+ * ce sont ces petites choses qui font un poteau et non une croix.
  */
-export const MODELES: { nom: string; dessiner: (x: number, p: Pinceau) => void }[] = [
-  {
-    nom: 'deux bras',
-    dessiner(x, p) {
-      const haut = POTEAU.demiFut
-      const bas = POTEAU.demiFut * 1.6
-      futEffile(x, p, haut, bas)
+export function dessinerPoteau(x: number, p: Pinceau): void {
+  const haut = POTEAU.demiFut
+  const bas = POTEAU.demiFut * 1.6
+  futEffile(x, p, haut, bas)
 
-      // Les échelons, en quinconce : de quoi monter réparer la ligne. C'est
-      // le détail qui donne l'échelle du poteau.
-      const demiA = (y: number) =>
-        haut + ((bas - haut) * (y - POTEAU.epaule)) / (HORIZON - POTEAU.epaule)
-      for (let y = POTEAU.bras[1].y + u(26), i = 0; y < HORIZON - u(24); y += u(26), i += 1) {
-        const cote = i % 2 === 0 ? -1 : 1
-        p.ligne(x + cote * demiA(y), y, x + cote * (demiA(y) + u(9)), y)
-      }
+  // Les échelons, en quinconce : de quoi monter réparer la ligne. C'est
+  // le détail qui donne l'échelle du poteau.
+  const demiA = (y: number) =>
+    haut + ((bas - haut) * (y - POTEAU.epaule)) / (HORIZON - POTEAU.epaule)
+  for (let y = POTEAU.bras[1].y + u(26), i = 0; y < HORIZON - u(24); y += u(26), i += 1) {
+    const cote = i % 2 === 0 ? -1 : 1
+    p.ligne(x + cote * demiA(y), y, x + cote * (demiA(y) + u(9)), y)
+  }
 
-      for (const bras of POTEAU.bras) {
-        const bd = bras.y + bras.epaisseur
-        p.masse(x - bras.demi, bras.y, x + bras.demi, bd)
-        p.ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
-        p.ligne(x - bras.demi, bd, x + bras.demi, bd)
-        p.ligne(x - bras.demi, bras.y, x - bras.demi, bd)
-        p.ligne(x + bras.demi, bras.y, x + bras.demi, bd)
+  for (const bras of POTEAU.bras) {
+    const bd = bras.y + bras.epaisseur
+    p.masse(x - bras.demi, bras.y, x + bras.demi, bd)
+    p.ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
+    p.ligne(x - bras.demi, bd, x + bras.demi, bd)
+    p.ligne(x - bras.demi, bras.y, x - bras.demi, bd)
+    p.ligne(x + bras.demi, bras.y, x + bras.demi, bd)
 
-        // Les deux jambes de force, et leur boulon sur le fût.
-        const pied = bras.y + bras.hauban
-        for (const cote of [-1, 1]) {
-          p.ligne(x + cote * (bras.isolateurs - u(8)), bd, x + cote * demiA(pied), pied)
-          p.plein(x + cote * demiA(pied) - u(2), pied - u(2), x + cote * demiA(pied) + u(2), pied + u(2))
-        }
+    // Les deux jambes de force, et leur boulon sur le fût.
+    const pied = bras.y + bras.hauban
+    for (const cote of [-1, 1]) {
+      p.ligne(x + cote * (bras.isolateurs - u(8)), bd, x + cote * demiA(pied), pied)
+      p.plein(x + cote * demiA(pied) - u(2), pied - u(2), x + cote * demiA(pied) + u(2), pied + u(2))
+    }
 
-        // La boulonnerie qui tient le bras au fût.
-        p.plein(x - u(6), bras.y + u(1), x - u(3), bd - u(1))
-        p.plein(x + u(3), bras.y + u(1), x + u(6), bd - u(1))
+    // La boulonnerie qui tient le bras au fût.
+    p.plein(x - u(6), bras.y + u(1), x - u(3), bd - u(1))
+    p.plein(x + u(3), bras.y + u(1), x + u(6), bd - u(1))
 
-        for (const cote of [-1, 1]) {
-          isolateurDetaille(x + cote * bras.isolateurs, bras.y, p)
-        }
-      }
+    for (const cote of [-1, 1]) {
+      isolateurDetaille(x + cote * bras.isolateurs, bras.y, p)
+    }
+  }
 
-      // Le pied, là où le bois entre dans le ballast : un peu plus large.
-      p.masse(x - bas - u(2), HORIZON - u(10), x + bas + u(2), HORIZON)
-      p.ligne(x - bas - u(2), HORIZON - u(10), x + bas + u(2), HORIZON - u(10))
-    },
-  },
-  {
-    nom: 'treillis',
-    dessiner(x, p) {
-      // Deux montants qui s'écartent vers le bas, croisés de traverses : un
-      // pylône plutôt qu'un poteau.
-      const haut = POTEAU.demiFut
-      const bas = u(14)
-      const ecart = (y: number) =>
-        haut + ((bas - haut) * (y - POTEAU.epaule)) / (HORIZON - POTEAU.epaule)
-      p.masse(x - haut, POTEAU.epaule, x + haut, POTEAU.bras[1].y)
-      for (const cote of [-1, 1]) {
-        p.ligne(x + cote * haut, POTEAU.epaule, x + cote * bas, HORIZON)
-      }
-      p.ligne(x - haut, POTEAU.epaule, x, POTEAU.sommet)
-      p.ligne(x, POTEAU.sommet, x + haut, POTEAU.epaule)
-      const pas = (HORIZON - POTEAU.epaule) / 5
-      for (let i = 0; i < 5; i += 1) {
-        const a = POTEAU.epaule + i * pas
-        const b = a + pas
-        p.ligne(x - ecart(a), a, x + ecart(b), b)
-        p.ligne(x + ecart(a), a, x - ecart(b), b)
-      }
-      for (const bras of POTEAU.bras) {
-        p.ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
-        p.ligne(x - bras.demi, bras.y, x - ecart(bras.y) , bras.y + bras.hauban)
-        p.ligne(x + bras.demi, bras.y, x + ecart(bras.y), bras.y + bras.hauban)
-        isolateurs(x, bras, p)
-      }
-    },
-  },
-  {
-    nom: 'fin',
-    dessiner(x, p) {
-      // Un mât mince, sans bras : les fils se posent sur de courts tenons.
-      fut(x, p, u(2))
-      for (const bras of POTEAU.bras) {
-        for (const cote of [-1, 1]) {
-          const bout = x + cote * bras.isolateurs
-          p.ligne(x + cote * u(2), bras.y + u(2), bout, bras.y + u(2))
-        }
-        isolateurs(x, bras, p)
-      }
-    },
-  },
-  {
-    nom: 'haubané',
-    dessiner(x, p) {
-      // Un mât tenu par deux longs haubans jusqu'au sol, comme un mât de
-      // bateau. Le plus graphique des quatre.
-      fut(x, p, u(2.5))
-      for (const cote of [-1, 1]) {
-        p.ligne(x + cote * u(2.5), POTEAU.epaule + u(6), x + cote * u(46), HORIZON)
-      }
-      for (const bras of POTEAU.bras) {
-        p.ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
-        isolateurs(x, bras, p)
-      }
-    },
-  },
-]
+  // Le pied, là où le bois entre dans le ballast : un peu plus large.
+  p.masse(x - bas - u(2), HORIZON - u(10), x + bas + u(2), HORIZON)
+  p.ligne(x - bas - u(2), HORIZON - u(10), x + bas + u(2), HORIZON - u(10))
+}
 
 export class Cables {
   private readonly racine = new Container()
   private readonly rangee = new Container()
   private readonly fils = new Graphics()
-  private poteaux: Sprite | null = null
-  private textures: Texture[] = []
+  private readonly poteaux: Sprite[] = []
+  private texturePoteau: Texture | null = null
 
   /** Une secousse par fil et par travée : le fil voisin ne bouge pas. */
   private readonly secousses: Secousse[][] = FILS.map(() =>
@@ -242,7 +166,6 @@ export class Cables {
 
   private horloge = 0
   private parCadre = 1
-  private modele = 0
 
   constructor(parent: Container) {
     parent.addChild(this.racine)
@@ -251,12 +174,14 @@ export class Cables {
     this.placer(0)
   }
 
-  /** TEMPORAIRE : comparer les modèles de poteau dans la scène. À retirer. */
-  setModele(index: number): void {
-    const i = Math.max(0, Math.min(MODELES.length - 1, index))
-    if (i === this.modele) return
-    this.modele = i
-    this.poteaux = this.cuirePoteaux(this.rangee, this.poteaux)
+  /** Combien de poteaux sont posés sur la ligne. */
+  get poteauxPoses(): number {
+    return this.poteaux.length
+  }
+
+  /** Combien de textures de poteau sont encore vivantes. Jamais plus d'une. */
+  get texturesVivantes(): number {
+    return this.texturePoteau ? 1 : 0
   }
 
   get travees(): number {
@@ -282,9 +207,9 @@ export class Cables {
 
   cadrer(frame: Frame, resolution: number): void {
     const parCadre = frame.scale * resolution
-    if (parCadre === this.parCadre && this.poteaux) return
+    if (parCadre === this.parCadre && this.poteaux.length) return
     this.parCadre = parCadre
-    this.poteaux = this.cuirePoteaux(this.rangee, this.poteaux)
+    this.cuirePoteau()
   }
 
   avancer(dt: number): void {
@@ -347,20 +272,28 @@ export class Cables {
   }
 
   /**
-   * Les poteaux ne bougent pas : on les cuit une fois, en points, et on les
-   * repose. Sans contexte 2D — jsdom, ou un canvas trop grand — la rangée
-   * garde ses fils plutôt que de tout arrêter.
+   * On ne cuit **qu'un seul poteau**, et on le repose autant de fois qu'il en
+   * faut.
+   *
+   * Cuire toute l'installation d'un coup donnait une texture de douze mille
+   * pixels de large en retina — des dizaines de mégaoctets, refaits à chaque
+   * redimensionnement, et refusés par la carte au-delà de sa taille maximale.
+   * Un poteau fait quelques dizaines de kilo-octets, et le nombre de poteaux
+   * ne coûte plus rien à régler.
+   *
+   * Sans contexte 2D — jsdom, ou un canvas trop grand — la rangée garde ses
+   * fils plutôt que de tout arrêter.
    */
-  private cuirePoteaux(parent: Container, ancien: Sprite | null): Sprite | null {
+  private cuirePoteau(): void {
     const k = this.parCadre
-    const marge = u(60) + POTEAUX_SEULS * TRAVEE
-    const largeur = Math.round((TRAVEE * this.travees + marge * 2) * k)
+    const marge = u(70)
+    const largeur = Math.round(marge * 2 * k)
     const hauteur = Math.round((HORIZON - POTEAU.sommet + u(20)) * k)
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, largeur)
     canvas.height = Math.max(1, hauteur)
     const ctx = canvas.getContext('2d')
-    if (!ctx) return ancien
+    if (!ctx) return
 
     const px = (v: number) => (v + marge) * k
     const py = (v: number) => (v - POTEAU.sommet) * k
@@ -370,13 +303,11 @@ export class Cables {
       ctx.fillStyle = NOIR
       ctx.fillRect(px(x0), py(y0), (x1 - x0) * k, (y1 - y0) * k)
     }
-    /** Un petit bloc plein, en points serrés : un isolateur. */
     const plein = (x0: number, y0: number, x1: number, y1: number) => {
       ctx.fillStyle = GRIS_CSS
-      const pas = Math.max(1, GRAIN_ECRAN)
-      for (let yy = py(y0); yy < py(y1); yy += pas) {
-        for (let xx = px(x0); xx < px(x1); xx += pas) {
-          ctx.fillRect(Math.round(xx), Math.round(yy), pas, pas)
+      for (let yy = py(y0); yy < py(y1); yy += cellule) {
+        for (let xx = px(x0); xx < px(x1); xx += cellule) {
+          ctx.fillRect(Math.round(xx), Math.round(yy), cellule, cellule)
         }
       }
     }
@@ -394,31 +325,36 @@ export class Cables {
       }
     }
 
-    // Les poteaux seuls, de part et d'autre, n'ont pas de fils : ils annoncent
-    // la gare et la referment.
-    // Les poteaux seuls, de part et d'autre, n'ont pas de fils : ils annoncent
-    // la gare et la referment.
-    const pinceau: Pinceau = { masse, ligne, plein }
-    for (let p = -POTEAUX_SEULS; p < POTEAUX + POTEAUX_SEULS; p += 1) {
-      MODELES[this.modele].dessiner(p * TRAVEE, pinceau)
-    }
+    dessinerPoteau(0, { masse, ligne, plein })
 
     const texture = Texture.from(canvas)
     texture.source.scaleMode = 'nearest'
-    this.textures.push(texture)
-    const sprite = ancien ?? new Sprite()
-    sprite.texture = texture
-    sprite.setSize(largeur / k, hauteur / k)
-    sprite.position.set(-marge, POTEAU.sommet)
-    if (!ancien) parent.addChildAt(sprite, 0)
-    return sprite
+
+    while (this.poteaux.length < POTEAUX + 2 * POTEAUX_SEULS) {
+      const sprite = new Sprite()
+      sprite.anchor.set(0, 0)
+      this.poteaux.push(sprite)
+      this.rangee.addChildAt(sprite, 0)
+    }
+    this.poteaux.forEach((sprite, i) => {
+      sprite.texture = texture
+      sprite.setSize(largeur / k, hauteur / k)
+      sprite.position.set((i - POTEAUX_SEULS) * TRAVEE - marge, POTEAU.sommet)
+    })
+
+    // L'ancienne n'est détruite qu'une fois la neuve montée partout : une
+    // texture encore portée par un sprite ferait tomber tout le rendu.
+    this.texturePoteau?.destroy(true)
+    this.texturePoteau = texture
   }
 
   destroy(): void {
     // Jamais `sprite.texture.destroy()` : au premier passage c'est la texture
-    // vide partagée de Pixi, et la détruire fait tomber tout le rendu.
-    for (const t of this.textures) t.destroy(true)
-    this.textures = []
+    // vide partagée de Pixi, et la détruire fait tomber tout le rendu. On ne
+    // détruit que celle qu'on a fabriquée.
+    this.texturePoteau?.destroy(true)
+    this.texturePoteau = null
+    this.poteaux.length = 0
     this.racine.destroy({ children: true })
   }
 }

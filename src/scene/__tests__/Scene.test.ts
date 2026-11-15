@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+
 import { Container } from 'pixi.js'
 import { Scene, plansDuDecor, poserCiel, poserMonde } from '@/scene/Scene'
 import { cadrageScene } from '@/scene/layout'
@@ -118,5 +119,53 @@ describe('l’ordre des plans du décor', () => {
 
   it('convertit un clic en pixels CSS vers le cadre avant de le passer', () => {
     expect(source).toContain('versCadre(')
+  })
+})
+
+describe('sans WebGL', () => {
+  /** jsdom n'a pas de contexte WebGL : `init` échoue et la scène reste nue. */
+  async function sceneNue() {
+    const scene = sceneSansRendu()
+    await scene.init()
+    return scene
+  }
+
+  it('fait quand même parler un oiseau au clavier', async () => {
+    // C'est le seul endroit du site où l'on apprend qui est Emmanuelle : sans
+    // WebGL, la chute n'a pas lieu, mais la phrase doit sortir. Le contenu est
+    // le but, la chute est le plaisir (cadrage §14).
+    const scene = await sceneNue()
+    scene.setGare('plus-loin')
+    let dits = 0
+    scene.on('birdFell', () => {
+      dits += 1
+    })
+    expect(scene.faireTomberUnOiseau()).toBe(true)
+    expect(dits).toBe(1)
+    scene.dispose()
+  })
+})
+
+describe('la porte du gag', () => {
+  it('ne laisse tomber un oiseau qu’à quai, et qu’à « plus loin »', async () => {
+    const scene = sceneSansRendu()
+    await scene.init()
+    let dits = 0
+    scene.on('birdFell', () => {
+      dits += 1
+    })
+
+    scene.setGare('la-haut')
+    expect(scene.faireTomberUnOiseau()).toBe(false)
+    expect(scene.clicPx(600, 400)).toBe(false)
+
+    scene.setGare('plus-loin')
+    scene.setVoyage(true, 2)
+    expect(scene.faireTomberUnOiseau()).toBe(false)
+
+    scene.setVoyage(false, 0)
+    expect(scene.faireTomberUnOiseau()).toBe(true)
+    expect(dits).toBe(1)
+    scene.dispose()
   })
 })

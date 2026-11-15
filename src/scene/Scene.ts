@@ -11,7 +11,7 @@ import {
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Birds } from './Birds'
-import { Cables, MODELES } from './CableLayer'
+import { Cables } from './CableLayer'
 import { ancreSuivante, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
@@ -132,6 +132,9 @@ export class Scene {
   private cables: Cables | null = null
   private oiseaux: Birds | null = null
   private frameCourante: Frame | null = null
+
+  /** Où le train est, ou d'où il part : le gag n'existe qu'à « plus loin ». */
+  private gare: Gare = 'ici'
 
   /** À quel leg l'île de câbles est accrochée, et où est la prochaine. */
   private ancrePlusLoin: number | null = null
@@ -382,7 +385,7 @@ export class Scene {
    */
   clicPx(px: number, py: number): boolean {
     const f = this.frameCourante
-    if (!f || !this.oiseaux) return false
+    if (!f || !this.oiseaux || !this.gagOuvert) return false
     const cadre = versCadre(px, py, f)
     return this.oiseaux.cliquer(cadre.x, cadre.y)
   }
@@ -393,21 +396,37 @@ export class Scene {
    * elle ne lit aucun magasin.
    */
   setGare(gare: Gare): void {
+    this.gare = gare
     this.prochainPlusLoin = this.legsBase + forwardSteps(gare, 'plus-loin')
   }
 
-  /** TEMPORAIRE : comparer les modèles de poteau dans la scène. À retirer. */
-  get modelesPoteau(): string[] {
-    return MODELES.map((m) => m.nom)
+  /**
+   * Le gag n'est ouvert qu'à quai, et qu'à « plus loin ».
+   *
+   * Ailleurs, un visiteur au clavier brûlerait les quatorze phrases ordonnées
+   * sans rien voir tomber ; en marche, l'oiseau visé n'est plus là quand la
+   * chute se jouerait (cadrage §7.6).
+   */
+  get gagOuvert(): boolean {
+    return !this.enRoute && this.gare === 'plus-loin'
   }
 
-  setModelePoteau(index: number): void {
-    this.cables?.setModele(index)
-  }
-
-  /** Le chemin du clavier : faire tomber un oiseau sans en viser un. */
+  /**
+   * Le chemin du clavier : faire tomber un oiseau sans en viser un.
+   *
+   * Sans WebGL il n'y a pas d'oiseau à faire tomber — mais la réplique sort
+   * quand même. C'est le seul endroit du site où l'on apprend qui est
+   * Emmanuelle : le contenu est le but, la chute est le plaisir. La scène a
+   * déjà ce réflexe ailleurs (`beginDissolve` sans animation, le rattrapage de
+   * `setVoyage`).
+   */
   faireTomberUnOiseau(): boolean {
-    return this.oiseaux?.faireTomberUn() ?? false
+    if (!this.gagOuvert) return false
+    if (!this.oiseaux) {
+      this.emitter.emit('birdFell')
+      return true
+    }
+    return this.oiseaux.faireTomberUn()
   }
 
   /**

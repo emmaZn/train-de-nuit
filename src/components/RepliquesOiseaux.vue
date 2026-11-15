@@ -12,18 +12,13 @@
  */
 import { inject, onBeforeUnmount, ref, watch } from 'vue'
 import { SCENE_KEY } from '@/composables/useScene'
+import { useVoyage } from '@/stores/voyage'
 import { REPLIQUES, duree, suivante, variante } from '@/components/repliques'
 
 const scene = inject(SCENE_KEY, ref(null))
-
-// TEMPORAIRE : le sélecteur de modèle de poteau, pour trancher à l'œil.
-// À retirer avant de fondre la branche.
-const modeles = ref<string[]>([])
-const modeleActif = ref(0)
-function choisirModele(i: number) {
-  modeleActif.value = i
-  scene.value?.setModelePoteau(i)
-}
+// Le bouton n'existe qu'où le gag existe : ailleurs, il épuiserait les
+// quatorze phrases ordonnées sans que rien ne tombe.
+const voyage = useVoyage()
 const phrase = ref<string | null>(null)
 let dites = 0
 let minuterie = 0
@@ -54,7 +49,6 @@ watch(
   (valeur) => {
     detacher?.()
     detacher = valeur?.on('birdFell', surChute) ?? null
-    modeles.value = valeur?.modelesPoteau ?? []
     annoncer()
   },
   { immediate: true },
@@ -70,18 +64,12 @@ onBeforeUnmount(() => {
   <div class="repliques" aria-live="polite">
     <p v-if="phrase" class="replique">{{ phrase }}</p>
   </div>
-  <nav v-if="modeles.length" class="modeles" aria-label="Modèle de poteau">
-    <button
-      v-for="(nom, i) in modeles"
-      :key="nom"
-      type="button"
-      :class="{ actif: i === modeleActif }"
-      @click="choisirModele(i)"
-    >
-      {{ nom }}
-    </button>
-  </nav>
-  <button class="tomber" type="button" @click="scene?.faireTomberUnOiseau()">
+  <button
+    v-if="voyage.gare === 'plus-loin' && !voyage.enRoute"
+    class="tomber"
+    type="button"
+    @click="scene?.faireTomberUnOiseau()"
+  >
     faire tomber un oiseau
   </button>
 </template>
@@ -132,35 +120,6 @@ onBeforeUnmount(() => {
     opacity: 0;
     transform: translateX(-50%) translateY(6px);
   }
-}
-
-/* TEMPORAIRE, avec le sélecteur ci-dessus. */
-.modeles {
-  position: fixed;
-  left: 16px;
-  bottom: 14px;
-  z-index: 5;
-  display: flex;
-  gap: 14px;
-  font: 10px var(--police-mono);
-  letter-spacing: 0.04em;
-}
-
-.modeles button {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: rgba(236, 236, 240, 0.3);
-  cursor: pointer;
-}
-
-.modeles button:hover {
-  color: rgba(236, 236, 240, 0.7);
-}
-
-.modeles button.actif {
-  color: rgba(236, 236, 240, 0.95);
 }
 
 .tomber {

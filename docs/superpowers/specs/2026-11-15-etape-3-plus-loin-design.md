@@ -25,8 +25,8 @@ quatre arrêts sont le même paysage ; après cette étape, la boucle a un lieu.
 ## 2. Ce qui doit exister à la fin
 
 Quand le train approche de « plus loin », des poteaux électriques entrent par la
-droite — **deux rangées à deux vitesses**, une proche et une lointaine plus
-lente — avec leurs fils. Des bouvreuils sont posés sur les fils de la rangée
+droite — **une rangée**, et de part et d'autre quelques **poteaux seuls**, sans
+fils, qui annoncent la gare et la referment. Des bouvreuils sont posés sur les fils de la rangée
 proche, et ils y **vivent** : l'un se retourne, l'autre fait un pas sur le fil,
 un troisième s'ébouriffe.
 
@@ -363,7 +363,7 @@ oiseau d'environ 50 px pour un train de 180.
 ```
 src/scene/
   cables.ts     la géométrie : mesures, flèche, vibration (fonctions pures)
-  CableLayer.ts les deux rangées, leur défilement à la distance, la vibration.
+  CableLayer.ts la rangée dans la scène, son défilement à la distance, la vibration.
                 Pas `Cables.ts` : sur macOS, c'est le même fichier que
                 `cables.ts` — précédent de `stars.ts` / `StarLayer.ts`
   Birds.ts      les bouvreuils : poses, gestes sur le fil, chute, tas, arrivées
@@ -395,8 +395,8 @@ src/components/
 
 ## 13. Changements à apporter à `CONCEPT.md`
 
-- §4.2 : deux rangées de poteaux à deux vitesses, et non « deux poteaux » ; les
-  oiseaux ne se posent que sur la rangée proche.
+- §4.2 : une rangée de poteaux et deux fils, plus des **poteaux seuls** avant
+  et après ; la seconde rangée, essayée, est écartée (§6).
 - §4.2 : le gag change de fin. La réplique sort **au début de la chute**, et
   **toujours en haut au centre**. L'oiseau ne se relève pas et ne retourne pas
   se poser ; il se plante dans la terre, où il devient une **bosse** que plus

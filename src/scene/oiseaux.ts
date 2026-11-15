@@ -66,3 +66,17 @@ export function choisirGeste(tirage: () => number): Geste {
 export function poseDuGeste(sens: 1 | -1, ebouriffe: boolean): { pose: Pose; miroir: boolean } {
   return { pose: ebouriffe ? 'perche-ebouriffe' : 'perche', miroir: sens < 0 }
 }
+
+/** Combien de temps les trois étoiles tournent au-dessus d'un sonné tout frais. */
+export const ETOILES = 2.4
+
+/** Ce que « … » ajoute au sol : il se laisse regarder avant qu'on l'oublie. */
+export const REGARD = 2.6
+
+/**
+ * Combien de temps dure la séquence au sol.
+ *
+ * C'est une **durée**, pas un retour : l'oiseau ne repart jamais. « … » reste
+ * simplement plus longtemps sous les étoiles que les autres.
+ */
+export const dureeAuSol = (regard: boolean): number => ETOILES + (regard ? REGARD : 0)

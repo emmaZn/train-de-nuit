@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import { ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 
 import RepliquesOiseaux from '@/components/RepliquesOiseaux.vue'
 import { REPLIQUES, variante } from '@/components/repliques'
 import { SCENE_KEY } from '@/composables/useScene'
+import { useVoyage } from '@/stores/voyage'
 import type { Scene } from '@/scene/Scene'
 
 /** Une scène réduite à ce dont la couche se sert : `birdFell` et deux appels. */
@@ -22,7 +24,9 @@ function fausseScene() {
   return { scene, tomber: () => ecouteur?.() }
 }
 
-function monter() {
+function monter(gare: 'ici' | 'plus-loin' = 'plus-loin') {
+  setActivePinia(createPinia())
+  useVoyage().poserGare(gare)
   const { scene, tomber } = fausseScene()
   const wrapper = mount(RepliquesOiseaux, {
     global: { provide: { [SCENE_KEY as symbol]: ref(scene as unknown as Scene) } },
@@ -59,6 +63,12 @@ describe('RepliquesOiseaux', () => {
     const { wrapper, scene } = monter()
     await wrapper.find('button').trigger('click')
     expect(scene.faireTomberUnOiseau).toHaveBeenCalledOnce()
+  })
+
+  it('n’offre pas le bouton hors de « plus loin »', () => {
+    // Sinon un visiteur au clavier y brûle les quatorze phrases ordonnées
+    // sans que rien ne tombe.
+    expect(monter('ici').wrapper.find('button.tomber').exists()).toBe(false)
   })
 
   it('annonce à la scène la variante de la prochaine réplique, avant tout clic', () => {

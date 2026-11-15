@@ -259,7 +259,7 @@ src/
     Fumee.ts                les bouffées de la cheminée
     reflet.ts               le masque de grain du reflet, et l'assombrissement de l'eau
     cables.ts               la géométrie des câbles : mesures, flèche, vibration (fonctions pures)
-    CableLayer.ts           les deux rangées dans la scène (classe `Cables`). Pas `Cables.ts` :
+    CableLayer.ts           la rangée dans la scène (classe `Cables`). Pas `Cables.ts` :
                             sur macOS il entrerait en collision avec `cables.ts`
     oiseaux.ts              les choix des bouvreuils : places libres, gestes (fonctions pures)
     poses.ts                les cinq poses et leur passage au grain
