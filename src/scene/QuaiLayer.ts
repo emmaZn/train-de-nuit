@@ -153,13 +153,13 @@ export class Quai {
    * qui laisse construire un quai d'un seul tenant — c'est ce que font les
    * tests qui ne s'intéressent pas à l'assombrissement.
    */
-  constructor(parent: Container, lumieres: Container = parent) {
+  constructor(parent: Container, lumieres: Container = parent, reducedMotion = false) {
     parent.addChild(this.racineEteinte)
     lumieres.addChild(this.racineAllumee)
     this.racineEteinte.addChild(this.bordure, this.aiguilles)
     this.racineAllumee.addChild(this.cadrePanneau)
     // Le faisceau est dans la racine allumée : il suit l'île, et ne s'éteint pas.
-    this.faisceau = new Faisceau(this.racineAllumee)
+    this.faisceau = new Faisceau(this.racineAllumee, reducedMotion)
     // Tant qu'on ne sait pas où est la gare, l'île n'est nulle part : la scène
     // tourne sa première image avant que Vue ne lui dise d'où l'on part, et
     // une île qui se pose quand même s'ancre à quai — à « ailleurs ».
@@ -258,6 +258,11 @@ export class Quai {
       this.racineAllumee.visible = true
     }
     this.tracerAiguilles()
+  }
+
+  /** Le faisceau, pour les tests de plan. */
+  get lumiere(): Faisceau {
+    return this.faisceau
   }
 
   /** Le faisceau respire tout seul : appelée à chaque image, avec le temps écoulé. */

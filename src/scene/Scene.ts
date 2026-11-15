@@ -34,6 +34,7 @@ import {
   cadrageScene,
   versCadre,
   cadreDegrade,
+  SEUIL_MOBILE,
 } from './layout'
 import type { Frame } from './layout'
 import type { Relief } from './Relief'
@@ -359,7 +360,7 @@ export class Scene {
     // devant le voile du pied et derrière la rame.
     const planQuai = new Container()
     this.plans.plateauFond.addChild(planQuai)
-    this.quai = new Quai(planQuai, this.plans.lumieres)
+    this.quai = new Quai(planQuai, this.plans.lumieres, this.reducedMotion)
     void this.quai.charger()
     this.train = new Train(this.plans.plateau, manifest)
     // Devant la voie et devant le train : c'est le sol sur lequel il roule.
@@ -460,7 +461,7 @@ export class Scene {
     // contre-transport se refait à chaque cadrage, comme celui du monde.
     poserCiel(this.plans.ciel, frame)
 
-    this.sky?.resize(frame, width, height, width < 720)
+    this.sky?.resize(frame, width, height, width < SEUIL_MOBILE)
     this.stars?.setStars(this.traces, width, height)
     this.stars?.resize(width, height)
     // La place d'une étoile est une fraction, sa cible des pixels : une
@@ -471,7 +472,7 @@ export class Scene {
     // le cadre ou la densité de pixels change.
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
     this.cables?.cadrer(frame, this.app.renderer.resolution)
-    this.quai?.cadrer(frame, this.app.renderer.resolution, width < 720)
+    this.quai?.cadrer(frame, this.app.renderer.resolution, width < SEUIL_MOBILE)
     this.oiseaux?.cadrer(frame, this.app.renderer.resolution, width)
     this.vitres?.cadrer(frame, this.app.renderer.resolution)
     this.fumee?.cadrer(frame, this.app.renderer.resolution)

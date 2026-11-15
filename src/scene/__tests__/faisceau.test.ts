@@ -7,6 +7,7 @@ import { Quai } from '@/scene/QuaiLayer'
 import { plansDuDecor } from '@/scene/Scene'
 import { PIECES } from '@/scene/quai'
 import { HORIZON, STAGE } from '@/scene/layout'
+import type { Frame } from '@/scene/layout'
 
 const cone = coneDuFaisceau(PIECES.reverbere)
 
@@ -56,7 +57,8 @@ describe('les grains du faisceau', () => {
   it('le faisceau garde un plancher de grains sur mobile', () => {
     const minuscule: Cone = { sommet: { x: 100, y: 0 }, base: [95, 105], hauteur: 10 }
     expect(grainsDuFaisceau(minuscule, 1, true).length).toBeGreaterThanOrEqual(40)
-    expect(grainsDuFaisceau(cone, 1, true).length).toBeGreaterThan(0)
+    // Le vrai cône, sur mobile, reste très au-dessus du plancher.
+    expect(grainsDuFaisceau(cone, 1, true).length).toBeGreaterThan(100)
   })
 
   it('tous les grains tombent dans le cône', () => {
@@ -90,26 +92,49 @@ describe('les grains du faisceau', () => {
 })
 
 describe('le faisceau dans la scène', () => {
-  function poser() {
+  const cadre: Frame = { scale: 0.5, offsetX: 0, offsetY: 0 }
+
+  function poser(reducedMotion = false) {
     const decor = new Container()
     const plans = plansDuDecor(decor)
     const planQuai = new Container()
     plans.plateauFond.addChild(planQuai)
-    const quai = new Quai(planQuai, plans.lumieres)
+    const quai = new Quai(planQuai, plans.lumieres, reducedMotion)
     return { plans, quai }
   }
 
   it('se monte avec le réverbère, dans le groupe des lumières', () => {
     const { plans, quai } = poser()
     expect(quai.allume.parent).toBe(plans.lumieres)
-    expect(quai.allume.children.length).toBeGreaterThan(1)
+    expect(quai.allume.children).toContain(quai.lumiere.groupe)
   })
 
-  it('ne s’anime pas sans casser, et accepte un cadrage', () => {
-    const parent = new Container()
-    const f = new Faisceau(parent)
-    f.cadrer({ scale: 0.5, offsetX: 0, offsetY: 0 } as never, false)
-    expect(() => f.animer(0.016)).not.toThrow()
-    expect(parent.children.length).toBe(1)
+  it('respire : l’opacité des couches bouge quand on l’anime', () => {
+    const f = new Faisceau(new Container())
+    f.cadrer(cadre, false)
+    const avant = f.opacites
+    f.animer(1.3)
+    expect(f.opacites).not.toEqual(avant)
+  })
+
+  it('sous mouvement réduit, il ne respire pas : l’opacité ne bouge pas', () => {
+    const f = new Faisceau(new Container(), true)
+    f.cadrer(cadre, false)
+    const avant = f.opacites
+    f.animer(1.3)
+    f.animer(2.1)
+    expect(f.opacites).toEqual(avant)
+  })
+
+  it('sous mouvement réduit, il est pourtant là, visible et immobile', () => {
+    const { quai } = poser(true)
+    quai.cadrer(cadre, 1, false)
+    quai.animer(1.3)
+    const f = quai.lumiere
+    expect(f.groupe.parent).toBe(quai.allume)
+    expect(f.groupe.visible).toBe(true)
+    expect(f.groupe.children.length).toBeGreaterThan(0)
+    expect(f.opacites.every((a) => a > 0)).toBe(true)
+    expect(f.groupe.children.some((c) => !c.destroyed)).toBe(true)
   })
 })

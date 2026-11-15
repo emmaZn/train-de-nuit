@@ -104,13 +104,27 @@ export class Faisceau {
   private echelle = 0
   private mobile: boolean | null = null
 
-  constructor(parent: Container) {
+  /** Sous mouvement réduit, le faisceau reste allumé mais ne respire pas (CONCEPT §11). */
+  private readonly anime: boolean
+
+  constructor(parent: Container, reducedMotion = false) {
+    this.anime = !reducedMotion
     for (let i = 0; i < COUCHES; i += 1) {
       const g = new Graphics()
       this.couches.push(g)
       this.racine.addChild(g)
     }
     parent.addChild(this.racine)
+  }
+
+  /** Le conteneur du faisceau, pour les tests de plan. */
+  get groupe(): Container {
+    return this.racine
+  }
+
+  /** L'opacité de chaque couche, pour les tests. */
+  get opacites(): number[] {
+    return this.couches.map((g) => g.alpha)
   }
 
   /** Retrace les grains quand l'échelle ou la taille de l'écran change — pas avant. */
@@ -132,6 +146,7 @@ export class Faisceau {
 
   /** Ça bouge tout seul : chaque couche respire à son rythme, déphasée des autres. */
   animer(dt: number): void {
+    if (!this.anime) return
     this.horloge += dt
     this.couches.forEach((g, i) => {
       const onde = 0.5 + 0.5 * Math.sin(this.horloge * (0.6 + 0.35 * i) + i * 1.9)
