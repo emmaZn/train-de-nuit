@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import { Container } from 'pixi.js'
+
 import { nuitDeLaGare } from '@/scene/nuit'
+import { plansDuDecor, poserLumieres } from '@/scene/Scene'
+import { NUIT_CIEL, NUIT_PROFONDEUR, opaciteVoile } from '@/scene/layout'
 import { PHASE_FREINAGE, PHASE_ROULE } from '@/scene/Train'
 
 const base = {
@@ -78,5 +82,60 @@ describe('nuitDeLaGare', () => {
 
   it('vaut 1 à l’arrêt en mouvement réduit, sans phase de freinage', () => {
     expect(nuitDeLaGare({ ...base, gare: 'ailleurs', reducedMotion: true })).toBe(1)
+  })
+})
+
+/** Les enfants du décor, par nom, dans l'ordre où on les dessine. */
+function ordreDuDecor(decor: Container): string[] {
+  return decor.children.map((c) => c.label)
+}
+
+describe('les voiles de la nuit', () => {
+  // Ce que `peupler` monte, dans l'ordre : le train et ses compagnons d'abord,
+  // les lumières en dernier.
+  function decorMonte() {
+    const decor = new Container()
+    plansDuDecor(decor)
+    for (const nom of ['voile-pied', 'cables', 'train', 'terre', 'oiseaux']) {
+      const c = new Container()
+      c.label = nom
+      decor.addChild(c)
+    }
+    poserLumieres(decor)
+    return decor
+  }
+
+  it('le voile du décor couvre le massif mais pas les vitres du train', () => {
+    const ordre = ordreDuDecor(decorMonte())
+    expect(ordre.indexOf('massif')).toBeLessThan(ordre.indexOf('voile-nuit'))
+    expect(ordre.indexOf('voile-nuit')).toBeLessThan(ordre.indexOf('vitres'))
+  })
+
+  it('le voile du décor couvre aussi le corps du train, la terre et les oiseaux', () => {
+    const ordre = ordreDuDecor(decorMonte())
+    for (const nom of ['train', 'terre', 'oiseaux']) {
+      expect(ordre.indexOf(nom)).toBeLessThan(ordre.indexOf('voile-nuit'))
+    }
+  })
+
+  it('le voile du ciel est juste au-dessus du ciel, sous tout le reste', () => {
+    const ordre = ordreDuDecor(decorMonte())
+    expect(ordre.indexOf('voile-nuit-ciel')).toBe(ordre.indexOf('ciel') + 1)
+  })
+
+  it('le voile du ciel est moins opaque que celui du décor à nuit égale', () => {
+    expect(opaciteVoile(1, NUIT_CIEL)).toBeLessThan(opaciteVoile(1, NUIT_PROFONDEUR))
+  })
+
+  it('les deux voiles sont transparents à nuit nulle', () => {
+    expect(opaciteVoile(0, NUIT_PROFONDEUR)).toBe(0)
+    expect(opaciteVoile(0, NUIT_CIEL)).toBe(0)
+  })
+
+  it('l’opacité suit la nuit et ne dépasse jamais le maximum', () => {
+    expect(opaciteVoile(1, NUIT_PROFONDEUR)).toBeCloseTo(NUIT_PROFONDEUR)
+    expect(opaciteVoile(0.5, NUIT_PROFONDEUR)).toBeCloseTo(NUIT_PROFONDEUR / 2)
+    expect(opaciteVoile(2, NUIT_PROFONDEUR)).toBeCloseTo(NUIT_PROFONDEUR)
+    expect(opaciteVoile(-1, NUIT_PROFONDEUR)).toBe(0)
   })
 })

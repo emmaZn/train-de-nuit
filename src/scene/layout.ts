@@ -518,3 +518,25 @@ export function cadrageScene(
 export function versCadre(px: number, py: number, frame: Frame): { x: number; y: number } {
   return { x: (px - frame.offsetX) / frame.scale, y: (py - frame.offsetY) / frame.scale }
 }
+
+/**
+ * L'assombrissement d'« ailleurs » : deux voiles noirs, dont l'opacité monte
+ * avec `nuitDeLaGare`. Le noir devient la couleur du fond sous le shader de
+ * recoloration, comme le voile du pied.
+ *
+ * VALEURS DE DÉPART PROVISOIRES — à régler à l'œil avec Emmanuelle dans la
+ * scène en mouvement (spec §7). Ne pas les figer sans son accord.
+ */
+/** Opacité maximale du voile du décor : massif, quai, rails, corps du train. */
+export const NUIT_PROFONDEUR = 0.72
+/** Opacité maximale du voile du ciel : poussière et étoiles. */
+export const NUIT_CIEL = 0.35
+
+/**
+ * L'opacité d'un voile pour une nuit donnée (0 à 1) et son maximum. La nuit
+ * est bornée : une valeur hors de [0, 1] ne rend jamais le voile plus opaque
+ * que son maximum, ni négatif.
+ */
+export function opaciteVoile(nuit: number, max: number): number {
+  return Math.min(1, Math.max(0, nuit)) * max
+}
