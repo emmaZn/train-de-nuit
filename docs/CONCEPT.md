@@ -64,18 +64,19 @@ Le nom et le titre sont en haut à gauche (comme sur la maquette). La phrase app
 
 ### 4.2 plus loin — les oiseaux
 
-- **Deux rangées de poteaux et leurs fils**, à deux vitesses : une proche, une
-  lointaine plus lente. De la profondeur par le rythme, pas par la perspective —
-  la scène n'a pas de point de fuite, et les câbles ont le pied sur les rails.
-  Les deux vitesses sont pour l'**approche et le départ** : à quai, rien ne
-  bouge, et une parallaxe ne se voit que si ça bouge. L'asset
-  `cables/cables-scene.svg` sert de **mesures**, pas de texture : on redessine
-  sa géométrie en points, c'est ce qui permet au fil de vibrer.
+- **Une rangée de poteaux et deux fils.** Une seconde rangée, plus lente et
+  plus petite, a été essayée puis retirée : posée sur la même ligne de rail,
+  ses fils tombaient plus bas que les autres et les croisaient — cohérent, mais
+  ça se lisait comme de l'encombrement, pas comme de la distance.
+- **Quelques poteaux seuls, sans fils, avant et après.** Un poteau isolé passe,
+  puis les fils, puis les oiseaux : la gare s'annonce au lieu de surgir, et un
+  dernier poteau la referme après le départ.
+- L'asset `cables/cables-scene.svg` sert de **mesures**, pas de texture : on
+  redessine sa géométrie en points, c'est ce qui permet au fil de vibrer.
 - Les câbles n'existent **qu'à cette gare**, derrière la rame — mais ils y sont
   **toujours**, y compris quand le train traverse sans s'arrêter : les poteaux
   défilent alors à pleine vitesse et les oiseaux restent posés.
-- **Les oiseaux ne se posent que sur la rangée proche** ; la lointaine n'a que
-  des fils. Neuf places à la fois. Ils y **vivent** : toutes les 3 à 8 secondes
+- **Neuf places à la fois** sur les fils. Ils y **vivent** : toutes les 3 à 8 secondes
   l'un d'eux se retourne, fait un pas sur le fil — le fil vibre quand il se
   repose — ou s'ébouriffe.
 - **Le gag** (façon dessin animé, personne n'est blessé) : on clique sur un

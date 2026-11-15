@@ -129,8 +129,14 @@ la gare. Parkée, pas enterrée.
 Les premiers points viennent de la conversation, les suivants de l'essai.
 
 - **2D**, dans le même plan que le train, au style du premier plan.
-- **Deux rangées de poteaux à deux vitesses** : une proche, une lointaine plus
-  lente. De la profondeur par le rythme, pas par la perspective.
+- **Deux rangées de poteaux à deux vitesses** — *décidé, construit, puis
+  retiré en le voyant.* Posée sur la même ligne de rail, la rangée lointaine
+  avait ses fils **plus bas** que la proche et les croisait : cohérent — un
+  poteau plus court sur le même sol a ses fils plus bas — mais ça se lisait
+  comme de l'encombrement, pas comme de la distance. Il reste **une rangée**.
+- **Quelques poteaux seuls, sans fils, avant et après l'île**, « pour que ça ne
+  surgisse pas de nulle part ». C'est l'approche que décrivait déjà le §4.2 du
+  concept : un poteau isolé passe, puis les fils, puis les oiseaux.
 - **Le décor reste présent** quand le train traverse la gare sans s'arrêter, et
   les oiseaux y restent posés. Pas d'envol de peur pour l'instant.
 - **Les corps tombent en bas de l'écran, sous l'horizon**, au lieu de se relever,
@@ -167,9 +173,8 @@ Tout ce qui suit est mon choix, pas le sien. À relire et à corriger.
    zone : **la terre** (`Terre.ts`). Le sol des corps se pose à
    `HORIZON + 55`, pour que la base de la bosse s'enfonce dans cette bande.
    Leur reflet, lui, vient tout seul.
-2. **Les oiseaux ne se posent que sur la rangée proche.** La rangée lointaine n'a
-   que des fils. Sinon on voit des oiseaux qu'on a envie de cliquer et qui sont
-   trop petits pour répondre.
+2. **Les poteaux seuls n'ont pas de fils**, et rien ne s'y pose : ils sont là
+   pour annoncer et refermer, pas pour qu'on les regarde.
 3. **Les nouveaux oiseaux arrivent en vol**, depuis le bord du champ, et se
    posent sur une place libre — le fil vibre quand ils s'y posent.
 4. **Les corps appartiennent à l'île de câbles, pas au sol.** La ligne est
@@ -218,9 +223,9 @@ Tout ce qui suit est mon choix, pas le sien. À relire et à corriger.
     Les câbles tiennent donc dans **deux travées environ**, et leurs extrémités
     se **dissolvent** au lieu de se couper net. C'est aussi ce qui les empêche de
     déborder sur « ici », qui n'est « rien que le ciel ».
-16. **Les deux vitesses sont pour l'approche et le départ, pas pour l'arrêt.** Une
-    parallaxe ne se voit que si ça bouge. La rangée lointaine entre plus tôt et
-    sort plus tard, en se dissolvant : son travail, c'est le trajet.
+16. **L'île se dissout à ses bouts** au lieu de se couper net — la langue du
+    projet (CONCEPT §2) — et les poteaux seuls prolongent l'installation
+    au-delà, sans fils.
 17. **Un oiseau à la fois par séquence**, mais plusieurs chutes en parallèle sont
     permises : c'est le plaisir du jeu.
 18. **L'envol de tous au départ de la gare** (CONCEPT §4.2) **tombe** : les
@@ -379,8 +384,7 @@ src/components/
 
 ## 12. Ce qui revient à Emmanuelle
 
-- **Régler les deux vitesses** et la **taille des poteaux**. C'est le seul gros
-  réglage visuel que l'essai n'a pas abordé : il n'avait qu'une rangée.
+- **Régler la taille des poteaux** et le nombre de poteaux seuls de chaque côté.
 - **Regarder le passage des bosses sous la rame.** Le train est fixe à l'écran
   et c'est le sol qui glisse : **toutes** les bosses défilent sous les roues à
   chaque départ et à chaque passage. Si ça se lit comme un écrasement, ce n'est

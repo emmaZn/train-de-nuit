@@ -1,7 +1,7 @@
 import { Container } from 'pixi.js'
 import { describe, expect, it } from 'vitest'
 
-import { Cables, FACTEUR_LOIN, POSITION_A_QUAI, POTEAUX } from '@/scene/CableLayer'
+import { Cables, POSITION_A_QUAI, POTEAUX, POTEAUX_SEULS } from '@/scene/CableLayer'
 import { FILS, TRAVEE } from '@/scene/cables'
 import { STAGE, TETE_LOCO } from '@/scene/layout'
 
@@ -24,6 +24,7 @@ describe('Cables', () => {
     const quai = c.positionSur(0, 1.5).x
     c.placer(500)
     expect(c.positionSur(0, 1.5).x).toBeCloseTo(quai + 500)
+    expect(c.decalage).toBeCloseTo(POSITION_A_QUAI + 500)
   })
 
   it('à quai, les fils sont dans le champ libre à droite du nez de la loco', () => {
@@ -35,16 +36,20 @@ describe('Cables', () => {
     }
   })
 
-  it('la rangée lointaine avance moins vite que la proche', () => {
+  it('des poteaux seuls annoncent la gare avant les fils, et la referment après', () => {
+    // « Pour que ça ne surgisse pas de nulle part » : un poteau isolé passe,
+    // puis les fils, puis les oiseaux (CONCEPT.md §4.2).
     const c = cables()
-    c.placer(1000)
-    const avant = c.decalages
+    expect(POTEAUX_SEULS).toBeGreaterThan(0)
+    expect(c.emprise.gauche).toBeLessThan(0)
+    expect(c.emprise.droite).toBeGreaterThan(TRAVEE * c.travees)
+  })
+
+  it('les fils ne vont que d’un poteau de l’île à l’autre, jamais jusqu’aux poteaux seuls', () => {
+    const c = cables()
     c.placer(0)
-    const apres = c.decalages
-    const proche = Math.abs(apres.proche - avant.proche)
-    const loin = Math.abs(apres.loin - avant.loin)
-    expect(loin).toBeLessThan(proche)
-    expect(loin).toBeCloseTo(proche * FACTEUR_LOIN)
+    expect(c.emprise.gauche).toBeLessThan(c.positionSur(0, 0).x - c.decalage)
+    expect(c.emprise.droite).toBeGreaterThan(c.positionSur(0, c.travees).x - c.decalage)
   })
 
   it('une secousse écarte le fil de son repos, puis s’éteint', () => {

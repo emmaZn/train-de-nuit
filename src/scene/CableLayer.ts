@@ -1,10 +1,15 @@
 /**
  * Les câbles de « plus loin », dans la scène.
  *
- * Deux rangées à deux vitesses : une proche, une lointaine plus lente. De la
- * profondeur par le rythme, pas par la perspective — la scène n'a pas de point
- * de fuite, et en donner un aux câbles, qui ont le pied sur les rails, ferait
- * du train un autocollant (cadrage §5, approche A).
+ * Une seule rangée. La deuxième, plus lente et plus petite, a été construite
+ * puis retirée : posée sur la même ligne de rail, ses fils tombaient **plus
+ * bas** que ceux de la rangée proche et les croisaient. C'était cohérent — un
+ * poteau plus court sur le même sol a ses fils plus bas — mais ça se lisait
+ * comme de l'encombrement, pas comme de la distance.
+ *
+ * Ce qui reste de l'idée : quelques **poteaux seuls**, sans fils, avant et
+ * après l'île. Un poteau isolé passe, puis les fils, puis les oiseaux : la gare
+ * s'annonce au lieu de surgir (CONCEPT.md §4.2).
  *
  * La classe s'appelle `Cables` mais son fichier `CableLayer.ts` : sur macOS,
  * `Cables.ts` est le même fichier que `cables.ts`, qui porte la géométrie.
@@ -19,17 +24,11 @@ import type { Secousse } from './cables'
 /** Trois poteaux : deux travées, à peine une largeur de cadre. */
 export const POTEAUX = 3
 
-/** Où se pose le premier poteau de la rangée proche, à l'arrêt. */
+/** Où se pose le premier poteau porteur de fils, à l'arrêt. */
 export const POSITION_A_QUAI = 60
 
-/** La rangée lointaine est décalée : ses poteaux ne doublent pas les autres. */
-export const POSITION_A_QUAI_LOIN = POSITION_A_QUAI + TRAVEE * 0.45
-
-/** Ce que la rangée lointaine parcourt pour un pas de la rangée proche. */
-export const FACTEUR_LOIN = 0.6
-
-/** Et de combien elle est dessinée plus petite. */
-export const ECHELLE_LOIN = 0.62
+/** Combien de poteaux seuls, sans fils, de chaque côté de l'île. */
+export const POTEAUX_SEULS = 2
 
 /** Sur quelle longueur les bouts de l'île se dissolvent, au lieu de se couper. */
 export const DISSOLUTION = u(220)
@@ -52,12 +51,9 @@ function alea(graine: number): () => number {
 
 export class Cables {
   private readonly racine = new Container()
-  private readonly loin = new Container()
-  private readonly proche = new Container()
-  private readonly filsLoin = new Graphics()
-  private readonly filsProche = new Graphics()
-  private poteauxLoin: Sprite | null = null
-  private poteauxProche: Sprite | null = null
+  private readonly rangee = new Container()
+  private readonly fils = new Graphics()
+  private poteaux: Sprite | null = null
   private textures: Texture[] = []
 
   /** Une secousse par fil et par travée : le fil voisin ne bouge pas. */
@@ -76,13 +72,8 @@ export class Cables {
 
   constructor(parent: Container) {
     parent.addChild(this.racine)
-    this.racine.addChild(this.loin, this.proche)
-    this.loin.addChild(this.filsLoin)
-    this.proche.addChild(this.filsProche)
-    // Mise à l'échelle autour de la ligne de rail : le pied des poteaux
-    // lointains reste posé dessus.
-    this.loin.scale.set(ECHELLE_LOIN)
-    this.loin.y = HORIZON * (1 - ECHELLE_LOIN)
+    this.racine.addChild(this.rangee)
+    this.rangee.addChild(this.fils)
     this.placer(0)
   }
 
@@ -90,22 +81,28 @@ export class Cables {
     return POTEAUX - 1
   }
 
-  get decalages(): { proche: number; loin: number } {
-    return { proche: this.proche.x, loin: this.loin.x }
+  get decalage(): number {
+    return this.rangee.x
   }
 
-  /** Les deux rangées se posent sur le sol qui reste à parcourir, pas sur l'horloge. */
+  /** Jusqu'où s'étend l'installation, poteaux seuls compris, en repère d'île. */
+  get emprise(): { gauche: number; droite: number } {
+    return {
+      gauche: -POTEAUX_SEULS * TRAVEE,
+      droite: (POTEAUX - 1 + POTEAUX_SEULS) * TRAVEE,
+    }
+  }
+
+  /** La rangée se pose sur le sol qui reste à parcourir, pas sur l'horloge. */
   placer(distanceGare: number): void {
-    this.proche.x = POSITION_A_QUAI + distanceGare
-    this.loin.x = POSITION_A_QUAI_LOIN + distanceGare * FACTEUR_LOIN
+    this.rangee.x = POSITION_A_QUAI + distanceGare
   }
 
   cadrer(frame: Frame, resolution: number): void {
     const parCadre = frame.scale * resolution
-    if (parCadre === this.parCadre && this.poteauxProche) return
+    if (parCadre === this.parCadre && this.poteaux) return
     this.parCadre = parCadre
-    this.poteauxProche = this.cuirePoteaux(this.proche, this.poteauxProche)
-    this.poteauxLoin = this.cuirePoteaux(this.loin, this.poteauxLoin)
+    this.poteaux = this.cuirePoteaux(this.rangee, this.poteaux)
   }
 
   avancer(dt: number): void {
@@ -113,8 +110,7 @@ export class Cables {
     for (const ligne of this.secousses) {
       for (const s of ligne) s.amplitude = amortir(s.amplitude, dt)
     }
-    this.dessinerFils(this.filsProche, 1)
-    this.dessinerFils(this.filsLoin, ECHELLE_LOIN)
+    this.dessinerFils()
   }
 
   /** Quelle travée porte cette abscisse, sans jamais sortir du tableau. */
@@ -126,7 +122,7 @@ export class Cables {
   positionSur(fil: number, abscisse: number): { x: number; y: number } {
     const t = abscisse - Math.floor(abscisse)
     return {
-      x: this.proche.x + abscisse * TRAVEE,
+      x: this.rangee.x + abscisse * TRAVEE,
       y: yFil(fil, t, this.secousses[fil][this.travee(abscisse)], this.horloge),
     }
   }
@@ -143,9 +139,10 @@ export class Cables {
    * vibrer — en cellules tirées sur un bruit **fixe**. Les bouts de l'île se
    * dissolvent au lieu de se couper net : la langue du projet (CONCEPT §2).
    */
-  private dessinerFils(g: Graphics, echelle: number): void {
+  private dessinerFils(): void {
+    const g = this.fils
     g.clear()
-    const cellule = Math.max(1, GRAIN_ECRAN / (this.parCadre * echelle))
+    const cellule = Math.max(1, GRAIN_ECRAN / this.parCadre)
     const longueur = TRAVEE * this.travees
     for (let fil = 0; fil < FILS.length; fil += 1) {
       const bruit = this.bruit[fil]
@@ -174,7 +171,7 @@ export class Cables {
    */
   private cuirePoteaux(parent: Container, ancien: Sprite | null): Sprite | null {
     const k = this.parCadre
-    const marge = u(60)
+    const marge = u(60) + POTEAUX_SEULS * TRAVEE
     const largeur = Math.round((TRAVEE * this.travees + marge * 2) * k)
     const hauteur = Math.round((HORIZON - POTEAU.sommet + u(20)) * k)
     const canvas = document.createElement('canvas')
@@ -205,7 +202,9 @@ export class Cables {
       }
     }
 
-    for (let p = 0; p < POTEAUX; p += 1) {
+    // Les poteaux seuls, de part et d'autre, n'ont pas de fils : ils annoncent
+    // la gare et la referment.
+    for (let p = -POTEAUX_SEULS; p < POTEAUX + POTEAUX_SEULS; p += 1) {
       const x = p * TRAVEE
       masse(x - POTEAU.demiFut, POTEAU.epaule, x + POTEAU.demiFut, HORIZON)
       ligne(x - POTEAU.demiFut, POTEAU.epaule, x - POTEAU.demiFut, HORIZON)

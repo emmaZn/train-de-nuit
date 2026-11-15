@@ -301,7 +301,7 @@ export class Birds {
   private vivre(o: Oiseau): void {
     if (!this.reducedMotion) this.gesticuler(o)
     const p = this.cables.positionSur(o.fil, o.u)
-    o.xIle = p.x - this.cables.decalages.proche
+    o.xIle = p.x - this.cables.decalage
     o.y = p.y
     o.rot = this.reducedMotion ? 0 : Math.sin(this.horloge * 1.7 + o.u) * 0.02
   }
@@ -335,7 +335,7 @@ export class Birds {
   private pirouetter(o: Oiseau): void {
     const k = Math.min(1, o.t / PIROUETTE)
     const p = this.cables.positionSur(o.fil, o.u)
-    o.xIle = p.x - this.cables.decalages.proche
+    o.xIle = p.x - this.cables.decalage
     o.y = p.y - Math.sin(k * Math.PI) * u(10)
     o.rot = k * Math.PI * 2
     if (o.t >= PIROUETTE) {
@@ -367,7 +367,7 @@ export class Birds {
     const cible = this.cables.positionSur(o.fil, o.u)
     const d = o.depart ?? cible
     const x = d.x + (cible.x - d.x) * e
-    o.xIle = x - this.cables.decalages.proche
+    o.xIle = x - this.cables.decalage
     o.y = d.y + (cible.y - d.y) * e - Math.sin(k * Math.PI) * u(40)
     o.sens = cible.x > d.x ? 1 : -1
     this.habiller(o)
@@ -381,7 +381,7 @@ export class Birds {
 
   private poser(o: Oiseau): void {
     const haut = TAILLE_OISEAU * RATIO_POSE
-    const x = o.etat === 'sol' ? this.cables.decalages.proche + o.xIle : o.xIle + this.cables.decalages.proche
+    const x = o.etat === 'sol' ? this.cables.decalage + o.xIle : o.xIle + this.cables.decalage
     // L'ancre est aux pattes : en culbutant, le corps passerait sous le sol.
     o.sprite.position.set(x, o.y - (haut * (1 - Math.cos(o.rot))) / 2)
     o.sprite.rotation = o.rot
@@ -406,7 +406,7 @@ export class Birds {
     for (const o of this.oiseaux) {
       if (o.etat !== 'sol' || o.t > ETOILES) continue
       une = true
-      const cx = this.cables.decalages.proche + o.xIle
+      const cx = this.cables.decalage + o.xIle
       const cy = o.y - TAILLE_OISEAU * 0.42
       for (let i = 0; i < 3; i += 1) {
         const a = this.horloge * 5 + i * 2.09
