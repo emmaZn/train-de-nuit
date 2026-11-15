@@ -53,7 +53,7 @@ fabrique depuis `PTITRAIN_plein`, et la voie depuis la seule qui en contienne un
 # le train : trait à pleine luminosité au gris du massif, une matière dans le
 # corps, et un trait moins troué
 python3 outils/grain_train.py PTITRAIN_plein PTITRAIN_grain_corps \
-  --trait=1,1 --gris=#EDEDED --corps=0.05,0.01 --trous=0.08
+  --trait=1,1 --gris=#EDEDED --corps=0.05,0.01 --trous=0.08 --coupe=492
 cp -r PTITRAIN_grain_blanc/01_rails PTITRAIN_grain_corps/   # ou le bloc ci-dessous
 
 # la voie : déjà grainée, et son grain est dans l'alpha ; la luminance ne
@@ -84,7 +84,13 @@ train ne ressortait pas assez :
   la source : à 18 %, les trous passaient sous le pixel et grisaient le trait au lieu de
   le couper. 8 % le laisse continu.
 
-Les vitres, elles, ne sont **pas** cuites ici : `src/scene/Vitres.ts` les pose au rendu
+`--coupe=492` retire la **fumée dessinée** que portaient les images de la locomotive :
+une bouffée y montait et s'effaçait sur la boucle. `src/scene/Fumee.ts` en pose une
+autre, qui suit la vitesse du train — l'ancienne ne le pouvait pas, et les deux
+ensemble faisaient deux panaches. Rien d'autre ne vit au-dessus de cette ligne : le
+toit de cabine le plus haut est à 495.
+
+Les vitres non plus ne sont cuites ici : `src/scene/Vitres.ts` les pose au rendu
 (voir CONCEPT.md §6).
 
 Trois mesures expliquent ce que fait ce script :

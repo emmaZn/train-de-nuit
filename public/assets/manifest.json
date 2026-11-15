@@ -21,9 +21,9 @@
     "loco": {
       "count": 32,
       "x": 597,
-      "y": 277,
+      "y": 492,
       "width": 1341,
-      "height": 666,
+      "height": 451,
       "scale": 0.75,
       "path": "/assets/train/loco/{i}.webp"
     },
@@ -39,9 +39,9 @@
     "loco-start": {
       "count": 43,
       "x": 597,
-      "y": 277,
+      "y": 492,
       "width": 1341,
-      "height": 665,
+      "height": 450,
       "scale": 0.75,
       "path": "/assets/train/loco-start/{i}.webp"
     },
@@ -57,9 +57,9 @@
     "loco-stop": {
       "count": 43,
       "x": 597,
-      "y": 277,
+      "y": 492,
       "width": 1341,
-      "height": 665,
+      "height": 450,
       "scale": 0.75,
       "path": "/assets/train/loco-stop/{i}.webp"
     },
