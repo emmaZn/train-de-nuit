@@ -3,11 +3,13 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick, ref } from 'vue'
 import { describe, expect, it } from 'vitest'
+import { createMemoryHistory } from 'vue-router'
 
 import PanneauDeparts from '@/components/PanneauDeparts.vue'
 import { FRAME_KEY } from '@/composables/useScene'
 import { fitStage } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
+import { createAppRouter } from '@/router'
 import { PIECES } from '@/scene/quai'
 import { useVoyage } from '@/stores/voyage'
 
@@ -24,7 +26,11 @@ function monter(etat: 'ailleurs' | 'ici' | 'enRoute' = 'ailleurs', frame: Frame 
   const cadre = ref<Frame | null>(frame)
   const wrapper = mount(PanneauDeparts, {
     attachTo: document.body,
-    global: { provide: { [FRAME_KEY as symbol]: cadre } },
+    global: {
+      // CV est un RouterLink : pas de rechargement de la page, la scène ne repart pas.
+      plugins: [createAppRouter(createMemoryHistory())],
+      provide: { [FRAME_KEY as symbol]: cadre },
+    },
   })
   return { wrapper, cadre, voyage }
 }

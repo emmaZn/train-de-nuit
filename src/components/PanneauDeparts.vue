@@ -84,8 +84,15 @@ const place = computed(() => {
       </p>
       <ul class="lignes">
         <li v-for="(d, i) in lignes" :key="i">
+          <RouterLink
+            v-if="d.lien === 'cv'"
+            class="ligne reel"
+            :to="CV"
+          >
+            <span>{{ d.heure }}</span><span>{{ d.destination }}</span><span>{{ d.statut }}</span>
+          </RouterLink>
           <a
-            v-if="d.lien"
+            v-else-if="d.lien"
             class="ligne reel"
             :href="HREF[d.lien]"
             :target="d.lien === 'linkedin' ? '_blank' : undefined"
