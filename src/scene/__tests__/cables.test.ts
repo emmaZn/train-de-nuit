@@ -12,6 +12,8 @@ import {
   distanceGare,
   RECUL_HORS_CHAMP,
   ancreSuivante,
+  decroitre,
+  revision,
   solRestant,
   solParEtape,
   yCadre,
@@ -206,5 +208,37 @@ describe('solRestant', () => {
 
   it('rend zéro pour une gare déjà passée : c’est l’intégration qui prend le relais', () => {
     expect(solRestant(-1, 0.5, 0, profil)).toBe(0)
+  })
+})
+
+describe('revision', () => {
+  it('ne voit rien à rattraper la première fois', () => {
+    expect(revision(null, 2595, 0)).toBe(0)
+  })
+
+  it('ne voit rien quand l’estimation ne fait que suivre le sol', () => {
+    // C'est le cas courant : à chaque image, ce qui reste décroît exactement
+    // du sol parcouru. Rien n'a été révisé, donc rien à amortir.
+    expect(revision(1000, 980, 20)).toBeCloseTo(0)
+  })
+
+  it('voit la révision quand le profil de l’étape change', () => {
+    // Au clic, l'étape apprend qu'elle va freiner : six cents pixels de moins.
+    expect(revision(3240, 2595 - 20, 20)).toBeCloseTo(-645)
+  })
+})
+
+describe('decroitre', () => {
+  it('ramène l’écart à zéro, sans jamais le dépasser', () => {
+    let e = -645
+    for (let i = 0; i < 300; i += 1) e = decroitre(e, 1 / 60)
+    expect(e).toBeCloseTo(0, 1)
+    expect(e).toBeLessThanOrEqual(0)
+  })
+
+  it('en mange une bonne part en un tiers de seconde', () => {
+    let e = 100
+    for (let i = 0; i < 20; i += 1) e = decroitre(e, 1 / 60)
+    expect(e).toBeLessThan(45)
   })
 })

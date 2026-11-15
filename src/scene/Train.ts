@@ -328,3 +328,14 @@ export class Train {
     this.racine.destroy({ children: true })
   }
 }
+
+/**
+ * Le compteur d'étapes au moment d'un départ.
+ *
+ * À l'arrêt, la phase reste à 1 et le compteur n'a pas bougé : la distance
+ * vaut déjà `base + 1`. Remettre la phase à zéro sans compter cette étape-là
+ * ferait **reculer** la distance d'une étape entière, et tout ce qui la suit
+ * avec — le massif, et l'île de câbles, qui recule d'un écran entier.
+ */
+export const basePourDepart = (legsBase: number, phase: number): number =>
+  phase >= 1 ? legsBase + 1 : legsBase

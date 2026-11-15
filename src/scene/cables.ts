@@ -167,3 +167,23 @@ export function solRestant(
   }
   return sol
 }
+
+/** En combien de secondes l'île rattrape une révision de l'estimation. */
+export const RATTRAPAGE = 0.35
+
+/**
+ * De combien l'estimation vient d'être **révisée**, au-delà du sol parcouru.
+ *
+ * Tant que rien ne change, ce qui reste jusqu'à la gare décroît exactement du
+ * sol parcouru : la révision vaut zéro, et l'île suit le ballast sans traîner
+ * d'un pixel. Elle ne devient non nulle qu'aux discontinuités — au clic sur la
+ * frise, l'étape apprend qu'elle va freiner et raccourcit de six cents pixels.
+ */
+export function revision(cibleAvant: number | null, cible: number, pasDeSol: number): number {
+  if (cibleAvant === null) return 0
+  return cible - (cibleAvant - pasDeSol)
+}
+
+/** Ce qu'il reste d'un écart après `dt`. */
+export const decroitre = (erreur: number, dt: number): number =>
+  erreur * Math.exp(-dt / RATTRAPAGE)

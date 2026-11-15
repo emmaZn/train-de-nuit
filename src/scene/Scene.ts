@@ -12,7 +12,7 @@ import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Birds } from './Birds'
 import { Cables } from './CableLayer'
-import { ancreSuivante, solRestant } from './cables'
+import { ancreSuivante, decroitre, revision, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
 import { Fumee } from './Fumee'
@@ -36,7 +36,7 @@ import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
-import { DEFILEMENT, Train, WAGONS, avancement, wagonX } from './Train'
+import { DEFILEMENT, Train, WAGONS, avancement, basePourDepart, wagonX } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
@@ -148,6 +148,10 @@ export class Scene {
    * ne se prévoit plus, il se compte.
    */
   private solDepuisGare = 0
+
+  /** La dernière cible de l'île, et l'écart qu'on est en train de rattraper. */
+  private cibleCables: number | null = null
+  private ecartCables = 0
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
@@ -397,7 +401,7 @@ export class Scene {
    */
   setGare(gare: Gare): void {
     this.gare = gare
-    this.prochainPlusLoin = this.legsBase + forwardSteps(gare, 'plus-loin')
+    this.prochainPlusLoin = Math.round(this.legsParcourues) + forwardSteps(gare, 'plus-loin')
   }
 
   /**
@@ -498,6 +502,10 @@ export class Scene {
    */
   setVoyage(enRoute: boolean, etapesRestantes: number): void {
     if (enRoute && !this.enRoute) {
+      // L'étape qu'on vient de finir se compte **ici** : la phase reste à 1 à
+      // l'arrêt, et la remettre à zéro sans cela ferait reculer la distance
+      // d'une étape entière — l'île de câbles reculerait d'un écran.
+      this.legsBase = basePourDepart(this.legsBase, this.phase)
       this.phase = 0
       this.profil = { demarrage: true, freinage: etapesRestantes <= 1 }
     }
@@ -624,15 +632,30 @@ export class Scene {
         this.legsParcourues,
       )
       const restant = this.ancrePlusLoin - this.legsParcourues
+      const pas = dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
+      let cible: number
       if (restant > 0) {
         this.solDepuisGare = 0
-        this.cables?.placer(
-          solRestant(Math.ceil(restant), this.avancementEtape, this.etapesRestantes, this.profil),
+        cible = solRestant(
+          Math.ceil(restant),
+          // À l'arrêt l'avancement vaut 1, mais l'étape est déjà comptée :
+          // la reprendre ici l'effacerait une seconde fois.
+          this.enRoute ? this.avancementEtape : 0,
+          this.etapesRestantes,
+          // À l'arrêt, l'étape à venir n'est pas encore décidée : on la prend
+          // telle qu'elle sera au départ, pour que le clic ne révise rien.
+          this.enRoute ? this.profil : { demarrage: true, freinage: true },
         )
       } else {
-        this.solDepuisGare += dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
-        this.cables?.placer(-this.solDepuisGare)
+        this.solDepuisGare += pas
+        cible = -this.solDepuisGare
       }
+      // L'île suit le sol exactement ; seules les **révisions** de
+      // l'estimation s'amortissent, pour qu'une étape qui change de profil ne
+      // la téléporte pas.
+      this.ecartCables = decroitre(this.ecartCables + revision(this.cibleCables, cible, pas), dt)
+      this.cibleCables = cible
+      this.cables?.placer(cible - this.ecartCables)
     }
     this.cables?.avancer(dt)
     this.oiseaux?.avancer(dt)
