@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { Birds, CORPS_MAX, SOL, TAILLE_OISEAU } from '@/scene/Birds'
 import { Cables } from '@/scene/CableLayer'
-import { PLACES_SIMULTANEES } from '@/scene/oiseaux'
+import { PLACES_SIMULTANEES, placesTenables } from '@/scene/oiseaux'
 import { HORIZON } from '@/scene/layout'
 
 function scene(reducedMotion = false) {
@@ -174,5 +174,37 @@ describe('Birds', () => {
     expect(parent.children.length).toBe(1)
     birds.destroy()
     expect(parent.children.length).toBe(0)
+  })
+})
+
+describe('Birds sur un écran étroit', () => {
+  // Un téléphone : la scène est cadrée en « cover » et n'en montre qu'un quart.
+  const CADRE_ETROIT = { scale: 0.694, offsetX: -610, offsetY: 0 }
+  const LARGEUR = 390
+  const xMin = -CADRE_ETROIT.offsetX / CADRE_ETROIT.scale
+  const xMax = (LARGEUR - CADRE_ETROIT.offsetX) / CADRE_ETROIT.scale
+
+  /** Les oiseaux posés sur les fils et visibles à l'écran. */
+  function visibles(birds: Birds) {
+    return birds.corps.children.filter(
+      (c) => c.x >= xMin && c.x <= xMax && c.y < SOL - 100,
+    ).length
+  }
+
+  it('finit par garnir ce qu’on voit, même après des chutes', () => {
+    const { birds } = scene()
+    birds.cadrer(CADRE_ETROIT, 1, LARGEUR)
+    tourner(birds, 30)
+    const attendu = placesTenables((xMax - xMin) / 1124)
+    expect(attendu).toBeGreaterThanOrEqual(3)
+    expect(visibles(birds)).toBeGreaterThanOrEqual(attendu)
+
+    // On les fait tous tomber, puis on laisse les remplaçants venir.
+    for (let i = 0; i < 12; i += 1) {
+      birds.faireTomberUn()
+      tourner(birds, 0.4)
+    }
+    tourner(birds, 40)
+    expect(visibles(birds)).toBeGreaterThanOrEqual(attendu)
   })
 })

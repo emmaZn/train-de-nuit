@@ -216,8 +216,17 @@ export class Birds {
       .map((o) => ({ fil: o.fil, u: o.u }))
   }
 
+  /**
+   * Les oiseaux posés **dans ce qu'on voit**.
+   *
+   * Le quota se compte sur le champ visible, pas sur l'île entière : sur un
+   * téléphone on ne voit qu'un quart des fils, et des oiseaux hors cadre
+   * rempliraient un quota qui n'enverrait jamais personne là où on regarde.
+   */
   private surLesFils(): number {
-    return this.oiseaux.filter((o) => o.etat !== 'sol').length
+    return this.oiseaux.filter(
+      (o) => o.etat !== 'sol' && o.u >= this.champ.uMin && o.u <= this.champ.uMax,
+    ).length
   }
 
   private get places(): number {
