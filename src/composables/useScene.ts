@@ -57,6 +57,9 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
    * that hits nothing closes the bubble by the same road.
    */
   function surAppui(event: PointerEvent) {
+    // Faire tomber un oiseau ne doit pas aussi ouvrir la bulle d'une étoile :
+    // un clic ne fait qu'une chose.
+    if (scene.value?.clicPx(event.clientX, event.clientY)) return
     scene.value?.setPointerPx(event.clientX, event.clientY)
   }
 

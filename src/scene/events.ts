@@ -18,7 +18,11 @@ export type SceneEvents = {
    */
   fond: (hex: string) => void
   starHover: (trace: Trace | null, x: number, y: number) => void
-  birdFell: (x: number, y: number) => void
+  /**
+   * Un oiseau vient d'être lâché. Sans coordonnées : la réplique paraît
+   * toujours au même endroit, en haut au centre (cadrage §7.7).
+   */
+  birdFell: () => void
 }
 
 export type Emitter<E extends Record<string, AnyListener>> = {

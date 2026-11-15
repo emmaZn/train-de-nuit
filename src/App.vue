@@ -3,6 +3,7 @@ import { provide, ref } from 'vue'
 import EyeButton from '@/components/EyeButton.vue'
 import EtoilesListe from '@/components/EtoilesListe.vue'
 import NavFrise from '@/components/NavFrise.vue'
+import RepliquesOiseaux from '@/components/RepliquesOiseaux.vue'
 import StarTooltip from '@/components/StarTooltip.vue'
 import { SCENE_KEY, useScene } from '@/composables/useScene'
 
@@ -17,6 +18,7 @@ provide(SCENE_KEY, scene)
   <canvas ref="canvas" class="scene"></canvas>
   <NavFrise />
   <RouterView />
+  <RepliquesOiseaux />
   <StarTooltip />
   <EtoilesListe />
   <EyeButton :fond="fond" @change="changerFond" />

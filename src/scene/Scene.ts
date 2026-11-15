@@ -10,6 +10,7 @@ import {
 } from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
+import type { Birds } from './Birds'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
 import { Fumee } from './Fumee'
@@ -121,6 +122,10 @@ export class Scene {
   private vitres: Vitres | null = null
   /** La fumée de la locomotive. */
   private fumee: Fumee | null = null
+
+  /** Les bouvreuils de « plus loin ». Peuplés avec le reste du décor. */
+  private oiseaux: Birds | null = null
+  private frameCourante: Frame | null = null
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
@@ -285,6 +290,7 @@ export class Scene {
     // `frame.offsetY` porte le décalage : `cretePx` l'ajoute après `fitStage`,
     // et c'est ce même conteneur qui porte massif, voile, rails et train.
     const { frame, echelle } = cadrageScene(width, height)
+    this.frameCourante = frame
     poserMonde(this.monde, frame)
     // Le ciel vit dans le décor mais compte en pixels d'écran : son
     // contre-transport se refait à chaque cadrage, comme celui du monde.
@@ -336,6 +342,29 @@ export class Scene {
 
   resize(): void {
     this.cadrer()
+  }
+
+  /**
+   * Un clic, en pixels CSS. Rend `true` s'il a touché un oiseau — l'appelant
+   * sait alors qu'il ne doit pas aussi ouvrir la bulle d'une étoile.
+   */
+  clicPx(px: number, py: number): boolean {
+    const f = this.frameCourante
+    if (!f || !this.oiseaux) return false
+    return this.oiseaux.cliquer((px - f.offsetX) / f.scale, (py - f.offsetY) / f.scale)
+  }
+
+  /** Le chemin du clavier : faire tomber un oiseau sans en viser un. */
+  faireTomberUnOiseau(): boolean {
+    return this.oiseaux?.faireTomberUn() ?? false
+  }
+
+  /**
+   * Ce que la prochaine chute doit jouer. Vue le pousse en avance, parce que
+   * la pirouette part avant que la phrase ne soit choisie (cadrage §7.7).
+   */
+  setProchaineVariante(v: { pirouette: boolean; regard: boolean }): void {
+    if (this.oiseaux) this.oiseaux.variante = v
   }
 
   /** The pointer, normalised to -1…1, for the sky parallax. */
