@@ -206,6 +206,8 @@ export class Train {
   private readonly manifest: Manifest
   private etat: TrainState = 'arret'
   private image = 0
+  /** Dernière vitesse calculée, lue par la terre. */
+  private derniereVitesse = 0
 
   constructor(parent: Container, manifest: Manifest) {
     this.manifest = manifest
@@ -230,8 +232,18 @@ export class Train {
     return this.racine
   }
 
+  /** La rame, pour y poser les vitres allumées des wagons et la fumée. */
+  get rameContainer(): Container {
+    return this.rame
+  }
+
   get state(): TrainState {
     return this.etat
+  }
+
+  /** La vitesse courante, 0 à 1 : la terre sous les rails suit la même horloge. */
+  get vitesse(): number {
+    return this.derniereVitesse
   }
 
   async load(): Promise<void> {
@@ -278,6 +290,7 @@ export class Train {
     }
 
     const vitesse = trainSpeed(this.etat, phase)
+    this.derniereVitesse = enRoute ? vitesse : 0
     // Au freinage, les images suivent la distance et non le temps : la roue
     // ralentit avec le sol au lieu de tourner à plein régime jusqu'à se figer.
     const cadence = this.etat === 'freinage' ? vitesse : 1

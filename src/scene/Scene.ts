@@ -1,7 +1,19 @@
 import gsap from 'gsap'
-import { Application, BlurFilter, Container, FillGradient, Graphics, RenderTexture, Sprite } from 'pixi.js'
+import {
+  Application,
+  Container,
+  FillGradient,
+  Graphics,
+  RenderTexture,
+  Sprite,
+  Texture,
+} from 'pixi.js'
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
+import { Terre } from './Terre'
+import { Vitres } from './Vitres'
+import { Fumee } from './Fumee'
+import { GRAIN_ECRAN as REFLET_GRAIN, creerMasque } from './reflet'
 import { Dissolve, grainsDePhrase, poigneeSansAnimation } from './Dissolve'
 import type { Poignee } from './Dissolve'
 import {
@@ -19,15 +31,20 @@ import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
-import { Train, avancement } from './Train'
+import { Train, WAGONS, avancement, wagonX } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
 import type { Manifest, Trace } from './types'
 
-/** The reflection is rendered at half resolution: it is blurred anyway. */
-const REFLET_RESOLUTION = 0.5
-const REFLET_OPACITE = 0.16
+// Le reflet est rendu à la taille du cadre : au demi, l'agrandissement
+// rééchantillonnait son grain binaire en gris.
+/**
+ * Le reflet est rendu à la taille du cadre. Au demi, l'agrandissement
+ * rééchantillonnait son grain binaire en gris — le défaut même que le masque
+ * de `reflet.ts` existe pour éviter.
+ */
+const REFLET_RESOLUTION = 1
 
 /**
  * Pose le conteneur qui porte tout le décor. `frame` vient de `cadrageScene` :
@@ -98,6 +115,14 @@ export class Scene {
   private relief: Relief | null = null
   private train: Train | null = null
   private recolor: Filter | null = null
+  /** La terre sous les rails : devant le reflet, devant le train. */
+  private terre: Terre | null = null
+  /** Les vitres allumées des wagons, dans la rame. */
+  private vitres: Vitres | null = null
+  /** La fumée de la locomotive. */
+  private fumee: Fumee | null = null
+  /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
+  private readonly refletMasque = new Sprite()
 
   private fond = DEFAUT as string
   private phase = 0
@@ -153,9 +178,8 @@ export class Scene {
     this.app.stage.addChild(this.monde, this.dissous)
 
     this.refletSprite.scale.y = -1
-    this.refletSprite.alpha = REFLET_OPACITE
-    this.refletSprite.filters = [new BlurFilter({ strength: 3 })]
-    this.monde.addChild(this.refletSprite, this.decor)
+    this.refletSprite.mask = this.refletMasque
+    this.monde.addChild(this.refletMasque, this.refletSprite, this.decor)
     this.decor.filters = [this.recolor]
 
     this.cadrer()
@@ -180,9 +204,25 @@ export class Scene {
     // trait blanc, et c'est aussi ce qui éteint la poussière près des rails.
     this.decor.addChild(this.voileDuPied())
     this.train = new Train(this.decor, manifest)
+    // Devant la voie et devant le train : c'est le sol sur lequel il roule.
+    this.terre = new Terre(this.decor)
+    this.cadrer()
 
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
     await this.train.load()
+
+    // Les vitres vivent dans la rame, par-dessus les wagons : elles suivent
+    // son échelle et sa place sans rien avoir à recalculer.
+    const spec = manifest.train
+    const positions = Array.from({ length: WAGONS }, (_, i) =>
+      wagonX(spec.loco, spec.wagon, i + 1),
+    )
+    this.vitres = new Vitres(this.train.rameContainer, manifest, positions, this.reducedMotion)
+    // La fumée vit dans la rame : la cheminée est à ses coordonnées
+    // du cadre source, et l'échelle du train s'applique toute seule.
+    // La fumée sort de la cheminée, donc elle vit dans la rame elle aussi.
+    this.fumee = new Fumee(this.train.rameContainer, this.reducedMotion)
+    this.cadrer()
 
     let relief: Relief | null = null
     try {
@@ -212,6 +252,17 @@ export class Scene {
    * recolor filter above turns it into the colour of the night — it follows
    * the eye like everything else.
    */
+  /**
+   * La plus grande texture que le GPU accepte : c'est elle qui décide au bout
+   * de combien de temps la bande de terre se répète. Au repli de 4096 texels,
+   * le motif revient toutes les neuf secondes — soit une fois par étape.
+   */
+  private tailleMaxTexture(): number {
+    const gl = (this.app.renderer as unknown as { gl?: WebGL2RenderingContext }).gl
+    const max = gl?.getParameter(gl.MAX_TEXTURE_SIZE)
+    return typeof max === 'number' && max > 0 ? Math.min(max, 16384) : 4096
+  }
+
   private voileDuPied(): Graphics {
     const c = cadreDegrade(DEGRADE_HAUTEUR)
     const degrade = new FillGradient({
@@ -246,15 +297,39 @@ export class Scene {
     // dissolution en cours doit suivre l'écran.
     for (const d of this.dissolutions) d.resize(width, height)
     this.relief?.cadrer(frame, width, height, this.app.renderer.resolution, echelle)
+    // Le grain de la terre se mesure en texels du rendu : il se refait quand
+    // le cadre ou la densité de pixels change.
+    this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
+    this.vitres?.cadrer(frame, this.app.renderer.resolution)
+    this.fumee?.cadrer(frame, this.app.renderer.resolution)
 
     this.refletTexture?.destroy(true)
     this.refletTexture = RenderTexture.create({
       width: Math.round(STAGE.width * REFLET_RESOLUTION),
       height: Math.round(HORIZON * REFLET_RESOLUTION),
     })
+    // Au plus proche voisin : agrandi, un grain binaire doit le rester.
+    this.refletTexture.source.scaleMode = 'nearest'
     this.refletSprite.texture = this.refletTexture
     this.refletSprite.width = STAGE.width
     this.refletSprite.height = HORIZON
+
+    // Le masque de grain, à la densité de pixels de l'écran.
+    const k = frame.scale * this.app.renderer.resolution
+    const cellule = Math.max(1, Math.round(REFLET_GRAIN * this.app.renderer.resolution))
+    this.refletMasque.texture?.destroy(true)
+    const masque = Texture.from(
+      creerMasque(
+        Math.round(STAGE.width * k),
+        Math.round(HORIZON * k),
+        cellule,
+        k,
+      ),
+    )
+    masque.source.scaleMode = 'nearest'
+    this.refletMasque.texture = masque
+    this.refletMasque.setSize(STAGE.width, HORIZON)
+    this.refletMasque.position.set(0, HORIZON)
     // Retourné sous la voie : le pied du décor touche son reflet.
     this.refletSprite.position.set(0, HORIZON * 2)
   }
@@ -434,6 +509,13 @@ export class Scene {
       if (d.fini) this.dissolutions.delete(d)
     }
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
+    // Même horloge que la voie, à la distance et non au temps.
+    this.terre?.avancer(dt, this.train?.vitesse ?? 0)
+    // Le vacillement suit l'horloge et non la distance : une lampe ne s'arrête
+    // pas quand le train s'arrête.
+    this.vitres?.update(dt)
+    // La fumée dérive avec la vitesse, pas avec l'horloge.
+    this.fumee?.update(dt, this.train?.vitesse ?? 0)
     this.rendreReflet()
   }
 
@@ -455,6 +537,9 @@ export class Scene {
   }
 
   dispose(): void {
+    this.fumee?.destroy()
+    this.vitres?.destroy()
+    this.terre?.destroy()
     this.emitter.clear()
     this.refletTexture?.destroy(true)
     this.relief?.detruire()

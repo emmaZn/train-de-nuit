@@ -76,14 +76,19 @@ export const ECHELLE_MONTAGNES = 2.2
 export const TETE_LOCO = 0.5
 
 /**
- * Height of the veil that puts out the foot of the mountain range, in stage
- * pixels, measured up from the rail line. It is what the train's white line
- * stands out against.
+ * Hauteur du voile qui éteint le pied du massif, en pixels de cadre, mesurée
+ * depuis la ligne de rail. C'est ce sur quoi le trait blanc du train se détache.
+ *
+ * Il valait 380 et fermait à 0,75 : le pied du massif tombait alors exactement
+ * à la couleur du ciel, et le train, n'ayant plus rien à masquer, flottait dans
+ * un trou au lieu de découper une silhouette. Réduit à 230 / 0,40, le relief
+ * reste visible derrière la rame — c'est le corps du train, qui est de la
+ * couleur du fond, qui l'éteint là où il passe.
  */
-export const DEGRADE_HAUTEUR = 380
+export const DEGRADE_HAUTEUR = 230
 
-/** How far the veil closes at the rail line, 0 to 1. */
-export const DEGRADE_OPACITE = 0.75
+/** Jusqu'où le voile se ferme à la ligne de rail, de 0 à 1. */
+export const DEGRADE_OPACITE = 0.4
 
 /**
  * The band the veil covers: full frame width, resting on the rail line and

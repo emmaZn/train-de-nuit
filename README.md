@@ -34,7 +34,7 @@ relief du massif, et les six séquences WebP du train.
 ```bash
 python3 tools/build_assets.py --src ~/projet_zero --out public/assets \
   --carte montagne_hd/tramage/massif-carte.png \
-  --train-src PTITRAIN_grain_blanc --train-scale 0.75
+  --train-src PTITRAIN_grain_corps --train-scale 0.75
 ```
 
 Options : `--carte` (aucune), `--train-src` (`PTITRAIN_grain_vivant`), `--train-scale` (0.5),
@@ -46,12 +46,15 @@ Options : `--carte` (aucune), `--train-src` (`PTITRAIN_grain_vivant`), `--train-
 `--train-src` peut désigner un dossier sans `01_rails` : la voie est alors prise dans
 `PTITRAIN_grain_vivant`, la seule à en contenir une.
 
-Les sources du train ne sont pas livrées telles quelles : `PTITRAIN_grain_blanc` se
+Les sources du train ne sont pas livrées telles quelles : `PTITRAIN_grain_corps` se
 fabrique depuis `PTITRAIN_plein`, et la voie depuis la seule qui en contienne une.
 
 ```bash
-# le train : grain, mais trait laissé à pleine luminosité, au gris du massif
-python3 outils/grain_train.py PTITRAIN_plein PTITRAIN_grain_blanc --trait=1,1 --gris=#EDEDED
+# le train : trait à pleine luminosité au gris du massif, une matière dans le
+# corps, et un trait moins troué
+python3 outils/grain_train.py PTITRAIN_plein PTITRAIN_grain_corps \
+  --trait=1,1 --gris=#EDEDED --corps=0.05,0.01 --trous=0.08 --coupe=492
+cp -r PTITRAIN_grain_blanc/01_rails PTITRAIN_grain_corps/   # ou le bloc ci-dessous
 
 # la voie : déjà grainée, et son grain est dans l'alpha ; la luminance ne
 # portait que l'assombrissement, plafonné à 203. On l'aplatit au même gris.
@@ -62,13 +65,33 @@ from pathlib import Path
 a = np.array(Image.open('PTITRAIN_grain_vivant/01_rails/rails.png').convert('RGBA'))
 a[..., :3] = np.where((a[..., 3] > 0)[..., None], 237, a[..., :3])
 Path('PTITRAIN_grain_blanc/01_rails').mkdir(parents=True, exist_ok=True)
-Image.fromarray(a).save('PTITRAIN_grain_blanc/01_rails/rails.png', optimize=True)
+Image.fromarray(a).save('PTITRAIN_grain_corps/01_rails/rails.png', optimize=True)
 FIN
 ```
 
 Sans `--trait`, l'outil assombrit chaque pixel du trait d'un facteur tiré entre 0,65 et
 0,90 : le train devient gris et s'efface dans la montagne. Le massif n'allume jamais un
 point à mi-teinte, et le train suit la même règle — blanc ou absent.
+
+`--corps=0.05,0.01` et `--trous=0.08` sont venus plus tard, d'un retour qui disait que le
+train ne ressortait pas assez :
+
+- **Le corps était vide.** Il n'avait que 5 % de points, tirés entre 0,25 et 0,55 de
+  luminosité — des mi-teintes, que la décision 12.2 du CONCEPT refuse. `--corps` les
+  passe à pleine luminance et fait varier leur **densité** à la place, de 5 % au toit à
+  1 % au ras des roues : une face éclairée par le ciel, dans la langue du massif.
+- **Les trous ne trouaient plus rien.** Le train est affiché quatre fois plus petit que
+  la source : à 18 %, les trous passaient sous le pixel et grisaient le trait au lieu de
+  le couper. 8 % le laisse continu.
+
+`--coupe=492` retire la **fumée dessinée** que portaient les images de la locomotive :
+une bouffée y montait et s'effaçait sur la boucle. `src/scene/Fumee.ts` en pose une
+autre, qui suit la vitesse du train — l'ancienne ne le pouvait pas, et les deux
+ensemble faisaient deux panaches. Rien d'autre ne vit au-dessus de cette ligne : le
+toit de cabine le plus haut est à 495.
+
+Les vitres non plus ne sont cuites ici : `src/scene/Vitres.ts` les pose au rendu
+(voir CONCEPT.md §6).
 
 Trois mesures expliquent ce que fait ce script :
 
