@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 400 500">
+<g fill="none" stroke="#e6e6ea" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M0.75 499.25 V180 L200 60 L399.25 180 V499.25 Z" fill="#0b0b0c"/>
+<path d="M0.75 180 H399.25"/>
+<path stroke-dasharray="0 19 0 27" d="M106.3 124 H138 M265 124 H296.7 M74.3 148 H138 M273 148 H336.7 M28.3 172 H138 M267 172 H376.7"/>
+<path stroke-dasharray="0 13 0 19" d="M10 192 H390 M17 210 H390 M13 228 H390 M21 246 H390 M15 264 H390 M10 282 H390"/>
+<path stroke-dasharray="0 9 0 12 0 15" d="M10 302 H136 M264 302 H390 M17 317 H136 M271 317 H390 M13 332 H136 M267 332 H390 M21 347 H136 M275 347 H390 M15 362 H136 M269 362 H390 M10 377 H136 M264 377 H390 M17 392 H136 M271 392 H390 M13 407 H136 M267 407 H390 M21 422 H136 M275 422 H390 M15 437 H136 M269 437 H390 M10 452 H136 M264 452 H390 M17 467 H136 M271 467 H390 M13 482 H136 M267 482 H390"/>
+<circle cx="200" cy="120" r="36"/>
+<path d="M200 91 L200 86 M214.5 94.9 L217 90.6 M225.1 105.5 L229.4 103 M229 120 L234 120 M225.1 134.5 L229.4 137 M214.5 145.1 L217 149.4 M200 149 L200 154 M185.5 145.1 L183 149.4 M174.9 134.5 L170.6 137 M171 120 L166 120 M174.9 105.5 L170.6 103 M185.5 94.9 L183 90.6"/>
+<path d="M200 120 L217 111 M200 120 L196 92"/>
+<circle cx="200" cy="120" r="43" stroke-dasharray="0 8"/>
+<circle cx="200" cy="120" r="50" stroke-dasharray="0 12"/>
+<path d="M145 499.25 V350 A55 55 0 0 1 255 350 V499.25"/>
+<path d="M145 350 H255"/>
+<path d="M200 350 L152.4 322.5 M200 350 L247.6 322.5"/>
+<rect x="155" y="362" width="39" height="38" fill="#0b0b0c"/>
+<rect x="206" y="362" width="39" height="38" fill="#0b0b0c"/>
+<rect x="155" y="408" width="39" height="38" fill="#0b0b0c"/>
+<rect x="206" y="408" width="39" height="38" fill="#0b0b0c"/>
+<rect x="155" y="454" width="39" height="38" fill="#0b0b0c"/>
+<rect x="206" y="454" width="39" height="38" fill="#0b0b0c"/>
+<path stroke-dasharray="0 9 0 12" d="M162 375 H187 M160 388 H189 M213 375 H238 M211 388 H240 M162 421 H187 M160 434 H189 M213 421 H238 M211 434 H240 M162 467 H187 M160 480 H189 M213 467 H238 M211 480 H240"/>
+</g>
+</svg>

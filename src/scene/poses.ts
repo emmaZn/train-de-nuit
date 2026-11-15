@@ -95,20 +95,24 @@ function contexte(largeur: number, hauteur: number): CanvasRenderingContext2D | 
 }
 
 /**
- * Une pose, prête à poser : la silhouette aplatie à la couleur du fond — c'est
- * elle qui **éteint** la montagne derrière l'oiseau, comme le corps du train —
- * et le contour en cellules pleines par-dessus.
+ * Une pièce du décor, passée à la matière du projet : la silhouette aplatie à
+ * la couleur du fond — c'est elle qui **éteint** ce qu'il y a derrière, comme
+ * le corps du train — et le contour en cellules pleines par-dessus.
+ *
+ * `ratio` est celui du dessin, hauteur sur largeur : une pose d'oiseau a le
+ * sien (`RATIO_POSE`), le réverbère et le bâtiment du quai ont le leur.
  *
  * Rend `null` plutôt que de lever : sans contexte 2D, la scène garde ses
  * câbles et perd ses oiseaux, elle ne s'arrête pas.
  */
-export async function fabriquerPose(
+export async function fabriquerPiece(
   svg: string,
   largeurCadre: number,
+  ratio: number,
   parCadre: number,
 ): Promise<HTMLCanvasElement | null> {
   const L = Math.max(8, Math.round(largeurCadre * parCadre))
-  const H = Math.max(8, Math.round(largeurCadre * RATIO_POSE * parCadre))
+  const H = Math.max(8, Math.round(largeurCadre * ratio * parCadre))
   const { plein, trait } = separer(svg)
 
   let images: HTMLImageElement[]
@@ -144,4 +148,13 @@ export async function fabriquerPose(
     }
   }
   return sortie.canvas
+}
+
+/** Une pose d'oiseau : la pièce au ratio du cadre des poses, et rien d'autre. */
+export function fabriquerPose(
+  svg: string,
+  largeurCadre: number,
+  parCadre: number,
+): Promise<HTMLCanvasElement | null> {
+  return fabriquerPiece(svg, largeurCadre, RATIO_POSE, parCadre)
 }
