@@ -7,10 +7,12 @@
  * en bas à droite par-dessus le mur.
  *
  * La rame est opaque et s'arrête le nez à `TETE_LOCO × STAGE.width`, en
- * s'allongeant vers l'arrière : elle occupe donc toute la moitié gauche du
- * cadre. Tout le quai se pose à droite de son nez, sans quoi une pièce serait
- * cachée derrière elle à l'arrêt. Le faisceau du réverbère, lui, déborde sur le
- * massif : il se construit à partir de `x`, `pied` et `hauteur`.
+ * s'allongeant vers l'arrière : elle occupe toute la moitié gauche du cadre.
+ * La gare avait d'abord été posée tout entière à droite de son nez ; la
+ * propriétaire l'a décalée vers la gauche (`DECALAGE_GARE`) en acceptant que le
+ * réverbère, voire le banc, passent derrière la rame à l'arrêt. C'est voulu.
+ * Le faisceau du réverbère déborde sur le massif : il se construit à partir de
+ * `x`, `pied` et `hauteur`.
  *
  * Convention : `x` est le centre de la pièce, sauf pour le bâtiment et le
  * panneau, où c'est le bord gauche. `pied` est le `y` du sol de la pièce.
@@ -30,22 +32,53 @@ export const CADRES = {
   reverbere: { largeur: 80, hauteur: 560 },
   banc: { largeur: 280, hauteur: 140 },
   valise: { largeur: 96, hauteur: 80 },
-  batiment: { largeur: 560, hauteur: 500 },
+  batiment: { largeur: 1040, hauteur: 500 },
 } as const
 
+/**
+ * De combien toute la gare est décalée vers la gauche, en pixels de cadre.
+ *
+ * **Le seul nombre à changer** pour la déplacer : réverbère, banc, valise,
+ * bâtiment, panneau et bordure (celle-ci suit `DEBUT_GARE` / `FIN_GARE`) en
+ * dérivent tous, du même déplacement, donc la composition interne ne bouge pas.
+ * Les abscisses de `PIECES` sont écrites à la place d'origine (gare entière à
+ * droite du nez de la loco), moins ce décalage.
+ *
+ * 60 est un premier essai, décidé en regardant la scène tourner (réglage 1) :
+ * la propriétaire demandera plus ou moins. Plus le décalage grandit, plus la
+ * rame cache de la gare à l'arrêt — et c'est permis.
+ */
+export const DECALAGE_GARE = 60
+
+/**
+ * La largeur du bâtiment, en pixels de cadre — à l'échelle 1 de son dessin
+ * (`CADRES.batiment`, `viewBox` de `batiment.svg`). Il s'**étire vers la
+ * gauche** : son bord droit reste là où il était, et le mur passe derrière le
+ * banc, la valise et le réverbère, qui se tiennent devant lui comme sur un vrai
+ * quai. Un second réglage, indépendant de `DECALAGE_GARE`. Le changer demande
+ * de refaire le dessin : le test des `viewBox` le rappelle.
+ */
+export const LARGEUR_BATIMENT = 1040
+
+/** Le bord droit du bâtiment avant décalage : fixe, c'est lui qui ancre le mur. */
+const BORD_DROIT_BATIMENT = 2220
+
 export const PIECES = {
-  reverbere: { x: 1290, pied: HORIZON, hauteur: 560 },
-  // Banc et valise se tiennent entre le réverbère et le bâtiment (§5.4). Tous
-  // deux ont reculé vers la gauche quand le bâtiment s'est élargi : la valise
-  // serait sinon tombée pile devant la porte.
-  banc: { x: 1480, pied: HORIZON, largeur: 280 },
-  valise: { x: 1672, pied: HORIZON, largeur: 96 },
-  batiment: { x: 1660, pied: HORIZON, largeur: 560, hauteur: 500 },
+  reverbere: { x: 1290 - DECALAGE_GARE, pied: HORIZON, hauteur: 560 },
+  // Banc et valise se tiennent **devant** le mur (le bâtiment passe derrière
+  // eux, comme derrière le réverbère). La valise s'arrête avant la porte.
+  banc: { x: 1480 - DECALAGE_GARE, pied: HORIZON, largeur: 280 },
+  valise: { x: 1672 - DECALAGE_GARE, pied: HORIZON, largeur: 96 },
+  batiment: {
+    x: BORD_DROIT_BATIMENT - LARGEUR_BATIMENT - DECALAGE_GARE,
+    pied: HORIZON,
+    largeur: LARGEUR_BATIMENT,
+    hauteur: 500,
+  },
   // En bas à droite, accroché au mur et **débordant à sa droite**, jusque vers
-  // le bord du cadre. À 340 px sur un bâtiment de 400, il avalait la porte
-  // cintrée : il n'en restait que trente pixels. Le bâtiment s'est élargi, la
-  // porte est passée dans sa partie gauche, et les deux se voient côte à côte.
-  panneau: { x: 1950, y: 640, largeur: 340, hauteur: 250 },
+  // le bord du cadre. La porte cintrée est posée entre la valise et lui :
+  // les trois se voient côte à côte, aucun n'avale l'autre.
+  panneau: { x: 1950 - DECALAGE_GARE, y: 640, largeur: 340, hauteur: 250 },
   quai: { y: HORIZON - 24, epaisseur: 24 },
 } as const
 
@@ -60,10 +93,10 @@ const SOMMET_BATIMENT = PIECES.batiment.pied - PIECES.batiment.hauteur
  * avec lui. C'est ce qui permet de vérifier que le panneau ne la recouvre pas
  * sans avoir à rasteriser quoi que ce soit.
  */
-export const PORTE_SVG = { x0: 85, x1: 195 } as const
+export const PORTE_SVG = { x0: 565, x1: 675 } as const
 
 /** L'horloge du pignon, en unités du SVG du bâtiment. */
-export const HORLOGE_SVG = { x: 280, y: 120, rayon: 36 } as const
+export const HORLOGE_SVG = { x: 760, y: 120, rayon: 36 } as const
 
 /** La porte cintrée, en pixels de cadre. */
 export const PORTE = {
@@ -74,10 +107,9 @@ export const PORTE = {
 /**
  * L'horloge du bâtiment, en pixels de cadre.
  *
- * Ses **aiguilles ne sont pas dans le dessin** : elles se tracent au rendu, à
- * la vraie heure (`anglesHorloge`). Le SVG en portait un jeu fixe, retiré —
- * deux jeux d'aiguilles sur un même cadran, c'est le piège du double tracé que
- * le commentaire du grain signale déjà.
+ * **Elle n'est pas dans le dessin** : cadran, halo et aiguilles se tracent au
+ * rendu (`QuaiLayer.ts`), dans la racine allumée — c'est une des lumières de la
+ * gare, et le SVG du bâtiment s'éteint. Le dessin n'en garde que la place.
  */
 export const HORLOGE = {
   x: PIECES.batiment.x + HORLOGE_SVG.x * ECHELLE_BATIMENT,

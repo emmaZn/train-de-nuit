@@ -8,16 +8,20 @@
  * **Deux racines, une seule île.** La règle des lumières (spec §6.3) dit que ce
  * qui s'éteint, c'est tout ce qui n'est pas une lumière. Le banc, la valise, le
  * bâtiment et la bordure s'éteignent : ils vivent dans un groupe filtré. Le
- * réverbère et le cadre du panneau sont des lumières : ils vivent hors de tout
+ * réverbère, le cadre du panneau et l'horloge sont des lumières : ils vivent hors de tout
  * groupe filtré. Mais c'est un seul objet posé sur un seul sol, alors
  * `avancer()` pose la **même abscisse** sur les deux racines : elles défilent
  * d'un seul mouvement, et rien ne peut les désynchroniser.
  *
  * Les lumières se montent **entre le voile du pied et la rame**, et non après
- * les vitres : le quai est derrière le train par construction — c'est la
- * prémisse du test « aucune pièce n'est cachée derrière la rame » de
- * `quai.test.ts` —, et après les vitres le réverbère lui passerait devant à
- * chaque départ.
+ * les vitres : le quai est derrière le train par construction, et après les
+ * vitres le réverbère lui passerait devant à chaque départ. La gare a le droit
+ * de passer en partie derrière la rame (`DECALAGE_GARE`).
+ *
+ * Profondeur : le bâtiment est ajouté en premier à la racine éteinte, donc
+ * **derrière** le banc, la valise et la bordure ; la racine allumée est au-dessus
+ * de l'éteinte, donc le réverbère est devant le mur. Le bâtiment passe derrière
+ * eux tous, ce qu'on a voulu.
  *
  * Les réglages marqués « provisoire » attendent la séance de réglage avec
  * Emmanuelle (spec §7) : taille et place des pièces, densité du grain. Ils sont
@@ -37,14 +41,26 @@ const PIECES_DESSINEES = ['reverbere', 'banc', 'valise', 'batiment'] as const
 export type PieceDessinee = (typeof PIECES_DESSINEES)[number]
 
 /**
- * Ce qui reste allumé. Les trois sources qu'Emmanuelle a arrêtées sont le
- * réverbère et son faisceau, les vitres du train, et le panneau des départs.
- * L'horloge n'en fait pas partie — ses aiguilles s'éteignent avec le mur.
+ * Ce qui reste allumé. Les sources arrêtées par Emmanuelle sont le réverbère et
+ * son faisceau, les vitres du train, le cadre du panneau des départs, et
+ * l'horloge — celle-ci tracée en code (`horloge`), pas dessinée : son cadran
+ * n'est plus dans `batiment.svg`.
  */
 const ALLUMEES: readonly PieceDessinee[] = ['reverbere']
 
 /** Le filet extérieur du panneau, et son cadre intérieur. PROVISOIRE (§7). */
 const PANNEAU_FILET = 8
+
+/**
+ * Le cadran de l'horloge, en fractions de son rayon (celui du disque = 1).
+ * Miroir de l'ancien dessin : graduations de 29 à 34 sur 36, halos à 43 et 50
+ * avec un point toutes les 8 et 12 unités de SVG. PROVISOIRE (§7).
+ */
+const GRADUATION = { de: 29 / 36, a: 34 / 36 } as const
+const HALOS = [
+  { rayon: 43 / 36, pas: 8 },
+  { rayon: 50 / 36, pas: 12 },
+] as const
 
 /** La hauteur de l'en-tête `PROCHAINS DÉPARTS`, sous laquelle court un filet. PROVISOIRE (§7). */
 const PANNEAU_ENTETE = 56
@@ -121,13 +137,13 @@ function rectCellules(
 }
 
 export class Quai {
-  /** Ce qui s'éteint : banc, valise, bâtiment, bordure, aiguilles. */
+  /** Ce qui s'éteint : banc, valise, bâtiment, bordure. */
   private readonly racineEteinte = new Container()
-  /** Ce qui reste allumé : le réverbère, le cadre du panneau. */
+  /** Ce qui reste allumé : le réverbère, le faisceau, le cadre du panneau, l'horloge. */
   private readonly racineAllumee = new Container()
 
   private readonly bordure = new Graphics()
-  private readonly aiguilles = new Graphics()
+  private readonly cadran = new Graphics()
   private readonly cadrePanneau = new Graphics()
   private readonly faisceau: Faisceau
 
@@ -156,8 +172,8 @@ export class Quai {
   constructor(parent: Container, lumieres: Container = parent, reducedMotion = false) {
     parent.addChild(this.racineEteinte)
     lumieres.addChild(this.racineAllumee)
-    this.racineEteinte.addChild(this.bordure, this.aiguilles)
-    this.racineAllumee.addChild(this.cadrePanneau)
+    this.racineEteinte.addChild(this.bordure)
+    this.racineAllumee.addChild(this.cadrePanneau, this.cadran)
     // Le faisceau est dans la racine allumée : il suit l'île, et ne s'éteint pas.
     this.faisceau = new Faisceau(this.racineAllumee, reducedMotion)
     // Tant qu'on ne sait pas où est la gare, l'île n'est nulle part : la scène
@@ -171,6 +187,11 @@ export class Quai {
   /** La racine éteinte, pour les tests de plan. */
   get eteint(): Container {
     return this.racineEteinte
+  }
+
+  /** L'horloge entière (disque, halo, aiguilles), pour les tests de plan. */
+  get horloge(): Graphics {
+    return this.cadran
   }
 
   /** La racine allumée, pour les tests de plan. */
@@ -320,8 +341,12 @@ export class Quai {
   }
 
   /**
-   * Les aiguilles, à la vraie heure. Elles vivent dans la racine **éteinte** :
-   * l'horloge n'est pas une des trois sources de lumière.
+   * L'horloge entière, dans la racine **allumée** : disque, graduations, halo,
+   * aiguilles à la vraie heure. Le halo se fait comme le reste de la scène, en
+   * cellules de grain — des points sur deux cercles, jamais un dégradé. Le
+   * cadran ne change qu'avec le cadrage et les aiguilles qu'à la minute, mais
+   * tout se trace d'un seul `Graphics` : une minute, quelques centaines de
+   * cellules.
    */
   private tracerAiguilles(): void {
     const maintenant = new Date()
@@ -329,19 +354,37 @@ export class Quai {
     if (minute === this.minuteTracee) return
     this.minuteTracee = minute
 
-    const g = this.aiguilles
+    const g = this.cadran
     g.clear()
     const { heures, minutes } = anglesHorloge(maintenant)
     const c = this.cellule
-    const bout = (angle: number, longueur: number) => {
+    const sur = (angle: number, longueur: number) => {
       const r = (angle * Math.PI) / 180
       return { x: HORLOGE.x + Math.sin(r) * longueur, y: HORLOGE.y - Math.cos(r) * longueur }
+    }
+    // Le disque, comme un trait fermé.
+    const tour = Math.max(12, Math.ceil((2 * Math.PI * HORLOGE.rayon) / c))
+    for (let i = 0; i < tour; i += 1) {
+      const p = sur((i / tour) * 360, HORLOGE.rayon)
+      g.rect(p.x - c / 2, p.y - c / 2, c, c)
+    }
+    for (let k = 0; k < 12; k += 1) {
+      const a = sur(k * 30, HORLOGE.rayon * GRADUATION.de)
+      const b = sur(k * 30, HORLOGE.rayon * GRADUATION.a)
+      ligneCellules(g, a.x, a.y, b.x, b.y, c)
+    }
+    for (const halo of HALOS) {
+      const n = Math.round((2 * Math.PI * halo.rayon * HORLOGE.rayon) / (halo.pas * HORLOGE.rayon / 36))
+      for (let i = 0; i < n; i += 1) {
+        const p = sur((i / n) * 360, HORLOGE.rayon * halo.rayon)
+        g.rect(p.x - c / 2, p.y - c / 2, c, c)
+      }
     }
     for (const [angle, part] of [
       [heures, 0.55],
       [minutes, 0.85],
     ] as const) {
-      const f = bout(angle, HORLOGE.rayon * part)
+      const f = sur(angle, HORLOGE.rayon * part)
       ligneCellules(g, HORLOGE.x, HORLOGE.y, f.x, f.y, c)
     }
     g.fill({ color: GRIS })

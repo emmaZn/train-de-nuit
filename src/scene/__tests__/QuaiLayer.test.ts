@@ -6,7 +6,7 @@ import { Quai, anglesHorloge } from '@/scene/QuaiLayer'
 import { fabriquerPiece } from '@/scene/poses'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
-import { PIECES } from '@/scene/quai'
+import { HORLOGE, PIECES } from '@/scene/quai'
 import { DUREE_ETAPE, STAGE } from '@/scene/layout'
 
 vi.mock('@/scene/poses', async (importOriginal) => {
@@ -128,6 +128,37 @@ describe('les plans du quai dans le décor', () => {
     expect(quai).toBeGreaterThan(0)
     expect(quai).toBeLessThan(train)
     expect(source).toContain('plateauFond.addChild(planQuai)')
+  })
+})
+
+describe('l’horloge allumée', () => {
+  /**
+   * L'horloge est une des quatre lumières de la gare : cadran, halo et
+   * aiguilles sont dans la racine allumée, d'un seul tenant. Allumer les
+   * aiguilles sur un cadran éteint serait laid.
+   */
+  it('est tout entière hors de tout filtre, et absente de la racine éteinte', () => {
+    const { quai } = poser()
+    const h = quai.horloge
+    expect(ancetres(h)).toContain(quai.allume)
+    expect(filtresAuDessus(h)).toBe(0)
+    expect(ancetres(h)).not.toContain(quai.eteint)
+  })
+
+  it('porte le halo : son emprise dépasse le disque du cadran', () => {
+    const { quai } = poser()
+    const b = quai.horloge.getLocalBounds()
+    // Le halo extérieur est à 50/36 du rayon du cadran.
+    const rayonHalo = (HORLOGE.rayon * 50) / 36
+    expect(b.minX).toBeLessThanOrEqual(HORLOGE.x - rayonHalo + 1)
+    expect(b.maxX).toBeGreaterThanOrEqual(HORLOGE.x + rayonHalo - 1)
+    expect(b.minY).toBeLessThanOrEqual(HORLOGE.y - rayonHalo + 1)
+    expect(b.maxY).toBeGreaterThanOrEqual(HORLOGE.y + rayonHalo - 1)
+  })
+
+  it('n’est plus dans le dessin du bâtiment, qui s’éteint', () => {
+    const svg = readFileSync('public/assets/ailleurs/batiment.svg', 'utf8')
+    expect(svg).not.toMatch(/<circle[^>]*cx="280"[^>]*cy="120"/)
   })
 })
 

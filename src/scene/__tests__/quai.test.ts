@@ -25,13 +25,26 @@ describe('la géométrie du quai', () => {
     expect(PIECES.panneau.x).toBeGreaterThan(TETE_LOCO * STAGE.width)
   })
 
-  it('aucune pièce n’est cachée derrière la rame à l’arrêt', () => {
-    const nez = TETE_LOCO * STAGE.width
-    expect(PIECES.reverbere.x).toBeGreaterThan(nez)
-    expect(PIECES.banc.x - PIECES.banc.largeur / 2).toBeGreaterThan(nez)
-    expect(PIECES.valise.x - PIECES.valise.largeur / 2).toBeGreaterThan(nez)
-    expect(PIECES.batiment.x).toBeGreaterThan(nez)
+  /**
+   * Ce test affirmait « rien ne se cache derrière le nez de la loco ». La
+   * propriétaire a levé cette contrainte : la gare peut passer derrière la rame,
+   * c'est voulu. On n'affirme donc plus où elle s'arrête, mais ce qui reste
+   * vrai : le mur est plus large que le reste, et banc, valise et réverbère se
+   * tiennent **devant** lui, tout entiers dans son emprise.
+   */
+  it('le bâtiment passe derrière le banc, la valise et le réverbère', () => {
+    const b = PIECES.batiment
+    const gauche = (x: number, largeur: number) => x - largeur / 2
+    const embase = CADRES.reverbere.largeur / 2
+    expect(PIECES.reverbere.x - embase).toBeGreaterThan(b.x)
+    expect(gauche(PIECES.banc.x, PIECES.banc.largeur)).toBeGreaterThan(b.x)
+    expect(gauche(PIECES.valise.x, PIECES.valise.largeur)).toBeGreaterThan(b.x)
+    expect(PIECES.valise.x + PIECES.valise.largeur / 2).toBeLessThan(b.x + b.largeur)
+  })
+
+  it('le bâtiment reste dans le cadre', () => {
     expect(PIECES.batiment.x + PIECES.batiment.largeur).toBeLessThanOrEqual(STAGE.width)
+    expect(DEBUT_GARE).toBeGreaterThanOrEqual(0)
   })
 
   /**
@@ -61,10 +74,16 @@ describe('la géométrie du quai', () => {
     expect(PORTE.x1).toBeLessThanOrEqual(p.x)
   })
 
-  it('la porte est dans la partie gauche du bâtiment', () => {
+  /**
+   * Le mur est large : la porte n'est plus « dans la partie gauche », elle est
+   * posée entre la valise et le panneau, où on la voit — ni cachée derrière la
+   * valise, ni sous le panneau.
+   */
+  it('la porte se voit entre la valise et le panneau', () => {
     const b = PIECES.batiment
     expect(PORTE.x0).toBeGreaterThan(b.x)
-    expect(PORTE.x1).toBeLessThan(b.x + b.largeur / 2)
+    expect(PORTE.x1).toBeLessThan(b.x + b.largeur)
+    expect(PORTE.x0).toBeGreaterThanOrEqual(PIECES.valise.x + PIECES.valise.largeur / 2)
   })
 
   /**
