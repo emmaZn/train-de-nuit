@@ -2,6 +2,13 @@
 <g fill="none" stroke="#e6e6ea" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
 <path d="M0.75 499.25 V180 L200 60 L399.25 180 V499.25 Z" fill="#0b0b0c"/>
 <path d="M0.75 180 H399.25"/>
+<!-- PROVISOIRE. Ce grain est dessiné ici parce que `fabriquerPiece`
+     (src/scene/poses.ts) aplatit la masse au noir du fond au lieu de la
+     tramer : sans ces points, le mur serait le seul trou noir de l'écran.
+     Le jour où la couche de décor produit son propre grain, retirer
+     celui-ci — mur et carreaux — sinon le mur sera grainé deux fois.
+     Il dépend aussi de la résolution : sous un `parCadre` d'environ 0,6,
+     les points tombent sous SEUIL_TRAIT et le mur s'éteint. -->
 <path stroke-dasharray="0 19 0 27" d="M106.3 124 H138 M265 124 H296.7 M74.3 148 H138 M273 148 H336.7 M28.3 172 H138 M267 172 H376.7"/>
 <path stroke-dasharray="0 13 0 19" d="M10 192 H390 M17 210 H390 M13 228 H390 M21 246 H390 M15 264 H390 M10 282 H390"/>
 <path stroke-dasharray="0 9 0 12 0 15" d="M10 302 H136 M264 302 H390 M17 317 H136 M271 317 H390 M13 332 H136 M267 332 H390 M21 347 H136 M275 347 H390 M15 362 H136 M269 362 H390 M10 377 H136 M264 377 H390 M17 392 H136 M271 392 H390 M13 407 H136 M267 407 H390 M21 422 H136 M275 422 H390 M15 437 H136 M269 437 H390 M10 452 H136 M264 452 H390 M17 467 H136 M271 467 H390 M13 482 H136 M267 482 H390"/>
