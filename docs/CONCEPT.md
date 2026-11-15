@@ -16,7 +16,7 @@ Un train roule de nuit, en boucle et toujours dans le même sens, à travers des
 
 - **Poétique et mystérieux** : peu de mots, rien n'est expliqué, on découvre en voyant.
 - **Pas d'égotrip** : le site parle très peu d'Emmanuelle. Le cœur, ce sont les voyageurs.
-- **Une seule touche d'humour** : les oiseaux de « plus loin ». Elle fait contraste avec le reste.
+- **Deux touches d'humour, pas plus** : les oiseaux de « plus loin », qui font contraste avec le reste, et les lignes éteintes du panneau des départs d'« ailleurs » (`L'ENFANCE — ANNULÉ`, `NULLE PART — SUPPRIMÉ`). Celle-ci est une seconde touche, et il vaut mieux le dire que de laisser la promesse fausse : elle est plus mélancolique que drôle, et elle ne fait pas rire — elle fait sourire, à peine, puis le train repart.
 - **Show-off** : la qualité des mouvements, du grain et des transitions *est* la vitrine.
 - **Une seule matière** : nuit, grain, traits fins. Tout ce qui apparaît ou disparaît le fait par **dissolution** (grain qui se défait ou se condense).
 
@@ -38,18 +38,19 @@ ici  →  plus loin  →  là-haut  →  ailleurs  →  (ici …)
 | à venir | anneau vide, opacité 0.7, fondu vers le bord droit |
 
 - **En route** : un marqueur (point + halo + petite icône de loco au-dessus) avance sur la ligne entre la gare quittée et la suivante. Le trajet parcouru est un trait plein qui s'efface vers la gauche ; la voie à venir est plus pâle et se fond à droite.
-- **Routes** : une par gare, pour des liens partageables : `/ici`, `/plus-loin`, `/la-haut`, `/ailleurs`.
+- **Une seule chose n'est pas sur l'horloge du train** : l'heure du panneau des départs d'« ailleurs » et celle de l'horloge du bâtiment. Ce sont la vraie heure ; un panneau de gare qui n'est pas à l'heure n'est pas un panneau de gare. Tout le reste de la scène — frise, massif, décor, assombrissement — suit la distance parcourue.
+- **Routes** : une par gare, pour des liens partageables : `/ici`, `/plus-loin`, `/la-haut`, `/ailleurs`. Plus **une route qui n'est pas une gare** : `/ailleurs/cv`, imbriquée sous « ailleurs » — l'URL dit ce que l'écran montre, une gare avec quelque chose d'ouvert dedans. Aller au CV n'est pas un voyage : le train ne bouge pas, la boucle à sens unique n'est pas concernée. C'est aussi **le seul endroit du site où l'on fait défiler quelque chose** : tout le reste tient en un écran.
 
 ## 4. Les gares
 
-Chaque gare tient en un écran et a **un seul élément qui lui est propre**. Le contenu apparaît quand le train est à quai et disparaît en fondu au départ. On ne dessine **pas** de bâtiment de gare.
+Chaque gare tient en un écran et a **un seul élément qui lui est propre**. Le contenu apparaît quand le train est à quai et disparaît en fondu au départ. « ailleurs » est la seule qui ait un décor à elle : un quai de nuit (§4.4). Les autres n'ont pas de bâtiment de gare.
 
 | Gare | Élément propre | Rôle |
 |---|---|---|
 | **ici** | rien que le ciel | le départ |
 | **plus loin** | câbles électriques + bouvreuils | la récréation, on découvre qui elle est |
 | **là-haut** | formulaire + étoile | laisser une trace |
-| **ailleurs** | poteau indicateur | la retrouver ailleurs (contact) |
+| **ailleurs** | le quai et son panneau des départs | la retrouver ailleurs (contact, CV) |
 
 ### 4.1 ici
 
@@ -132,15 +133,50 @@ Le nom et le titre sont en haut à gauche (comme sur la maquette). La phrase app
 - **Tant qu'un envoi n'est pas réglé**, les deux champs sont en `readonly` : c'est ce qui garantit que le texte enregistré est celui qu'on a vu se défaire, et non une version retouchée entre-temps. Le prix est à dire franchement : hors ligne, l'écriture reste en attente, et les champs peuvent rester verrouillés tant que l'onglet vit. On a préféré cela à une phrase affichée qui ne serait pas celle qui part.
 - Rien n'annonce ce qui va se passer : on comprend en le voyant.
 
-### 4.4 ailleurs — le poteau indicateur
+### 4.4 ailleurs — le quai et le panneau des départs
 
-- Asset `ailleurs/panneau-ailleurs.svg` (cadre 1280 × 832, pied sur les rails à droite du train). Trois flèches, texte JetBrains Mono 12 px espacé :
-  - `LINKEDIN →` ouvre le profil (nouvel onglet)
-  - `← CV` télécharge le CV (PDF)
-  - `ÉCRIRE →` affiche au-dessus du poteau le formulaire de message ; la flèche active passe en blanc (fond clair, texte noir)
-- **Formulaire de message** (même langage que « là-haut ») : `Un message ?`, adresse mail, message, `fermer` / `envoyer ↵`. Ce message est **privé** (il arrive par mail), contrairement à la phrase de « là-haut » qui est publique.
-- Au survol, une flèche oscille légèrement, comme un panneau en bois dans le vent.
+Le cadrage prévoyait un poteau indicateur à trois flèches et un formulaire de message. **Le poteau est abandonné** : il donnait trois liens plantés sur un piquet, et rien d'autre à faire que cliquer. À la place, un **lieu** — un quai de gare de nuit, où l'on s'arrête lire les départs comme on le fait vraiment, et où les trois liens se trouvent sans que rien les annonce (le §2 le demande partout).
+
+- **Le quai.** Un réverbère, un banc, une valise, un grand bâtiment à pignon et la bordure du quai au-dessus des rails. Le bâtiment est large : il court **derrière** le banc, la valise et le réverbère, qui se tiennent devant lui comme sur un vrai quai. Son pignon et sa porte sont centrés ; l'horloge est dans le pignon. Tout est au trait blanc ; les formes sont dessinées à la main en SVG (`public/assets/ailleurs/`), comme les bouvreuils. Les cotes et les places vivent dans `src/scene/quai.ts` et se règlent encore : ce document ne les fige pas.
+- **Pas d'aplat, du grain.** Le site n'allume jamais un point à mi-teinte (§12.2) : la masse du bâtiment est du grain, pas du gris. Le rastériseur n'a pas de trame — il **aplatit** une masse au noir du fond au lieu de la tramer — donc ce grain est dessiné **dans le SVG du bâtiment** (un commentaire XML y explique pourquoi). Il est provisoire, et dépend de la résolution.
+- **Quatre lumières.** À « ailleurs », la scène s'assombrit (§6) ; ce qui reste allumé, c'est ce qui est une lumière : **le réverbère et son faisceau**, **les vitres du train**, **le cadre du panneau** et **l'horloge** du bâtiment. Le réverbère est de plus la seule surface pleinement blanche de la scène : c'est lui, la source.
+- **Le faisceau** n'est pas un cône peint : c'est de la **poussière d'étoiles qui s'allume dans le cône** — même matière que partout, avec sa propre population de grains (celle du ciel y serait trop rare). Il déborde sur le massif derrière, et il passe devant le voile du pied.
+- **Le panneau des départs**, à droite, **sur deux pieds plantés sur le quai** (il n'est pas accroché au mur du bâtiment) :
+
+```
+PROCHAINS DÉPARTS                          21:03
+─────────────────────────────────────────────────
+21:07  LINKEDIN                           QUAI 1
+21:14  CV                                 QUAI 2
+21:22  ÉCRIRE                       EMBARQUEMENT
+21:34  L'ENFANCE                         ANNULÉ
+21:51  NULLE PART                      SUPPRIMÉ
+22:08  LE PRINTEMPS                   À L'HEURE
+```
+
+  - **Les trois premières lignes sont les trois façons de la joindre** :
+    - `LINKEDIN` ouvre le profil dans un nouvel onglet ;
+    - `CV` mène à `/ailleurs/cv` (§4.5) — plus aucun PDF ;
+    - `ÉCRIRE` ouvre un `mailto:`. Il n'y a **pas de formulaire de message** : « ça fait juste un mailto ». L'adresse est assemblée en JavaScript au montage, jamais écrite en clair dans le HTML (les robots ramassent les `mailto:`). Le prix, dit franchement : sans client mail par défaut, on clique et rien de visible ne se passe.
+  - **Au survol et au focus clavier**, la ligne s'inverse : fond clair, texte en couleur de fond.
+  - **Elles ne partent jamais** : toujours « dans quelques minutes » (+4, +11 et +19 minutes de maintenant). Les trois façons de la joindre ne peuvent pas être parties.
+  - **Les trois dernières sont éteintes** et changent à chaque arrivée, tirées d'un vivier fixe (`src/scene/horaires.ts`) — « juste pour faire semblant ». Elles ne bougent pas pendant l'arrêt, pour ne pas distraire. Les horaires passent minuit sans se casser.
+- **Le cadre est du décor, le texte est du contenu.** Le cadre du panneau est dans le canvas : il défile avec le quai, il est reflété dans l'eau. Le texte est du DOM, en JetBrains Mono, posé dessus : le focus clavier, la sélection, le lecteur d'écran et le `mailto:` ne se réimplémentent pas à la main. Il vit **hors des routes**, comme les répliques des oiseaux, et s'efface **sur place** au départ pendant que son cadre s'en va. Au passage sans arrêt, on voit donc défiler un panneau éteint.
+- **La gare qui revient.** « ailleurs » revient tous les quatre trajets et son décor se replace sans qu'on le voie sauter : c'est le mécanisme de l'île de câbles, généralisé à deux îles. Le décor reste là quand le train traverse sans s'arrêter.
+- **Les étoiles derrière le bâtiment sont cachées** tant qu'on est à « ailleurs » : le bâtiment se dessine devant le ciel. Le coût est posé et accepté.
+- **Mobile.** Sur petit écran, le cadre rétrécit et le texte avec lui, jusqu'à devenir illisible. Ce n'est pas réglé : étape 5.
 - C'est la dernière gare : le prochain arrêt est « ici ».
+
+### 4.5 ailleurs / cv — le CV, écrit dans le site
+
+Le CV est une **page du site**, dans son design, pas un PDF. Il s'ouvre **dans la gare** : on ne quitte pas « ailleurs », la gare reste derrière, assombrie, son réverbère allumé et son train à quai, et le CV s'écrit par-dessus en dissolution et se referme de même. Arriver directement sur `/ailleurs/cv` pose la gare assombrie, CV ouvert. Le retour mène à `/ailleurs`.
+
+- **La forme : une ligne.** Une voie verticale, chaque entrée est un arrêt dessus : un filet, un point par arrêt. Les postes sont de gros points lumineux avec halo, les diplômes de petites haltes. **Une seule voie, par date, postes et diplômes entrelacés** — ils l'étaient dans la vie.
+- **Trois lignes par arrêt et rien d'autre** : l'intitulé, le lieu, les dates en mono.
+- **Ce qu'Emmanuelle a retiré**, dans le sens du §2 (« pas d'égotrip ») : les descriptions de poste, les langues, la liste d'outils — le portfolio *est* la démonstration technique. Restent, sous la voie, « hors de la voie » (ses passions) puis les coordonnées.
+- **Ce qui n'y est pas** : ni numéro de téléphone ni adresse postale. La page est publique et indexable. On garde le mail et GitHub.
+- **Le contenu** est figé dans un module versionné, `src/contenu/cv.ts` : ses sources (une capture LinkedIn, un PDF de 2021) sont hors du dépôt.
+- **Il défile**, avec une barre fine aux couleurs de la palette plutôt que la barre native.
 
 ## 5. Le ciel des voyageurs
 
@@ -172,17 +208,25 @@ autres. (L'ancienne règle, « halo seulement au-dessus de 0,55 », ne vaut plus
 ## 6. Décor et mouvements
 
 - **Fond** : nuit encre, `#151517` par défaut, avec une poussière d'étoiles. **La couleur de fond change** avec l'icône « œil » en haut à droite (voir « Couleur de fond variable » ci-dessous).
-- **L'ordre des plans** : le massif, puis **le ciel** — poussière et étoiles-voyageuses ensemble —, puis le voile du pied, les rails, le train et la terre. Le ciel passe donc **devant la montagne** : son grain continue sur le flanc au lieu de s'arrêter net sur la silhouette, qui laissait le massif en masse noire au milieu d'un ciel dense. La poussière couvre tout l'écran **jusqu'à la voie**, et le voile du pied, qui passe devant elle, l'éteint doucement en approchant des rails — sans l'éteindre tout à fait : le pied du massif doit rester visible derrière la rame, sans quoi le train, n'ayant plus rien à masquer, flotte dans un trou au lieu d'y découper une silhouette. Sous la voie il n'y a plus de ciel : le reflet ne renvoie ni la poussière ni les étoiles — il renverrait le même grain une seconde fois, et des sosies d'étoiles qui ne répondent à rien.
+- **L'ordre des plans** : le massif, puis **le ciel** — poussière et étoiles-voyageuses ensemble —, puis le **fond du plateau** (le voile du pied, les câbles de « plus loin », le décor éteint du quai d'« ailleurs »), puis les **lumières**, puis le **plateau** (les rails, le train, la terre, les oiseaux), puis les vitres. Le ciel passe donc **devant la montagne** : son grain continue sur le flanc au lieu de s'arrêter net sur la silhouette, qui laissait le massif en masse noire au milieu d'un ciel dense. La poussière couvre tout l'écran **jusqu'à la voie**, et le voile du pied, qui passe devant elle, l'éteint doucement en approchant des rails — sans l'éteindre tout à fait : le pied du massif doit rester visible derrière la rame, sans quoi le train, n'ayant plus rien à masquer, flotte dans un trou au lieu d'y découper une silhouette. Sous la voie il n'y a plus de ciel : le reflet ne renvoie ni la poussière ni les étoiles — il renverrait le même grain une seconde fois, et des sosies d'étoiles qui ne répondent à rien.
+  - **Le décor du quai** (le bâtiment, le banc, la valise, la bordure) est dans le fond du plateau : devant le ciel, derrière la rame. Le bâtiment cache donc les étoiles qui tombent derrière lui, et n'a pas de poussière sur son mur : une maison est pleine, une montagne ne l'est pas.
+  - **Les lumières** — le réverbère et son faisceau, le cadre du panneau, l'horloge — sont dans leur propre plan, **devant le voile du pied** (qui sinon éteindrait le bas du faisceau) et **derrière la rame** (sinon le réverbère lui passerait par-dessus à chaque départ). Les vitres du train, elles, appartiennent à la rame et restent après elle.
+- **L'assombrissement à l'arrivée.** À « ailleurs », la scène s'assombrit pour faire ressortir le faisceau du réverbère ; au départ, elle se rallume.
+  - **S'assombrir, c'est fondre vers la couleur de fond**, jamais vers le gris : le noir *est* la couleur du fond (règle ci-dessous), donc l'assombrissement suit l'œil. Il se fait par **un filtre de luminance par groupe de plans** — le massif, le ciel, les deux moitiés du plateau — et **pas par un voile noir plein cadre** : un conteneur ne protège pas ce qu'il contient, seul un filtre isole son groupe, et un voile aurait aussi assombri tout ce qui est dessiné dessous, lumières comprises. Le ciel descend moins que le reste : assez pour que le faisceau gagne, pas assez pour que les étoiles disparaissent.
+  - **Ce qui s'éteint, c'est tout ce qui n'est pas une lumière.** Les quatre lumières restent à pleine valeur. Le reste descend : le massif, le quai, le banc, la valise, le bâtiment, les rails, le corps du train. La liste des exemptions est donc **un ordre de plans, pas une liste d'objets**. La propriétaire a validé cette règle « pour le moment » : elle se regarde dans la scène et peut encore bouger.
+  - **Sur l'horloge du train** : ça descend pendant le freinage, ça remonte pendant le démarrage — jamais sur une minuterie à part.
+  - **Calculé à partir de l'état du voyage, pas déclenché par un événement** (`nuit.ts`) : arrivée directe sur `/ailleurs` (lien partagé) → sombre dès la première image ; mouvement réduit → un basculement net, sans rampe ; traverser « ailleurs » sans s'arrêter → **pas d'assombrissement** : il est lié à l'arrêt, pas au lieu.
+  - Le dosage — jusqu'où ça descend, en combien de temps — se règle dans la scène en mouvement, pas sur une capture.
 - **Montagnes** : nuage de points / grain. **Elles tournent légèrement quand le train avance**, comme un relief vu depuis un train en marche. Le massif n'est plus une séquence d'images mais un rendu calculé dans le navigateur, depuis la carte de relief (voir §12.1) : la rotation est continue et le grain reste net sur tous les écrans. **Elles tournent avec la distance parcourue, pas avec le temps** : le relief démarre et s'arrête donc avec le train, au lieu de tourner à vitesse constante pendant qu'il freine.
 - **Train** : version **pleine** (il masque le décor derrière lui), et **son corps prend la couleur du fond**, quelle qu'elle soit. Les séquences sont donc prises avec un corps **noir** — `PTITRAIN_grain_blanc`, c'est-à-dire `PTITRAIN_plein` passée au grain avec le trait laissé à pleine luminosité : c'est le rendu qui remplace ce noir par la couleur du moment. La rame est une locomotive et **deux wagons**, attelés tampons contre tampons. Séquences : rouler, démarrer, s'arrêter. Il ralentit longuement à l'approche d'une gare — le freinage prend près de la moitié de l'étape, deux fois plus que le démarrage — s'arrête, puis repart. Les images des roues y avancent avec la **distance** et non avec le temps : elles ralentissent donc avec le sol au lieu de tourner à plein régime jusqu'à se figer.
-- **Les vitres** : les wagons roulent **fenêtres allumées** — ce sont les seules lumières de la scène, et ce sont des voyageurs. Elles ne sont pas cuites dans les images : les deux wagons partagent leurs textures et s'allumeraient donc à l'identique, alors qu'ici chacun a son motif, et **toutes ne sont pas allumées**. Posées au rendu, leur grain se calcule aussi à la densité de pixels de l'écran, au lieu de traverser les deux réductions qui le salissaient. Chaque vitre **vacille** lentement — un seul champ aléatoire tiré une fois, dont le seuil monte et descend, comme le massif ; un bruit neuf à chaque image la ferait bouillir — et de temps en temps l'une d'elles s'éteint ou se rallume. **La cabine du conducteur reste éteinte** : une vitre allumée derrière son dos effacerait ses traits blancs. Autour de chaque vitre, une lueur : c'est **la seule entorse assumée** à « blanc ou absent », un dégradé et non du grain, choisie à l'œil contre un halo en points.
+- **Les vitres** : les wagons roulent **fenêtres allumées** — avec, à « ailleurs », le réverbère, le cadre du panneau et l'horloge, ce sont les seules lumières de la scène, et ce sont les seules qui soient des voyageurs. Elles ne sont pas cuites dans les images : les deux wagons partagent leurs textures et s'allumeraient donc à l'identique, alors qu'ici chacun a son motif, et **toutes ne sont pas allumées**. Posées au rendu, leur grain se calcule aussi à la densité de pixels de l'écran, au lieu de traverser les deux réductions qui le salissaient. Chaque vitre **vacille** lentement — un seul champ aléatoire tiré une fois, dont le seuil monte et descend, comme le massif ; un bruit neuf à chaque image la ferait bouillir — et de temps en temps l'une d'elles s'éteint ou se rallume. **La cabine du conducteur reste éteinte** : une vitre allumée derrière son dos effacerait ses traits blancs. Autour de chaque vitre, une lueur : c'est **la seule entorse assumée** à « blanc ou absent », un dégradé et non du grain, choisie à l'œil contre un halo en points.
 - **La terre** : quelques grains sous les rails, pour que le train repose sur quelque chose au lieu de flotter au bord du reflet. **Rien n'y est rempli** — seulement des points blancs à pleine luminance, dont la densité s'éteint vers le bas, en paquets le long de la voie plutôt qu'en voile uniforme. Comme rien n'est opaque, elle se pose sur le haut du reflet et en adoucit la couture au lieu de le recouvrir. Elle file à la vitesse **exacte** de la voie — elle est à la même distance — et à la distance, pas au temps : elle démarre, freine et s'arrête avec le train. Son grain se mesure en **texels du rendu**, comme celui du massif, et non en pixels de la source comme celui du train : il garde donc la même taille quelles que soient la fenêtre et la densité de pixels de l'écran.
 - **La fumée** : des **bouffées** rondes sortent de la cheminée l'une après l'autre, enflent, se couchent en arrière selon la vitesse du train, puis se referment. À quai le panache monte droit en se balançant ; en marche il s'étale en chapelet sur les wagons. Chaque bouffée est faite de quelques lobes **tirés une fois à sa naissance** et portés ensuite sans rien retirer au hasard : elle garde sa forme en grandissant au lieu de bouillonner. Elle est de la **couleur du fond**, comme le corps du train : elle cache la montagne au lieu de s'ajouter à son grain. Les images de la locomotive portaient une fumée **dessinée**, qui montait et s'effaçait sur la boucle ; elle est retirée à la fabrication des assets — celle-ci suit la vitesse, l'autre ne le pouvait pas.
 - **Reflet** : sous la voie, le décor et le train retournés. **Atténué par la densité, pas par l'opacité** : le reflet est rendu à pleine force et un masque de grain lui retire des points, de plus en plus en descendant. Ce qui reste garde sa luminance — blanc ou absent — et l'eau se défait en s'éloignant au lieu de pâlir. Il était auparavant à 16 % d'opacité et flouté : la bande occupait 18 % de la hauteur de l'écran pour 0,4 % de couverture, et son atténuation fabriquait exactement les mi-teintes que le projet refuse. La bande sous la voie reste **de la couleur du fond**, comme le reste de la nuit : on a essayé de l'assombrir, mais cela ne fait que donner plus de contraste aux points, qui ressortent alors trop en bas. Ce sont l'extinction du reflet et le **grisement de ses points** qui vident le bas de l'écran : ils se raréfient en descendant, et ce qui reste s'éteint vers le fond. C'est la seule mi-teinte assumée ici — des points aussi blancs tout en bas que contre la voie ressortaient trop.
 - **Grain** : partout, la même matière que les montagnes.
 - **Mouvements** : lents, comme un souffle. Pas d'à-coups mécaniques — la vitesse du train monte et descend en courbe douce, pas en ligne droite, pour que l'accélération elle-même ne saute pas aux transitions.
-- **Typographie** : Inter (Light / Regular) pour les textes, JetBrains Mono pour les petites mentions (frise, compteurs, panneaux).
-- **Couleur de fond variable** — règle unique : **dans tous les assets, le noir devient la couleur du fond.** Le train, les poteaux, le poteau indicateur et le corps des oiseaux sont dessinés avec du noir ; au rendu, ce noir est remplacé par la couleur de fond courante.
+- **Typographie** : Inter (Light / Regular) pour les textes, JetBrains Mono pour les petites mentions (frise, compteurs, panneau des départs).
+- **Couleur de fond variable** — règle unique : **dans tous les assets, le noir devient la couleur du fond.** Le train, les poteaux, le quai d'« ailleurs » et le corps des oiseaux sont dessinés avec du noir ; au rendu, ce noir est remplacé par la couleur de fond courante.
   - En shader (PixiJS / Three.js) : `rgb = mix(uFond, texel.rgb, luminance(texel.rgb))`, alpha inchangé. Le noir devient le fond, le blanc reste blanc, les gris se mélangent.
   - En canvas 2D : sur un canvas hors écran, dessiner l'image, puis `globalCompositeOperation = 'lighten'` et remplir avec la couleur de fond, puis `'destination-in'` et redessiner l'image pour garder sa forme. Mettre en cache le résultat, recalculé seulement quand la couleur change.
   - La couleur est une seule variable (`--fond` côté CSS, `uFond` côté scène), animée en douceur (GSAP, ~1 s) quand on clique sur l'œil.
@@ -218,7 +262,8 @@ Tous dans `~/projet_zero/` (à copier ou convertir dans le dépôt, voir §10) :
 | `oiseaux/bouvreuil-*.svg / .png` | les 8 poses d'origine, **plus utilisées** : dessinées pour l'aplat et la couleur, elles perdaient leur œil en passant au trait |
 | `public/assets/oiseaux/*.svg` | **les cinq poses retenues**, redessinées pour la ligne : `perche`, `perche-ebouriffe`, `sonne`, `vol-haut`, `vol-bas`. Profil strict, silhouette fermée remplie de `#0b0b0c` qui masse comme le train, rien à l'intérieur hors des marques qui portent un sens. Celle qui regarde à gauche est la même, retournée au rendu. viewBox 120 × 90 |
 | `cables/cables-scene.svg / .png`, `cables/poteau.svg` | poteaux + fils, cadre 1280 × 832. Sert de **mesures**, pas de texture : la scène en relit la géométrie et la redessine en points |
-| `ailleurs/panneau-ailleurs.svg` | poteau indicateur, cadre 1280 × 832, une flèche = un groupe (`fleche-linkedin`, `fleche-cv`, `fleche-ecrire`) |
+| `ailleurs/panneau-ailleurs.svg` | le poteau indicateur, **abandonné** (voir §4.4) : on ne s'en sert plus |
+| `public/assets/ailleurs/*.svg` | le quai d'« ailleurs », dessiné pour le projet : `reverbere`, `banc`, `valise`, `batiment`. Au trait blanc ; le grain du bâtiment est dans son SVG |
 | `rails.png` | la voie |
 
 Références visuelles :
@@ -236,10 +281,10 @@ Références visuelles :
 | Timelines | **GSAP** |
 | Utilitaires | **VueUse** (`usePreferredReducedMotion`, `useMouse`, `useRafFn`) |
 | Phrases du ciel | **Firebase** : Firestore + règles de sécurité + **App Check** (reCAPTCHA), plan gratuit Spark |
-| Message privé | **Resend** (fonction serverless de l'hébergeur) ou formulaires Netlify |
+| Message privé | un `mailto:` : rien à héberger |
 | Hébergement | **Vercel** ou **Netlify** |
 
-Principe : **la scène ne connaît pas Vue**. Elle expose des méthodes et émet des événements ; un seul composable fait le pont. Vue gère l'état, les routes et toute la couche HTML (frise, textes, formulaires, poteau indicateur, bulles de survol).
+Principe : **la scène ne connaît pas Vue**. Elle expose des méthodes et émet des événements ; un seul composable fait le pont. Vue gère l'état, les routes et toute la couche HTML (frise, textes, formulaires, panneau des départs, CV, bulles de survol).
 
 ## 9. Architecture
 
@@ -257,6 +302,11 @@ src/
     Terre.ts                les grains sous les rails, pavés et défilant avec la voie
     Vitres.ts               les fenêtres allumées des wagons, leur vacillement et leur lueur
     Fumee.ts                les bouffées de la cheminée
+    quai.ts                 la géométrie du quai d'« ailleurs » : cadres, places, décalage (fonctions pures)
+    QuaiLayer.ts            le quai dans la scène (classe `Quai`) : décor éteint, lumières, horloge
+    Faisceau.ts             le faisceau du réverbère : sa propre poussière
+    horaires.ts             les départs du panneau : vrais, éteints, passage de minuit (fonctions pures)
+    nuit.ts                 l'assombrissement à l'arrivée, calculé depuis l'état du voyage (fonction pure)
     reflet.ts               le masque de grain du reflet, et l'assombrissement de l'eau
     cables.ts               la géométrie des câbles : mesures, flèche, vibration (fonctions pures)
     CableLayer.ts           la rangée dans la scène (classe `Cables`). Pas `Cables.ts` :
@@ -274,6 +324,8 @@ src/
   components/
     NavFrise.vue            la frise en boucle
     StarTooltip.vue         la phrase au survol (ou à l'appui) d'une étoile
+    PanneauDeparts.vue      le texte du panneau d'« ailleurs », **hors des routes** lui aussi
+    CvLigne.vue             le CV, route imbriquée `/ailleurs/cv`
     RepliquesOiseaux.vue    les répliques des bouvreuils et le bouton clavier, **hors des
                             routes** : une phrase doit survivre au départ du train
     EtoilesListe.vue        la liste des étoiles, masquée visuellement
@@ -281,12 +333,15 @@ src/
       GareIci.vue
       GarePlusLoin.vue      répliques des oiseaux (HTML), bouton clavier
       GareLaHaut.vue        formulaire « Laisser une trace ? »
-      GareAilleurs.vue      poteau indicateur (SVG inline) + formulaire de message
+      GareAilleurs.vue      coquille : le CV s'ouvre dedans
+  contenu/
+    liens.ts                LinkedIn, mail (assemblé au montage), page du CV — bouchons
+    cv.ts                   le parcours : données seules
   router/index.ts
   firebase.ts
   App.vue                   <canvas> + couche HTML par-dessus
 public/
-  assets/                   sprite sheets du train, carte de relief, SVG, CV
+  assets/                   sprite sheets du train, carte de relief, SVG
 ```
 
 Contrat de la scène (indicatif) :
@@ -391,7 +446,7 @@ match /traces/{id} {
    jureraient. Et la voie ne fait que 20 px de haut, trop peu pour un tramage. Elle reste
    une bande 2D qui défile, grainée comme le reste.
 4. ~~L'icône « œil »~~ : **décidé** — elle fait défiler un **cycle de couleurs de fond**, et rien d'autre. Palette validée (§6).
-5. **CV** : fichier PDF à fournir. **LinkedIn** : URL à fournir. **Adresse de réception** des messages à fournir.
+5. **Contact** : le formulaire de message est devenu un `mailto:`, et **le PDF du CV disparaît** — le CV est une page du site (§4.5). Restent deux choses, **qui manquent toujours** : **l'adresse mail** (derrière `ÉCRIRE` et au bas du CV) et **l'URL LinkedIn**. Elles sont des **bouchons** dans `src/contenu/liens.ts` — l'adresse est celle d'un CV de 2021, pas une décision — et **rien ne se déploie sans elles**.
 6. **Hébergeur** : Vercel ou Netlify.
 
 ## 13. Étapes
@@ -408,7 +463,8 @@ Chaque étape se termine par une version qui tourne et qu'Emmanuelle valide avan
    - Formulaire et animation de dissolution → étoile.
 3. **plus loin**
    - Câbles (arrivée / départ), bouvreuils, chutes, répliques, envols.
-4. **ici et ailleurs**
-   - Textes d'ici ; poteau indicateur, formulaire de message, envoi par mail.
+4. **ailleurs**
+   - Le quai, le réverbère et son faisceau, le panneau des départs vivant, l'assombrissement à l'arrivée, les trois liens (LinkedIn, CV, `mailto:`), et le CV écrit dans le site (`/ailleurs/cv`).
+   - Les textes d'« ici » en sortent : « ici c'est bon, pas besoin de faire quoi que ce soit pour le moment ».
 5. **Finitions**
    - Mouvement réduit, mobile, clavier, poids des assets, métadonnées et image de partage.
