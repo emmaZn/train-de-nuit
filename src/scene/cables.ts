@@ -187,3 +187,15 @@ export function revision(cibleAvant: number | null, cible: number, pasDeSol: num
 /** Ce qu'il reste d'un écart après `dt`. */
 export const decroitre = (erreur: number, dt: number): number =>
   erreur * Math.exp(-dt / RATTRAPAGE)
+
+/**
+ * Les étapes parcourues, du point de vue de l'île.
+ *
+ * Le compteur s'incrémente à la fin de chaque étape — mais à cette image-là
+ * l'avancement vaut encore 1, et les additionner compterait l'étape deux fois.
+ * On ne prend donc l'avancement que tant que la phase n'est pas close. Au
+ * départ suivant la phase repart de zéro sans que le compteur bouge : la
+ * distance ne recule pas non plus.
+ */
+export const legsDeLIle = (legsIle: number, phase: number, avancementEtape: number): number =>
+  legsIle + (phase >= 1 ? 0 : avancementEtape)

@@ -12,7 +12,7 @@ import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Birds } from './Birds'
 import { Cables } from './CableLayer'
-import { ancreSuivante, decroitre, revision, solRestant } from './cables'
+import { ancreSuivante, decroitre, legsDeLIle, revision, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
 import { Fumee } from './Fumee'
@@ -543,7 +543,7 @@ export class Scene {
   /** Distance parcourue, en étapes : c'est elle qui fait tourner le massif. */
   /** Le compte de l'île, fraction comprise : il ne revient jamais en arrière. */
   private get legsIleParcourues(): number {
-    return this.legsIle + (this.enRoute ? this.avancementEtape : 0)
+    return legsDeLIle(this.legsIle, this.phase, this.avancementEtape)
   }
 
   get legsParcourues(): number {

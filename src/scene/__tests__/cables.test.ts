@@ -13,6 +13,7 @@ import {
   RECUL_HORS_CHAMP,
   ancreSuivante,
   decroitre,
+  legsDeLIle,
   revision,
   solRestant,
   solParEtape,
@@ -240,5 +241,26 @@ describe('decroitre', () => {
     let e = 100
     for (let i = 0; i < 20; i += 1) e = decroitre(e, 1 / 60)
     expect(e).toBeLessThan(45)
+  })
+})
+
+describe('legsDeLIle', () => {
+  it('avance avec l’étape', () => {
+    expect(legsDeLIle(3, 0.4, 0.25)).toBeCloseTo(3.25)
+  })
+
+  it('ne compte pas deux fois l’étape qui vient de finir', () => {
+    // À l'image où l'étape se termine, le compteur vient d'être incrémenté et
+    // l'avancement vaut encore 1. Les additionner ferait sauter l'île d'une
+    // étape entière — ce qu'on voit en arrivant à « ici » après un tour.
+    const avant = legsDeLIle(3, 0.999, 0.999)
+    const apres = legsDeLIle(4, 1, 1)
+    expect(Math.abs(apres - avant)).toBeLessThan(0.01)
+  })
+
+  it('ne recule pas au départ suivant, quand la phase repart de zéro', () => {
+    const arret = legsDeLIle(4, 1, 1)
+    const depart = legsDeLIle(4, 0, 0)
+    expect(depart).toBeCloseTo(arret)
   })
 })
