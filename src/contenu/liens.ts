@@ -8,7 +8,7 @@
 /** BOUCHON — remplacer par l'URL réelle du profil. */
 export const LINKEDIN = 'https://www.linkedin.com/in/bouchon-a-remplacer'
 
-/** La page du CV (route construite à la tâche 9 : le lien est mort jusque-là). */
+/** La page du CV : route imbriquée sous « ailleurs ». */
 export const CV = '/ailleurs/cv'
 
 // BOUCHON — l'adresse réelle est à confirmer. Morceaux séparés : le texte

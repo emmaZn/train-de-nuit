@@ -16,7 +16,7 @@ Un train roule de nuit, en boucle et toujours dans le même sens, à travers des
 
 - **Poétique et mystérieux** : peu de mots, rien n'est expliqué, on découvre en voyant.
 - **Pas d'égotrip** : le site parle très peu d'Emmanuelle. Le cœur, ce sont les voyageurs.
-- **Deux touches d'humour, pas plus** : les oiseaux de « plus loin », qui font contraste avec le reste, et les lignes éteintes du panneau des départs d'« ailleurs » (`L'ENFANCE — ANNULÉ`, `NULLE PART — SUPPRIMÉ`). Celle-ci est une seconde touche, et il vaut mieux le dire que de laisser la promesse fausse : elle est plus mélancolique que drôle, et elle ne fait pas rire — elle fait sourire, à peine, puis le train repart.
+- **Deux touches d'humour, pas plus** : les oiseaux de « plus loin », qui font contraste avec le reste, et les lignes éteintes du panneau des départs d'« ailleurs » (`L'ENFANCE — ANNULÉ`, `NULLE PART — SUPPRIMÉ`). Ces lignes sont une seconde touche d'humour, à côté des oiseaux : mélancolique plutôt que drôle.
 - **Show-off** : la qualité des mouvements, du grain et des transitions *est* la vitrine.
 - **Une seule matière** : nuit, grain, traits fins. Tout ce qui apparaît ou disparaît le fait par **dissolution** (grain qui se défait ou se condense).
 
@@ -38,7 +38,7 @@ ici  →  plus loin  →  là-haut  →  ailleurs  →  (ici …)
 | à venir | anneau vide, opacité 0.7, fondu vers le bord droit |
 
 - **En route** : un marqueur (point + halo + petite icône de loco au-dessus) avance sur la ligne entre la gare quittée et la suivante. Le trajet parcouru est un trait plein qui s'efface vers la gauche ; la voie à venir est plus pâle et se fond à droite.
-- **Une seule chose n'est pas sur l'horloge du train** : l'heure du panneau des départs d'« ailleurs » et celle de l'horloge du bâtiment. Ce sont la vraie heure ; un panneau de gare qui n'est pas à l'heure n'est pas un panneau de gare. Tout le reste de la scène — frise, massif, décor, assombrissement — suit la distance parcourue.
+- **Rien d'autre ne montre l'heure** : l'heure du panneau des départs d'« ailleurs » et celle de l'horloge du bâtiment sont la vraie heure ; un panneau de gare qui n'est pas à l'heure n'est pas un panneau de gare. Le mouvement du monde — frise, massif, décor, assombrissement — suit la distance parcourue ; seuls les vacillements — vitres, faisceau, étoiles, fumée à quai — vont à l'horloge.
 - **Routes** : une par gare, pour des liens partageables : `/ici`, `/plus-loin`, `/la-haut`, `/ailleurs`. Plus **une route qui n'est pas une gare** : `/ailleurs/cv`, imbriquée sous « ailleurs » — l'URL dit ce que l'écran montre, une gare avec quelque chose d'ouvert dedans. Aller au CV n'est pas un voyage : le train ne bouge pas, la boucle à sens unique n'est pas concernée. C'est aussi **le seul endroit du site où l'on fait défiler quelque chose** : tout le reste tient en un écran.
 
 ## 4. Les gares
@@ -139,7 +139,7 @@ Le cadrage prévoyait un poteau indicateur à trois flèches et un formulaire de
 
 - **Le quai.** Un réverbère, un banc, une valise, un grand bâtiment à pignon et la bordure du quai au-dessus des rails. Le bâtiment est large : il court **derrière** le banc, la valise et le réverbère, qui se tiennent devant lui comme sur un vrai quai. Son pignon et sa porte sont centrés ; l'horloge est dans le pignon. Tout est au trait blanc ; les formes sont dessinées à la main en SVG (`public/assets/ailleurs/`), comme les bouvreuils. Les cotes et les places vivent dans `src/scene/quai.ts` et se règlent encore : ce document ne les fige pas.
 - **Pas d'aplat, du grain.** Le site n'allume jamais un point à mi-teinte (§12.2) : la masse du bâtiment est du grain, pas du gris. Le rastériseur n'a pas de trame — il **aplatit** une masse au noir du fond au lieu de la tramer — donc ce grain est dessiné **dans le SVG du bâtiment** (un commentaire XML y explique pourquoi). Il est provisoire, et dépend de la résolution.
-- **Quatre lumières.** À « ailleurs », la scène s'assombrit (§6) ; ce qui reste allumé, c'est ce qui est une lumière : **le réverbère et son faisceau**, **les vitres du train**, **le cadre du panneau** et **l'horloge** du bâtiment. Le réverbère est de plus la seule surface pleinement blanche de la scène : c'est lui, la source.
+- **Quatre lumières.** À « ailleurs », la scène s'assombrit (§6) ; ce qui reste allumé, c'est ce qui est une lumière : **le réverbère et son faisceau**, **les vitres du train**, **le cadre du panneau** et **l'horloge** du bâtiment. Le réverbère est la source.
 - **Le faisceau** n'est pas un cône peint : c'est de la **poussière d'étoiles qui s'allume dans le cône** — même matière que partout, avec sa propre population de grains (celle du ciel y serait trop rare). Il déborde sur le massif derrière, et il passe devant le voile du pied.
 - **Le panneau des départs**, à droite, **sur deux pieds plantés sur le quai** (il n'est pas accroché au mur du bâtiment) :
 
@@ -160,10 +160,10 @@ PROCHAINS DÉPARTS                          21:03
     - `ÉCRIRE` ouvre un `mailto:`. Il n'y a **pas de formulaire de message** : « ça fait juste un mailto ». L'adresse est assemblée en JavaScript au montage, jamais écrite en clair dans le HTML (les robots ramassent les `mailto:`). Le prix, dit franchement : sans client mail par défaut, on clique et rien de visible ne se passe.
   - **Au survol et au focus clavier**, la ligne s'inverse : fond clair, texte en couleur de fond.
   - **Elles ne partent jamais** : toujours « dans quelques minutes » (+4, +11 et +19 minutes de maintenant). Les trois façons de la joindre ne peuvent pas être parties.
-  - **Les trois dernières sont éteintes** et changent à chaque arrivée, tirées d'un vivier fixe (`src/scene/horaires.ts`) — « juste pour faire semblant ». Elles ne bougent pas pendant l'arrêt, pour ne pas distraire. Les horaires passent minuit sans se casser.
+  - **Les trois dernières sont éteintes** et changent à chaque arrivée, tirées d'un vivier fixe (`src/scene/horaires.ts`) — « juste pour faire semblant ». Les destinations ne changent pas pendant l'arrêt, pour ne pas distraire. Les horaires passent minuit sans se casser.
 - **Le cadre est du décor, le texte est du contenu.** Le cadre du panneau est dans le canvas : il défile avec le quai, il est reflété dans l'eau. Le texte est du DOM, en JetBrains Mono, posé dessus : le focus clavier, la sélection, le lecteur d'écran et le `mailto:` ne se réimplémentent pas à la main. Il vit **hors des routes**, comme les répliques des oiseaux, et s'efface **sur place** au départ pendant que son cadre s'en va. Au passage sans arrêt, on voit donc défiler un panneau éteint.
 - **La gare qui revient.** « ailleurs » revient tous les quatre trajets et son décor se replace sans qu'on le voie sauter : c'est le mécanisme de l'île de câbles, généralisé à deux îles. Le décor reste là quand le train traverse sans s'arrêter.
-- **Les étoiles derrière le bâtiment sont cachées** tant qu'on est à « ailleurs » : le bâtiment se dessine devant le ciel. Le coût est posé et accepté.
+- **Les étoiles derrière le bâtiment sont cachées** tant que le bâtiment est à l'écran : le bâtiment se dessine devant le ciel. Le coût est posé et accepté.
 - **Mobile.** Sur petit écran, le cadre rétrécit et le texte avec lui, jusqu'à devenir illisible. Ce n'est pas réglé : étape 5.
 - C'est la dernière gare : le prochain arrêt est « ici ».
 
