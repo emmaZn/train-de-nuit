@@ -23,7 +23,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   const scene = shallowRef<Scene | null>(null)
   const fond = ref<string>(loadFond())
   const voyage = useVoyage()
-  const { enRoute, etapesRestantes, gare, legs } = storeToRefs(voyage)
+  const { cible, enRoute, etapesRestantes, gare, legs } = storeToRefs(voyage)
   const traces = useTraces()
   const { etoiles } = storeToRefs(traces)
 
@@ -84,7 +84,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     await instance.init()
     instance.setFond(fond.value)
     instance.setGare(gare.value)
-    instance.setVoyage(enRoute.value, etapesRestantes.value)
+    instance.setVoyage(enRoute.value, etapesRestantes.value, cible.value)
     instance.setLegs(legs.value)
     instance.setStars(etoiles.value)
 
@@ -96,8 +96,8 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     // frame où il connaît vraiment ses nouvelles dimensions.
   })
 
-  watch([enRoute, etapesRestantes], ([route, restantes]) => {
-    scene.value?.setVoyage(route, restantes)
+  watch([enRoute, etapesRestantes, cible], ([route, restantes, but]) => {
+    scene.value?.setVoyage(route, restantes, but)
   })
 
   watch(legs, (valeur) => {

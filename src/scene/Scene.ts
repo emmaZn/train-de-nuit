@@ -168,6 +168,8 @@ export class Scene {
   private phase = 0
   private enRoute = false
   private etapesRestantes = 0
+  /** Où va le voyage ; la scène ne s'en sert pas encore (l'assombrissement la lira). */
+  private cible: Gare | null = null
   /** Whole legs travelled; the fraction of the current one is `phase`. */
   private legsBase = 0
   /**
@@ -509,13 +511,14 @@ export class Scene {
    * The journey, as the store sees it. Called again whenever it changes, so a
    * target redirected in flight simply extends the number of legs left.
    */
-  setVoyage(enRoute: boolean, etapesRestantes: number): void {
+  setVoyage(enRoute: boolean, etapesRestantes: number, cible: Gare | null = null): void {
     if (enRoute && !this.enRoute) {
       this.phase = 0
       this.profil = { demarrage: true, freinage: etapesRestantes <= 1 }
     }
     this.enRoute = enRoute
     this.etapesRestantes = etapesRestantes
+    this.cible = cible
 
     // Sans rendu animé — mouvement réduit (CONCEPT.md §11) ou pas de WebGL —
     // l'étape est franchie aussitôt. Sinon `arrived` ne partirait jamais, le
