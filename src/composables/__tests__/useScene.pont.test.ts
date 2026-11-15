@@ -17,6 +17,7 @@ vi.mock('@/scene/Scene', () => ({
   Scene: class {
     setStars = vi.fn()
     setPointerPx = vi.fn()
+    clicPx = vi.fn(() => false)
     setPointer = vi.fn()
     setFond = vi.fn()
     setVoyage = vi.fn()
@@ -112,4 +113,14 @@ test('la nuit se pose au fil du fondu de la scène, et non d’un coup', async (
   expect(abonnement, 'useScene doit suivre le fondu de la scène').toBeDefined()
   ;(abonnement![1] as (hex: string) => void)('#1a120b')
   expect(document.documentElement.style.getPropertyValue('--fond')).toBe('#1a120b')
+})
+
+test('un clic qui touche un oiseau n’ouvre pas aussi la bulle d’une étoile', async () => {
+  await monter()
+  const scene = double.instance!
+  scene.clicPx.mockReturnValue(true)
+  window.dispatchEvent(new PointerEvent('pointerdown', { clientX: 12, clientY: 34 }))
+  await nextTick()
+  expect(scene.clicPx).toHaveBeenCalledWith(12, 34)
+  expect(scene.setPointerPx).not.toHaveBeenCalled()
 })
