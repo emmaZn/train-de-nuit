@@ -80,3 +80,15 @@ export const REGARD = 2.6
  * simplement plus longtemps sous les étoiles que les autres.
  */
 export const dureeAuSol = (regard: boolean): number => ETOILES + (regard ? REGARD : 0)
+
+/** Combien de temps dure un pas sur le fil. */
+export const DUREE_PAS = 0.34
+
+/**
+ * Où en est le pas, de 0 à 1.
+ *
+ * Un oiseau qui change de place sur le fil **marche** : le poser d'un coup à
+ * sa nouvelle place se lit comme une téléportation, pas comme un pas.
+ */
+export const avancementDuPas = (reste: number): number =>
+  1 - Math.max(0, Math.min(1, reste / DUREE_PAS))

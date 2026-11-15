@@ -6,6 +6,8 @@ import {
   PLACES_SIMULTANEES,
   choisirGeste,
   placeLibre,
+  DUREE_PAS,
+  avancementDuPas,
   dureeAuSol,
   poseDuGeste,
   prochainGeste,
@@ -107,5 +109,21 @@ describe('dureeAuSol', () => {
   it('ne fait jamais repartir personne : c’est une durée, pas un retour', () => {
     expect(dureeAuSol(true)).toBeGreaterThan(0)
     expect(Number.isFinite(dureeAuSol(true))).toBe(true)
+  })
+})
+
+describe('avancementDuPas', () => {
+  it('part de zéro et arrive à un', () => {
+    expect(avancementDuPas(DUREE_PAS)).toBeCloseTo(0)
+    expect(avancementDuPas(0)).toBeCloseTo(1)
+  })
+
+  it('ne dépasse jamais, dans un sens ni dans l’autre', () => {
+    expect(avancementDuPas(DUREE_PAS * 2)).toBe(0)
+    expect(avancementDuPas(-1)).toBe(1)
+  })
+
+  it('passe par le milieu à mi-chemin : un pas, pas un bond', () => {
+    expect(avancementDuPas(DUREE_PAS / 2)).toBeCloseTo(0.5)
   })
 })

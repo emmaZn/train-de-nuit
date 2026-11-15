@@ -12,7 +12,9 @@ import type { Frame } from './layout'
 import { u } from './cables'
 import type { Cables } from './CableLayer'
 import {
+  DUREE_PAS,
   PLACES_SIMULTANEES,
+  avancementDuPas,
   choisirGeste,
   dureeAuSol,
   placeLibre,
@@ -24,7 +26,7 @@ import { CADRE_POSE, POSES, RATIO_POSE, fabriquerPose, miroir } from './poses'
 import type { Pose } from './poses'
 
 /** La largeur du cadre d'une pose, en pixels de cadre. */
-export const TAILLE_OISEAU = 80
+export const TAILLE_OISEAU = 72
 
 /** Le sol des corps : dans la bande de terre, pas dans l'eau du reflet. */
 export const SOL = HORIZON + 55
@@ -60,6 +62,10 @@ type Oiseau = {
   sens: 1 | -1
   ebouriffeJusqu: number
   prochainGeste: number
+  /** Le pas en cours sur le fil : d'où il part, où il va, ce qu'il en reste. */
+  pasDepart: number
+  pasCible: number
+  pasReste: number
   depart: { x: number; y: number } | null
   regard: boolean
   sprite: Sprite
@@ -226,6 +232,9 @@ export class Birds {
       sens: this.r() < 0.5 ? -1 : 1,
       ebouriffeJusqu: 0,
       prochainGeste: prochainGeste(this.horloge, this.r),
+      pasDepart: place.u,
+      pasCible: place.u,
+      pasReste: 0,
       depart:
         etat === 'arrivee'
           ? {
@@ -295,7 +304,7 @@ export class Birds {
 
     for (const o of this.oiseaux) {
       o.t += dt
-      if (o.etat === 'pose') this.vivre(o)
+      if (o.etat === 'pose') this.vivre(o, dt)
       else if (o.etat === 'pirouette') this.pirouetter(o)
       else if (o.etat === 'chute') this.tomber(o, dt)
       else if (o.etat === 'arrivee') this.arriver(o)
@@ -306,16 +315,28 @@ export class Birds {
     this.dessinerEtoiles()
   }
 
-  private vivre(o: Oiseau): void {
+  private vivre(o: Oiseau, dt: number): void {
     if (!this.reducedMotion) this.gesticuler(o)
+    let bond = 0
+    if (o.pasReste > 0) {
+      o.pasReste = Math.max(0, o.pasReste - dt)
+      const k = avancementDuPas(o.pasReste)
+      o.u = o.pasDepart + (o.pasCible - o.pasDepart) * k
+      // Un petit saut au milieu : c'est ce qui en fait un pas et non un glissé.
+      bond = Math.sin(k * Math.PI) * u(6)
+      if (o.pasReste === 0) {
+        o.u = o.pasCible
+        this.cables.secouer(o.fil, o.u, u(2.2))
+      }
+    }
     const p = this.cables.positionSur(o.fil, o.u)
     o.xIle = p.x - this.cables.decalage
-    o.y = p.y
+    o.y = p.y - bond
     o.rot = this.reducedMotion ? 0 : Math.sin(this.horloge * 1.7 + o.u) * 0.02
   }
 
   private gesticuler(o: Oiseau): void {
-    if (this.horloge > o.prochainGeste) {
+    if (this.horloge > o.prochainGeste && o.pasReste <= 0) {
       o.prochainGeste = prochainGeste(this.horloge, this.r)
       const geste = choisirGeste(this.r)
       if (geste === 'demi-tour') o.sens = o.sens === 1 ? -1 : 1
@@ -328,9 +349,12 @@ export class Birds {
           (a) => a !== o && a.etat !== 'sol' && a.fil === o.fil && Math.abs(a.u - cible) < 0.12,
         )
         if (!gene) {
-          o.u = cible
-          o.sens = cible > o.u ? 1 : o.sens
-          this.cables.secouer(o.fil, o.u, u(2.2))
+          // Il marche : le poser d'un coup à sa nouvelle place se lit comme
+          // une téléportation, pas comme un pas.
+          o.sens = cible > o.u ? 1 : -1
+          o.pasDepart = o.u
+          o.pasCible = cible
+          o.pasReste = DUREE_PAS
         }
       }
       this.habiller(o)
