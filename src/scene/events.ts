@@ -1,3 +1,4 @@
+import type { Frame } from './layout'
 import type { Trace } from './types'
 
 type AnyListener = (...args: never[]) => void
@@ -17,6 +18,12 @@ export type SceneEvents = {
    * scène, elle, fond sur une seconde (CONCEPT §6).
    */
   fond: (hex: string) => void
+  /**
+   * Le cadre de la scène, à chaque recadrage (redimensionnement compris). Ce
+   * qui est en DOM mais posé *dans* la scène — le texte du panneau — en tire sa
+   * place : `offset + position × scale`.
+   */
+  frame: (frame: Frame) => void
   starHover: (trace: Trace | null, x: number, y: number) => void
   /**
    * Un oiseau vient d'être lâché. Sans coordonnées : la réplique paraît

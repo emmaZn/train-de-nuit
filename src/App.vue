@@ -3,15 +3,17 @@ import { provide, ref } from 'vue'
 import EyeButton from '@/components/EyeButton.vue'
 import EtoilesListe from '@/components/EtoilesListe.vue'
 import NavFrise from '@/components/NavFrise.vue'
+import PanneauDeparts from '@/components/PanneauDeparts.vue'
 import RepliquesOiseaux from '@/components/RepliquesOiseaux.vue'
 import StarTooltip from '@/components/StarTooltip.vue'
-import { SCENE_KEY, useScene } from '@/composables/useScene'
+import { FRAME_KEY, SCENE_KEY, useScene } from '@/composables/useScene'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
-const { scene, fond, changerFond } = useScene(canvas)
+const { scene, fond, frame, changerFond } = useScene(canvas)
 
 // La scène descend aux gares, qui lui demandent une dissolution.
 provide(SCENE_KEY, scene)
+provide(FRAME_KEY, frame)
 </script>
 
 <template>
@@ -19,6 +21,8 @@ provide(SCENE_KEY, scene)
   <NavFrise />
   <RouterView />
   <RepliquesOiseaux />
+  <!-- Hors des routes : il doit pouvoir s'effacer après le changement d'URL. -->
+  <PanneauDeparts />
   <StarTooltip />
   <EtoilesListe />
   <EyeButton :fond="fond" @change="changerFond" />

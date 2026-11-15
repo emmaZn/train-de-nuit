@@ -2,6 +2,7 @@ import { markRaw, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue
 import type { InjectionKey, Ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { Scene } from '@/scene/Scene'
+import type { Frame } from '@/scene/layout'
 import { loadFond, saveFond } from '@/scene/palette'
 import { useTraces } from '@/stores/traces'
 import { useVoyage } from '@/stores/voyage'
@@ -14,6 +15,13 @@ import { useVoyage } from '@/stores/voyage'
 export const SCENE_KEY: InjectionKey<Ref<Scene | null>> = Symbol('scene')
 
 /**
+ * Le cadre de la scène (échelle et décalage du `fitStage`), tel que Vue le
+ * connaît : `null` tant que la scène n'a pas cadré. Ce qui se pose en DOM sur
+ * un point de la scène en tire sa place.
+ */
+export const FRAME_KEY: InjectionKey<Ref<Frame | null>> = Symbol('frame')
+
+/**
  * The one bridge between Vue and the scene. The scene knows nothing of Vue:
  * it is told what the store holds, and it reports back through events.
  */
@@ -22,6 +30,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   // une référence profonde en rendrait un type que `SCENE_KEY` ne reconnaît pas.
   const scene = shallowRef<Scene | null>(null)
   const fond = ref<string>(loadFond())
+  const frame = shallowRef<Frame | null>(null)
   const voyage = useVoyage()
   const { cible, enRoute, etapesRestantes, gare, legs } = storeToRefs(voyage)
   const traces = useTraces()
@@ -75,6 +84,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     detacher.push(instance.on('progress', (p) => voyage.setProgression(p)))
     detacher.push(instance.on('arrived', () => voyage.finirEtape()))
     detacher.push(instance.on('fond', poserFond))
+    detacher.push(instance.on('frame', (f) => { frame.value = f }))
 
     // Registered before the first await: an unmount during `init` runs
     // `onBeforeUnmount` at once, and would find nothing to remove.
@@ -124,5 +134,5 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     scene.value = null
   })
 
-  return { scene, fond, changerFond: appliquerFond }
+  return { scene, fond, frame, changerFond: appliquerFond }
 }

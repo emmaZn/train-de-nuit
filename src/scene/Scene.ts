@@ -456,6 +456,7 @@ export class Scene {
     // et c'est ce même conteneur qui porte massif, voile, rails et train.
     const { frame, echelle } = cadrageScene(width, height)
     this.frameCourante = frame
+    this.emitter.emit('frame', frame)
     poserMonde(this.monde, frame)
     // Le ciel vit dans le décor mais compte en pixels d'écran : son
     // contre-transport se refait à chaque cadrage, comme celui du monde.
