@@ -12,6 +12,7 @@ import {
   distanceGare,
   RECUL_HORS_CHAMP,
   ancreSuivante,
+  solRestant,
   solParEtape,
   yCadre,
   yFil,
@@ -170,5 +171,40 @@ describe('POTEAU', () => {
 
   it('a un bras plus large en haut qu’en bas', () => {
     expect(POTEAU.bras[0].demi).toBeGreaterThan(POTEAU.bras[1].demi)
+  })
+})
+
+describe('solRestant', () => {
+  const profil = { demarrage: true, freinage: true }
+
+  it('est nul quand on est à quai dans la gare', () => {
+    expect(solRestant(0, 0, 0, profil)).toBe(0)
+  })
+
+  it('décroît tout au long de l’étape', () => {
+    const a = solRestant(1, 0, 1, profil)
+    const b = solRestant(1, 0.5, 1, profil)
+    const c = solRestant(1, 1, 1, profil)
+    expect(b).toBeLessThan(a)
+    expect(c).toBeLessThan(b)
+    expect(c).toBeCloseTo(0)
+  })
+
+  it('ne saute pas au passage d’une étape à la suivante', () => {
+    // Fin de la première étape d'un trajet de deux, puis début de la seconde :
+    // c'est là que le profil change, et c'est là que ça sautait.
+    const avant = solRestant(2, 0.999, 2, { demarrage: true, freinage: false })
+    const apres = solRestant(1, 0, 1, { demarrage: false, freinage: true })
+    expect(Math.abs(avant - apres)).toBeLessThan(5)
+  })
+
+  it('compte une étape de passage plus longue qu’une étape qui freine', () => {
+    const passage = solRestant(2, 0, 3, { demarrage: false, freinage: false })
+    const arret = solRestant(2, 0, 2, { demarrage: false, freinage: false })
+    expect(passage).toBeGreaterThan(arret)
+  })
+
+  it('rend zéro pour une gare déjà passée : c’est l’intégration qui prend le relais', () => {
+    expect(solRestant(-1, 0.5, 0, profil)).toBe(0)
   })
 })

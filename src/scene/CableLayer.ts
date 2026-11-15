@@ -56,6 +56,116 @@ function alea(graine: number): () => number {
   }
 }
 
+/** De quoi dessiner un poteau sans savoir sur quoi on dessine. */
+export type Pinceau = {
+  /** Un bloc de la couleur du fond : c'est lui qui éteint la montagne. */
+  masse: (x0: number, y0: number, x1: number, y1: number) => void
+  /** Un trait en points. */
+  ligne: (x0: number, y0: number, x1: number, y1: number) => void
+  /** Un petit bloc plein et clair : un isolateur. */
+  plein: (x0: number, y0: number, x1: number, y1: number) => void
+}
+
+/** Le fût, commun à tous les modèles : masse au milieu, deux arêtes, une pointe. */
+function fut(x: number, p: Pinceau, demi = POTEAU.demiFut): void {
+  p.masse(x - demi, POTEAU.epaule, x + demi, HORIZON)
+  p.ligne(x - demi, POTEAU.epaule, x - demi, HORIZON)
+  p.ligne(x + demi, POTEAU.epaule, x + demi, HORIZON)
+  p.ligne(x - demi, POTEAU.epaule, x, POTEAU.sommet)
+  p.ligne(x, POTEAU.sommet, x + demi, POTEAU.epaule)
+}
+
+/** Les deux isolateurs d'un bras, posés dessus. */
+function isolateurs(x: number, bras: (typeof POTEAU.bras)[number], p: Pinceau): void {
+  for (const cote of [-1, 1]) {
+    const ix = x + cote * bras.isolateurs
+    p.plein(ix - u(2.5), bras.y - u(7), ix + u(2.5), bras.y)
+  }
+}
+
+/**
+ * Quatre façons de tenir deux fils à la même hauteur. Elles ne se départagent
+ * pas en texte : elles se regardent, dans la scène.
+ */
+export const MODELES: { nom: string; dessiner: (x: number, p: Pinceau) => void }[] = [
+  {
+    nom: 'deux bras',
+    dessiner(x, p) {
+      fut(x, p)
+      for (const bras of POTEAU.bras) {
+        p.masse(x - bras.demi, bras.y, x + bras.demi, bras.y + bras.epaisseur)
+        p.ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
+        p.ligne(x - bras.demi, bras.y + bras.epaisseur, x + bras.demi, bras.y + bras.epaisseur)
+        p.ligne(x - bras.demi, bras.y, x - bras.demi, bras.y + bras.epaisseur)
+        p.ligne(x + bras.demi, bras.y, x + bras.demi, bras.y + bras.epaisseur)
+        const pied = bras.y + bras.hauban
+        p.ligne(x - bras.isolateurs + u(8), bras.y + bras.epaisseur, x - POTEAU.demiFut, pied)
+        p.ligne(x + bras.isolateurs - u(8), bras.y + bras.epaisseur, x + POTEAU.demiFut, pied)
+        isolateurs(x, bras, p)
+      }
+    },
+  },
+  {
+    nom: 'treillis',
+    dessiner(x, p) {
+      // Deux montants qui s'écartent vers le bas, croisés de traverses : un
+      // pylône plutôt qu'un poteau.
+      const haut = POTEAU.demiFut
+      const bas = u(14)
+      const ecart = (y: number) =>
+        haut + ((bas - haut) * (y - POTEAU.epaule)) / (HORIZON - POTEAU.epaule)
+      p.masse(x - haut, POTEAU.epaule, x + haut, POTEAU.bras[1].y)
+      for (const cote of [-1, 1]) {
+        p.ligne(x + cote * haut, POTEAU.epaule, x + cote * bas, HORIZON)
+      }
+      p.ligne(x - haut, POTEAU.epaule, x, POTEAU.sommet)
+      p.ligne(x, POTEAU.sommet, x + haut, POTEAU.epaule)
+      const pas = (HORIZON - POTEAU.epaule) / 5
+      for (let i = 0; i < 5; i += 1) {
+        const a = POTEAU.epaule + i * pas
+        const b = a + pas
+        p.ligne(x - ecart(a), a, x + ecart(b), b)
+        p.ligne(x + ecart(a), a, x - ecart(b), b)
+      }
+      for (const bras of POTEAU.bras) {
+        p.ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
+        p.ligne(x - bras.demi, bras.y, x - ecart(bras.y) , bras.y + bras.hauban)
+        p.ligne(x + bras.demi, bras.y, x + ecart(bras.y), bras.y + bras.hauban)
+        isolateurs(x, bras, p)
+      }
+    },
+  },
+  {
+    nom: 'fin',
+    dessiner(x, p) {
+      // Un mât mince, sans bras : les fils se posent sur de courts tenons.
+      fut(x, p, u(2))
+      for (const bras of POTEAU.bras) {
+        for (const cote of [-1, 1]) {
+          const bout = x + cote * bras.isolateurs
+          p.ligne(x + cote * u(2), bras.y + u(2), bout, bras.y + u(2))
+        }
+        isolateurs(x, bras, p)
+      }
+    },
+  },
+  {
+    nom: 'haubané',
+    dessiner(x, p) {
+      // Un mât tenu par deux longs haubans jusqu'au sol, comme un mât de
+      // bateau. Le plus graphique des quatre.
+      fut(x, p, u(2.5))
+      for (const cote of [-1, 1]) {
+        p.ligne(x + cote * u(2.5), POTEAU.epaule + u(6), x + cote * u(46), HORIZON)
+      }
+      for (const bras of POTEAU.bras) {
+        p.ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
+        isolateurs(x, bras, p)
+      }
+    },
+  },
+]
+
 export class Cables {
   private readonly racine = new Container()
   private readonly rangee = new Container()
@@ -76,12 +186,21 @@ export class Cables {
 
   private horloge = 0
   private parCadre = 1
+  private modele = 0
 
   constructor(parent: Container) {
     parent.addChild(this.racine)
     this.racine.addChild(this.rangee)
     this.rangee.addChild(this.fils)
     this.placer(0)
+  }
+
+  /** TEMPORAIRE : comparer les modèles de poteau dans la scène. À retirer. */
+  setModele(index: number): void {
+    const i = Math.max(0, Math.min(MODELES.length - 1, index))
+    if (i === this.modele) return
+    this.modele = i
+    this.poteaux = this.cuirePoteaux(this.rangee, this.poteaux)
   }
 
   get travees(): number {
@@ -221,30 +340,11 @@ export class Cables {
 
     // Les poteaux seuls, de part et d'autre, n'ont pas de fils : ils annoncent
     // la gare et la referment.
+    // Les poteaux seuls, de part et d'autre, n'ont pas de fils : ils annoncent
+    // la gare et la referment.
+    const pinceau: Pinceau = { masse, ligne, plein }
     for (let p = -POTEAUX_SEULS; p < POTEAUX + POTEAUX_SEULS; p += 1) {
-      const x = p * TRAVEE
-      masse(x - POTEAU.demiFut, POTEAU.epaule, x + POTEAU.demiFut, HORIZON)
-      ligne(x - POTEAU.demiFut, POTEAU.epaule, x - POTEAU.demiFut, HORIZON)
-      ligne(x + POTEAU.demiFut, POTEAU.epaule, x + POTEAU.demiFut, HORIZON)
-      ligne(x - POTEAU.demiFut, POTEAU.epaule, x, POTEAU.sommet)
-      ligne(x, POTEAU.sommet, x + POTEAU.demiFut, POTEAU.epaule)
-      for (const bras of POTEAU.bras) {
-        masse(x - bras.demi, bras.y, x + bras.demi, bras.y + bras.epaisseur)
-        ligne(x - bras.demi, bras.y, x + bras.demi, bras.y)
-        ligne(x - bras.demi, bras.y + bras.epaisseur, x + bras.demi, bras.y + bras.epaisseur)
-        ligne(x - bras.demi, bras.y, x - bras.demi, bras.y + bras.epaisseur)
-        ligne(x + bras.demi, bras.y, x + bras.demi, bras.y + bras.epaisseur)
-        // Les haubans, en biais sous le bras : c'est ce qui fait tenir le bras
-        // et ce qui fait qu'un poteau n'est pas une croix.
-        const pied = bras.y + bras.hauban
-        ligne(x - bras.isolateurs + u(8), bras.y + bras.epaisseur, x - POTEAU.demiFut, pied)
-        ligne(x + bras.isolateurs - u(8), bras.y + bras.epaisseur, x + POTEAU.demiFut, pied)
-        // Les isolateurs, deux petits blocs pleins posés sur le bras.
-        for (const cote of [-1, 1]) {
-          const ix = x + cote * bras.isolateurs
-          plein(ix - u(2.5), bras.y - u(7), ix + u(2.5), bras.y)
-        }
-      }
+      MODELES[this.modele].dessiner(p * TRAVEE, pinceau)
     }
 
     const texture = Texture.from(canvas)

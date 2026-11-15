@@ -138,3 +138,32 @@ export function ancreSuivante(
   if (ancre === null) return prochain
   return ancre < parcouru - RECUL_HORS_CHAMP ? prochain : ancre
 }
+
+/**
+ * Le sol qui reste jusqu'à l'arrêt en gare, en pixels de cadre.
+ *
+ * On ne multiplie pas un nombre d'étapes par une longueur moyenne : les étapes
+ * ne font pas la même longueur, et le profil change au passage de l'une à
+ * l'autre — l'île sautait de cette différence à chaque changement de gare. On
+ * additionne donc la fin de l'étape en cours, puis chaque étape entière avec
+ * son propre profil : celle qui finit en gare freine, les autres passent.
+ *
+ * Rend 0 pour une gare déjà dépassée : au-delà, c'est le sol réellement
+ * intégré qui fait foi, et non une prévision.
+ */
+export function solRestant(
+  etapesAvantGare: number,
+  avancementEtape: number,
+  etapesAvantTerminus: number,
+  profil: { demarrage: boolean; freinage: boolean },
+): number {
+  if (etapesAvantGare <= 0) return 0
+  let sol = (1 - avancementEtape) * solParEtape(profil.demarrage, profil.freinage)
+  for (let i = 1; i < etapesAvantGare; i += 1) {
+    // Le train roule déjà : plus de démarrage. Il ne freine que sur l'étape
+    // qui finit en gare, et seulement si c'est là qu'il s'arrête.
+    const derniere = i === etapesAvantGare - 1
+    sol += solParEtape(false, derniere && etapesAvantGare >= etapesAvantTerminus)
+  }
+  return sol
+}

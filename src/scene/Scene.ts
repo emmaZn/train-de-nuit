@@ -11,8 +11,8 @@ import {
 import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Birds } from './Birds'
-import { Cables } from './CableLayer'
-import { ancreSuivante, distanceGare, solParEtape } from './cables'
+import { Cables, MODELES } from './CableLayer'
+import { ancreSuivante, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
 import { Fumee } from './Fumee'
@@ -25,6 +25,7 @@ import {
   DUREE_ETAPE,
   HORIZON,
   STAGE,
+  ECHELLE_TRAIN,
   cadrageScene,
   versCadre,
   cadreDegrade,
@@ -35,7 +36,7 @@ import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
-import { Train, WAGONS, avancement, wagonX } from './Train'
+import { DEFILEMENT, Train, WAGONS, avancement, wagonX } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
@@ -135,6 +136,15 @@ export class Scene {
   /** À quel leg l'île de câbles est accrochée, et où est la prochaine. */
   private ancrePlusLoin: number | null = null
   private prochainPlusLoin = 0
+
+  /**
+   * Le sol réellement parcouru depuis qu'on a dépassé « plus loin ».
+   *
+   * On l'intègre au lieu de le recalculer : une prévision se révise à chaque
+   * changement d'étape, et l'île sautait de la révision. Ce qui est derrière
+   * ne se prévoit plus, il se compte.
+   */
+  private solDepuisGare = 0
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
@@ -386,6 +396,15 @@ export class Scene {
     this.prochainPlusLoin = this.legsBase + forwardSteps(gare, 'plus-loin')
   }
 
+  /** TEMPORAIRE : comparer les modèles de poteau dans la scène. À retirer. */
+  get modelesPoteau(): string[] {
+    return MODELES.map((m) => m.nom)
+  }
+
+  setModelePoteau(index: number): void {
+    this.cables?.setModele(index)
+  }
+
   /** Le chemin du clavier : faire tomber un oiseau sans en viser un. */
   faireTomberUnOiseau(): boolean {
     return this.oiseaux?.faireTomberUn() ?? false
@@ -582,13 +601,16 @@ export class Scene {
       this.prochainPlusLoin,
       this.legsParcourues,
     )
-    this.cables?.placer(
-      distanceGare(
-        this.ancrePlusLoin - this.legsParcourues,
-        0,
-        solParEtape(this.profil.demarrage, this.profil.freinage),
-      ),
-    )
+    const restant = this.ancrePlusLoin - this.legsParcourues
+    if (restant > 0) {
+      this.solDepuisGare = 0
+      this.cables?.placer(
+        solRestant(Math.ceil(restant), this.avancementEtape, this.etapesRestantes, this.profil),
+      )
+    } else {
+      this.solDepuisGare += dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
+      this.cables?.placer(-this.solDepuisGare)
+    }
     this.cables?.avancer(dt)
     this.oiseaux?.avancer(dt)
     // Le vacillement suit l'horloge et non la distance : une lampe ne s'arrête
