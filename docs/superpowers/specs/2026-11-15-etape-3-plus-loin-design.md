@@ -384,7 +384,9 @@ src/components/
 
 ## 12. Ce qui revient à Emmanuelle
 
-- **Régler la taille des poteaux** et le nombre de poteaux seuls de chaque côté.
+- ~~**Régler la taille des poteaux**~~ — tranché le 15/11/2026 : la taille
+  actuelle est gardée telle quelle. Reste le nombre de poteaux seuls de chaque
+  côté.
 - **Regarder le passage des bosses sous la rame.** Le train est fixe à l'écran
   et c'est le sol qui glisse : **toutes** les bosses défilent sous les roues à
   chaque départ et à chaque passage. Si ça se lit comme un écrasement, ce n'est
