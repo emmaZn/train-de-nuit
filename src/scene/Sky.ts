@@ -25,7 +25,7 @@ export function dustCount(viewportW: number, viewportH: number, mobile: boolean)
 }
 
 /** mulberry32: small, fast, and seeded — the same sky on every visit. */
-function alea(graine: number): () => number {
+export function alea(graine: number): () => number {
   let a = graine >>> 0
   return () => {
     a = (a + 0x6d2b79f5) >>> 0

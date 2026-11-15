@@ -28,6 +28,7 @@ import { STAGE } from './layout'
 import type { Frame } from './layout'
 import { CADRES, DEBUT_GARE, FIN_GARE, HORLOGE, PIECES } from './quai'
 import { GRAIN_ECRAN, fabriquerPiece } from './poses'
+import { Faisceau } from './Faisceau'
 
 const GRIS = 0xededed
 
@@ -128,6 +129,7 @@ export class Quai {
   private readonly bordure = new Graphics()
   private readonly aiguilles = new Graphics()
   private readonly cadrePanneau = new Graphics()
+  private readonly faisceau: Faisceau
 
   private readonly svgs = new Map<PieceDessinee, string>()
   private readonly sprites = new Map<PieceDessinee, Sprite>()
@@ -156,6 +158,8 @@ export class Quai {
     lumieres.addChild(this.racineAllumee)
     this.racineEteinte.addChild(this.bordure, this.aiguilles)
     this.racineAllumee.addChild(this.cadrePanneau)
+    // Le faisceau est dans la racine allumée : il suit l'île, et ne s'éteint pas.
+    this.faisceau = new Faisceau(this.racineAllumee)
     // Tant qu'on ne sait pas où est la gare, l'île n'est nulle part : la scène
     // tourne sa première image avant que Vue ne lui dise d'où l'on part, et
     // une île qui se pose quand même s'ancre à quai — à « ailleurs ».
@@ -224,7 +228,8 @@ export class Quai {
     await this.refaireTextures()
   }
 
-  cadrer(frame: Frame, resolution: number): void {
+  cadrer(frame: Frame, resolution: number, mobile = false): void {
+    this.faisceau.cadrer(frame, mobile)
     const parCadre = frame.scale * resolution
     if (parCadre === this.parCadre && this.sprites.size) return
     this.parCadre = parCadre
@@ -239,11 +244,10 @@ export class Quai {
    * Les deux racines prennent la même abscisse — c'est ce qui fait qu'une île
    * coupée en deux plans reste une seule chose posée sur un seul sol.
    *
-   * **`nuit` ne sert encore à rien ici**, et c'est voulu : les lumières du quai
-   * ne s'éteignent pas, et rien d'autre n'a été arrêté. Le paramètre est gardé
-   * — préfixé, donc explicitement inutilisé — parce que c'est la variable du
-   * faisceau de la tâche 6, qui vivra dans la même racine allumée. Le tenir ici
-   * évite de changer la signature quand il arrivera.
+   * **`nuit` ne sert toujours à rien ici**, et c'est voulu : les lumières du
+   * quai — faisceau compris — ne s'éteignent pas, elles sont hors de tout
+   * filtre, et le faisceau est aussi lumineux de jour que de nuit. Le paramètre
+   * est gardé, préfixé, pour ne pas changer la signature de `avancer`.
    */
   avancer(distance: number, _nuit: number): void {
     this.racineEteinte.x = distance
@@ -254,6 +258,11 @@ export class Quai {
       this.racineAllumee.visible = true
     }
     this.tracerAiguilles()
+  }
+
+  /** Le faisceau respire tout seul : appelée à chaque image, avec le temps écoulé. */
+  animer(dt: number): void {
+    this.faisceau.animer(dt)
   }
 
   /* ------------------------------------------------------------- dessins */

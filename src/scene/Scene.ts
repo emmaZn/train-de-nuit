@@ -471,7 +471,7 @@ export class Scene {
     // le cadre ou la densité de pixels change.
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
     this.cables?.cadrer(frame, this.app.renderer.resolution)
-    this.quai?.cadrer(frame, this.app.renderer.resolution)
+    this.quai?.cadrer(frame, this.app.renderer.resolution, width < 720)
     this.oiseaux?.cadrer(frame, this.app.renderer.resolution, width)
     this.vitres?.cadrer(frame, this.app.renderer.resolution)
     this.fumee?.cadrer(frame, this.app.renderer.resolution)
@@ -825,13 +825,15 @@ export class Scene {
     // pas quand le train s'arrête.
     this.vitres?.update(dt)
     const nuit = this.assombrir()
-    // Le quai suit le sol comme les câbles. La nuit lui est passée pour le
-    // faisceau de la tâche 6 : ses lumières, elles, ne s'éteignent pas.
+    // Le quai suit le sol comme les câbles. La nuit lui est passée mais ses
+    // lumières, faisceau compris, ne s'éteignent pas : elles sont dans `lumieres`.
     // Rien tant qu'on ne sait pas d'où l'on part : une île posée quand même
     // s'ancrerait à « distance zéro », c'est-à-dire à quai, où qu'on soit.
     if (this.ileAilleurs.distance !== null) {
       this.quai?.avancer(this.ileAilleurs.distance, nuit)
     }
+    // Le faisceau respire de lui-même, posé ou non : il est caché avec l'île.
+    this.quai?.animer(dt)
     // La fumée dérive avec la vitesse, pas avec l'horloge.
     this.fumee?.update(dt, this.train?.vitesse ?? 0)
     this.rendreReflet()
