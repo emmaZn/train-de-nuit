@@ -13,6 +13,7 @@ import type { Filter } from 'pixi.js'
 import { loadManifest } from './assets'
 import { Birds } from './Birds'
 import { Cables } from './CableLayer'
+import { Quai } from './QuaiLayer'
 import { ancreSuivante, legsDeLIle, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
@@ -91,7 +92,8 @@ function groupeSombre(label: string): { groupe: Container; filtre: ColorMatrixFi
 
 /**
  * L'ordre des plans du décor, du fond vers l'avant : le massif, puis le ciel,
- * puis le plateau (voile du pied, câbles, rails et train, terre, oiseaux),
+ * puis le **fond du plateau** (voile du pied, câbles, décor éteint du quai),
+ * puis les **lumières**, puis le plateau (rails et train, terre, oiseaux),
  * puis les vitres. Le ciel passe donc **devant** la montagne et **derrière**
  * le train (CONCEPT.md §6).
  *
@@ -100,41 +102,63 @@ function groupeSombre(label: string): { groupe: Container; filtre: ColorMatrixFi
  * attendant.
  *
  * **La règle des lumières** (spec §6.3) : ce qui s'éteint, c'est tout ce qui
- * n'est pas une lumière. Le massif, le ciel et le plateau portent chacun un
- * filtre de luminance — il isole son groupe, ce qu'un rectangle noir plein
- * cadre ne ferait pas : il assombrirait aussi tout ce qui est dessiné
- * dessous. Le filtre de recoloration est sur `decor`, donc il passe après :
- * descendre vers le noir, c'est descendre vers la couleur du fond.
- * Le ciel reçoit `NUIT_CIEL` (le plus léger), le massif et le plateau
+ * n'est pas une lumière. Le massif, le ciel et les deux moitiés du plateau
+ * portent chacun un filtre de luminance — il isole son groupe, ce qu'un
+ * rectangle noir plein cadre ne ferait pas : il assombrirait aussi tout ce qui
+ * est dessiné dessous. Le filtre de recoloration est sur `decor`, donc il
+ * passe après : descendre vers le noir, c'est descendre vers la couleur du
+ * fond. Le ciel reçoit `NUIT_CIEL` (le plus léger), les autres
  * `NUIT_PROFONDEUR`.
  *
- * Les **vitres** sont hors de tout groupe filtré : elles restent allumées.
- * Les tâches 5 et 6 y branchent le cadre du panneau, le réverbère et son
- * faisceau : après `vitres`, jamais dans le massif, le ciel ni le plateau.
+ * **Où vont les lumières.** Ce commentaire a d'abord dit « après `vitres` » :
+ * c'était faux, et le quai l'a montré. Le plateau porte la rame, donc tout ce
+ * qui est monté après `vitres` se dessine **devant le train** — le réverbère
+ * lui serait passé par-dessus à chaque départ d'« ailleurs ». Le plateau est
+ * donc coupé en deux, et `lumieres` se glisse entre les deux moitiés : hors de
+ * tout filtre, **devant** le voile du pied (spec §6.2, pour le faisceau de la
+ * tâche 6) et **derrière** la rame. Les **vitres**, elles, appartiennent à la
+ * rame et restent après elle.
  */
 export function plansDuDecor(decor: Container): {
   massif: Container
   ciel: Container
+  plateauFond: Container
+  lumieres: Container
   plateau: Container
   vitres: Container
-  nuit: { massif: ColorMatrixFilter; ciel: ColorMatrixFilter; plateau: ColorMatrixFilter }
+  nuit: {
+    massif: ColorMatrixFilter
+    ciel: ColorMatrixFilter
+    plateauFond: ColorMatrixFilter
+    plateau: ColorMatrixFilter
+  }
 } {
   const massif = groupeSombre('massif')
   const ciel = groupeSombre('ciel')
+  const plateauFond = groupeSombre('plateau-fond')
+  const lumieres = new Container()
+  lumieres.label = 'lumieres'
   const plateau = groupeSombre('plateau')
   const vitres = new Container()
   vitres.label = 'vitres'
-  decor.addChild(massif.groupe, ciel.groupe, plateau.groupe, vitres)
+  decor.addChild(massif.groupe, ciel.groupe, plateauFond.groupe, lumieres, plateau.groupe, vitres)
   return {
     massif: massif.groupe,
     ciel: ciel.groupe,
+    plateauFond: plateauFond.groupe,
+    lumieres,
     plateau: plateau.groupe,
     vitres,
-    nuit: { massif: massif.filtre, ciel: ciel.filtre, plateau: plateau.filtre },
+    nuit: {
+      massif: massif.filtre,
+      ciel: ciel.filtre,
+      plateauFond: plateauFond.filtre,
+      plateau: plateau.filtre,
+    },
   }
 }
 
-/** Pose la nuit (0 à 1) sur les trois groupes : luminance = 1 - opacité du voile. */
+/** Pose la nuit (0 à 1) sur les groupes filtrés : luminance = 1 - opacité du voile. */
 export function appliquerNuit(plans: ReturnType<typeof plansDuDecor>, nuit: number): void {
   const regler = (f: ColorMatrixFilter, max: number) => {
     const luminance = 1 - opaciteVoile(nuit, max)
@@ -143,10 +167,20 @@ export function appliquerNuit(plans: ReturnType<typeof plansDuDecor>, nuit: numb
   }
   regler(plans.nuit.massif, NUIT_PROFONDEUR)
   regler(plans.nuit.ciel, NUIT_CIEL)
+  regler(plans.nuit.plateauFond, NUIT_PROFONDEUR)
   regler(plans.nuit.plateau, NUIT_PROFONDEUR)
 }
 
 export type SceneOptions = { reducedMotion: boolean }
+
+/**
+ * Où une île est accrochée sur la ligne, et où elle est posée à l'écran.
+ *
+ * Les deux îles — les câbles de « plus loin », le quai d'« ailleurs » — ont
+ * chacune la leur, et la même mécanique les déplace (spec §6.7 : deux ancres,
+ * deux compteurs, une seule géométrie).
+ */
+type Ile = { ancre: number | null; distance: number | null }
 
 export class Scene {
   private readonly canvas: HTMLCanvasElement
@@ -187,14 +221,17 @@ export class Scene {
   /** Les câbles et les bouvreuils de « plus loin ». */
   private cables: Cables | null = null
   private oiseaux: Birds | null = null
+  /** Le quai d'« ailleurs » : la seconde île. */
+  private quai: Quai | null = null
   private frameCourante: Frame | null = null
 
   /** Où le train est, ou d'où il part : le gag n'existe qu'à « plus loin ». */
   private gare: Gare = 'ici'
 
   /** À quel leg l'île de câbles est accrochée, et où est la prochaine. */
-  private ancrePlusLoin: number | null = null
   private prochainPlusLoin: number | null = null
+  /** Et de même pour le quai d'« ailleurs » : deux îles, deux ancres (spec §6.7). */
+  private prochainAilleurs: number | null = null
 
   /**
    * Les étapes franchies, pour l'île de câbles **seule**.
@@ -208,7 +245,17 @@ export class Scene {
   private legsIle = 0
 
   /**
-   * Où l'île est posée, en pixels de cadre devant la gare.
+   * Le même compte, pour le quai — **monotone et à lui**.
+   *
+   * Deux îles, deux compteurs (spec §6.7). Ils avancent au même rythme
+   * aujourd'hui, et c'est tant mieux : ce qui compte est qu'aucune des deux ne
+   * dépende du compteur de l'autre, ni de `legsParcourues` qui recule d'une
+   * étape à chaque départ.
+   */
+  private legsQuai = 0
+
+  /**
+   * Où chaque île est posée, en pixels de cadre devant sa gare.
    *
    * **Elle ne se recalcule pas.** Une île est une chose posée sur le sol :
    * une fois placée, elle suit le sol et rien d'autre. On ne la replace que
@@ -216,7 +263,8 @@ export class Scene {
    * ne la regarde. Toute estimation se révise ; celle-ci ne se révise qu'à
    * l'abri des regards.
    */
-  private distanceCables: number | null = null
+  private readonly ilePlusLoin: Ile = { ancre: null, distance: null }
+  private readonly ileAilleurs: Ile = { ancre: null, distance: null }
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
@@ -300,12 +348,19 @@ export class Scene {
     const fondDuDecor = this.plans.massif
     // Devant le ciel, et donc devant le massif : c'est ce qui détache le
     // trait blanc, et c'est aussi ce qui éteint la poussière près des rails.
-    this.plans.plateau.addChild(this.voileDuPied())
+    this.plans.plateauFond.addChild(this.voileDuPied())
     // Les câbles passent **derrière** la rame et les oiseaux **devant** : sinon
     // la chute traverse la silhouette du train et l'oiseau disparaît à
     // mi-course (cadrage §7.14).
     const planCables = new Container()
-    this.plans.plateau.addChild(planCables)
+    this.plans.plateauFond.addChild(planCables)
+    // Le quai d'« ailleurs » : son décor éteint au fond du plateau, ses
+    // lumières — le réverbère, le cadre du panneau — dans `lumieres`, donc
+    // devant le voile du pied et derrière la rame.
+    const planQuai = new Container()
+    this.plans.plateauFond.addChild(planQuai)
+    this.quai = new Quai(planQuai, this.plans.lumieres)
+    void this.quai.charger()
     this.train = new Train(this.plans.plateau, manifest)
     // Devant la voie et devant le train : c'est le sol sur lequel il roule.
     this.terre = new Terre(this.plans.plateau)
@@ -416,6 +471,7 @@ export class Scene {
     // le cadre ou la densité de pixels change.
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
     this.cables?.cadrer(frame, this.app.renderer.resolution)
+    this.quai?.cadrer(frame, this.app.renderer.resolution)
     this.oiseaux?.cadrer(frame, this.app.renderer.resolution, width)
     this.vitres?.cadrer(frame, this.app.renderer.resolution)
     this.fumee?.cadrer(frame, this.app.renderer.resolution)
@@ -474,6 +530,7 @@ export class Scene {
   setGare(gare: Gare): void {
     this.gare = gare
     this.prochainPlusLoin = this.legsIle + forwardSteps(gare, 'plus-loin')
+    this.prochainAilleurs = this.legsQuai + forwardSteps(gare, 'ailleurs')
   }
 
   /**
@@ -608,6 +665,52 @@ export class Scene {
     return legsDeLIle(this.legsIle, this.phase, this.avancementEtape)
   }
 
+  /** Le même, pour le quai : son propre compteur, jamais celui des câbles. */
+  private get legsQuaiParcourues(): number {
+    return legsDeLIle(this.legsQuai, this.phase, this.avancementEtape)
+  }
+
+  /**
+   * Où une île se pose, cette image-ci. Partagé par les deux : le sol qui reste
+   * jusqu'à sa gare, et non une position absolue — le sol parcouru n'est pas le
+   * même selon qu'on y arrive en une étape ou en deux (cadrage §7.12).
+   *
+   * L'ancre ne change qu'une fois l'île sortie du champ : sinon le décor se
+   * téléporterait de l'autre côté de la boucle au changement de gare. Et on ne
+   * replace l'île que si personne ne peut la voir bouger : jamais posée, ancre
+   * changée, ou entièrement hors champ. Sinon elle suit le sol, et rien que le
+   * sol.
+   */
+  private suivreIle(
+    ile: Ile,
+    prochain: number,
+    parcouru: number,
+    horsChamp: (distance: number) => boolean,
+    dt: number,
+  ): void {
+    const ancreAvant = ile.ancre
+    ile.ancre = ancreSuivante(ile.ancre, prochain, parcouru)
+    const restant = ile.ancre - parcouru
+    const estimation =
+      restant > 0
+        ? solRestant(
+            restant,
+            this.etapesRestantes,
+            // À l'arrêt, l'étape à venir n'est pas encore décidée : on la
+            // prend telle qu'elle sera au départ.
+            this.enRoute ? this.profil : { demarrage: true, freinage: true },
+          )
+        : null
+
+    const posee = ile.distance
+    const posable = posee === null || ile.ancre !== ancreAvant || horsChamp(posee)
+    if (posable && estimation !== null) {
+      ile.distance = estimation
+    } else {
+      ile.distance = (posee ?? 0) - dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
+    }
+  }
+
   get legsParcourues(): number {
     if (!this.enRoute) return this.legsBase
     return this.legsBase + this.avancementEtape
@@ -673,6 +776,7 @@ export class Scene {
           this.profil = { demarrage: false, freinage: this.etapesRestantes <= 1 }
         }
         this.legsIle += 1
+        this.legsQuai += 1
         this.emitter.emit('arrived')
       } else {
         // La frise suit la distance, pas l'horloge : sans ça elle continuerait
@@ -693,60 +797,52 @@ export class Scene {
     this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
     // Même horloge que la voie, à la distance et non au temps.
     this.terre?.avancer(dt, this.train?.vitesse ?? 0)
-    // Les câbles se calent sur le sol qui reste jusqu'à « plus loin », et non
-    // sur une position absolue : le sol parcouru n'est pas le même selon qu'on
-    // y arrive en une étape ou en deux (cadrage §7.12).
-    // L'ancre ne change qu'une fois l'île sortie du champ : sinon les poteaux
-    // se téléporteraient de l'autre côté de la boucle au changement de gare.
+    // Les deux îles se calent sur le sol qui reste jusqu'à leur gare.
     // Rien avant de savoir d'où l'on part : sinon la toute première image
     // ancre l'île à « distance zéro », c'est-à-dire à quai, où qu'on soit.
     if (this.prochainPlusLoin !== null) {
-      const ancreAvant = this.ancrePlusLoin
-      this.ancrePlusLoin = ancreSuivante(
-        this.ancrePlusLoin,
+      this.suivreIle(
+        this.ilePlusLoin,
         this.prochainPlusLoin,
         this.legsIleParcourues,
+        (d) => this.cables?.horsChamp(d) ?? true,
+        dt,
       )
-      const restant = this.ancrePlusLoin - this.legsIleParcourues
-      const estimation =
-        restant > 0
-          ? solRestant(
-              restant,
-              this.etapesRestantes,
-              // À l'arrêt, l'étape à venir n'est pas encore décidée : on la
-              // prend telle qu'elle sera au départ.
-              this.enRoute ? this.profil : { demarrage: true, freinage: true },
-            )
-          : null
-
-      // On ne replace l'île que si personne ne peut la voir bouger : jamais
-      // posée, ancre changée, ou entièrement hors champ. Sinon elle suit le
-      // sol, et rien que le sol.
-      const posable =
-        this.distanceCables === null ||
-        this.ancrePlusLoin !== ancreAvant ||
-        (this.cables?.horsChamp(this.distanceCables) ?? true)
-      if (posable && estimation !== null) {
-        this.distanceCables = estimation
-      } else {
-        this.distanceCables =
-          (this.distanceCables ?? 0) - dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
-      }
-      this.cables?.placer(this.distanceCables)
+      this.cables?.placer(this.ilePlusLoin.distance ?? 0)
+    }
+    if (this.prochainAilleurs !== null) {
+      this.suivreIle(
+        this.ileAilleurs,
+        this.prochainAilleurs,
+        this.legsQuaiParcourues,
+        (d) => this.quai?.horsChamp(d) ?? true,
+        dt,
+      )
     }
     this.cables?.avancer(dt)
     this.oiseaux?.avancer(dt)
     // Le vacillement suit l'horloge et non la distance : une lampe ne s'arrête
     // pas quand le train s'arrête.
     this.vitres?.update(dt)
-    this.assombrir()
+    const nuit = this.assombrir()
+    // Le quai suit le sol comme les câbles, et lit la nuit : ses lumières ne
+    // s'éteignent pas, mais le halo de sa lanterne monte avec elle.
+    // Rien tant qu'on ne sait pas d'où l'on part : une île posée quand même
+    // s'ancrerait à « distance zéro », c'est-à-dire à quai, où qu'on soit.
+    if (this.ileAilleurs.distance !== null) {
+      this.quai?.avancer(this.ileAilleurs.distance, nuit)
+    }
     // La fumée dérive avec la vitesse, pas avec l'horloge.
     this.fumee?.update(dt, this.train?.vitesse ?? 0)
     this.rendreReflet()
   }
 
-  /** La nuit de la gare, lue dans l'état du voyage, devient la luminance des trois groupes. */
-  private assombrir(): void {
+  /**
+   * La nuit de la gare, lue dans l'état du voyage, devient la luminance des
+   * groupes filtrés. Rendue aussi telle quelle : le quai en a besoin, et la
+   * relire d'ailleurs la ferait diverger d'une image.
+   */
+  private assombrir(): number {
     const nuit = nuitDeLaGare({
       gare: this.gare,
       cible: this.cible,
@@ -756,6 +852,7 @@ export class Scene {
       reducedMotion: this.reducedMotion,
     })
     appliquerNuit(this.plans, nuit)
+    return nuit
   }
 
   /**
@@ -778,6 +875,7 @@ export class Scene {
   dispose(): void {
     this.oiseaux?.destroy()
     this.cables?.destroy()
+    this.quai?.destroy()
     this.fumee?.destroy()
     this.vitres?.destroy()
     this.terre?.destroy()

@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 400 500">
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1000" viewBox="0 0 560 500">
 <g fill="none" stroke="#e6e6ea" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-<path d="M0.75 499.25 V180 L200 60 L399.25 180 V499.25 Z" fill="#0b0b0c"/>
-<path d="M0.75 180 H399.25"/>
+<path d="M0.75 499.25 V180 L280 60 L559.25 180 V499.25 Z" fill="#0b0b0c"/>
+<path d="M0.75 180 H559.25"/>
 <!-- PROVISOIRE. Ce grain est dessiné ici parce que `fabriquerPiece`
      (src/scene/poses.ts) aplatit la masse au noir du fond au lieu de la
      tramer : sans ces points, le mur serait le seul trou noir de l'écran.
@@ -9,23 +9,25 @@
      celui-ci — mur et carreaux — sinon le mur sera grainé deux fois.
      Il dépend aussi de la résolution : sous un `parCadre` d'environ 0,6,
      les points tombent sous SEUIL_TRAIT et le mur s'éteint. -->
-<path stroke-dasharray="0 19 0 27" d="M106.3 124 H138 M265 124 H296.7 M74.3 148 H138 M273 148 H336.7 M28.3 172 H138 M267 172 H376.7"/>
-<path stroke-dasharray="0 13 0 19" d="M10 192 H390 M17 210 H390 M13 228 H390 M21 246 H390 M15 264 H390 M10 282 H390"/>
-<path stroke-dasharray="0 9 0 12 0 15" d="M10 302 H136 M264 302 H390 M17 317 H136 M271 317 H390 M13 332 H136 M267 332 H390 M21 347 H136 M275 347 H390 M15 362 H136 M269 362 H390 M10 377 H136 M264 377 H390 M17 392 H136 M271 392 H390 M13 407 H136 M267 407 H390 M21 422 H136 M275 422 H390 M15 437 H136 M269 437 H390 M10 452 H136 M264 452 H390 M17 467 H136 M271 467 H390 M13 482 H136 M267 482 H390"/>
-<circle cx="200" cy="120" r="36"/>
-<path d="M200 91 L200 86 M214.5 94.9 L217 90.6 M225.1 105.5 L229.4 103 M229 120 L234 120 M225.1 134.5 L229.4 137 M214.5 145.1 L217 149.4 M200 149 L200 154 M185.5 145.1 L183 149.4 M174.9 134.5 L170.6 137 M171 120 L166 120 M174.9 105.5 L170.6 103 M185.5 94.9 L183 90.6"/>
-<path d="M200 120 L217 111 M200 120 L196 92"/>
-<circle cx="200" cy="120" r="43" stroke-dasharray="0 8"/>
-<circle cx="200" cy="120" r="50" stroke-dasharray="0 12"/>
-<path d="M145 499.25 V350 A55 55 0 0 1 255 350 V499.25"/>
-<path d="M145 350 H255"/>
-<path d="M200 350 L152.4 322.5 M200 350 L247.6 322.5"/>
-<rect x="155" y="362" width="39" height="38" fill="#0b0b0c"/>
-<rect x="206" y="362" width="39" height="38" fill="#0b0b0c"/>
-<rect x="155" y="408" width="39" height="38" fill="#0b0b0c"/>
-<rect x="206" y="408" width="39" height="38" fill="#0b0b0c"/>
-<rect x="155" y="454" width="39" height="38" fill="#0b0b0c"/>
-<rect x="206" y="454" width="39" height="38" fill="#0b0b0c"/>
-<path stroke-dasharray="0 9 0 12" d="M162 375 H187 M160 388 H189 M213 375 H238 M211 388 H240 M162 421 H187 M160 434 H189 M213 421 H238 M211 434 H240 M162 467 H187 M160 480 H189 M213 467 H238 M211 480 H240"/>
+<path stroke-dasharray="0 19 0 27" d="M136 124 H225 M335 124 H424 M80 148 H233 M327 148 H480 M24 172 H536"/>
+<path stroke-dasharray="0 13 0 19" d="M10 192 H550 M17 210 H550 M13 228 H550 M21 246 H550 M15 264 H550 M10 282 H550"/>
+<path stroke-dasharray="0 9 0 12 0 15" d="M10 302 H76 M204 302 H550 M17 317 H76 M211 317 H550 M13 332 H76 M207 332 H550 M21 347 H76 M215 347 H550 M15 362 H76 M209 362 H550 M10 377 H76 M204 377 H550 M17 392 H76 M211 392 H550 M13 407 H76 M207 407 H550 M21 422 H76 M215 422 H550 M15 437 H76 M209 437 H550 M10 452 H76 M204 452 H550 M17 467 H76 M211 467 H550 M13 482 H76 M207 482 H550"/>
+<circle cx="280" cy="120" r="36"/>
+<path d="M280 91 L280 86 M294.5 94.9 L297 90.6 M305.1 105.5 L309.4 103 M309 120 L314 120 M305.1 134.5 L309.4 137 M294.5 145.1 L297 149.4 M280 149 L280 154 M265.5 145.1 L263 149.4 M254.9 134.5 L250.6 137 M251 120 L246 120 M254.9 105.5 L250.6 103 M265.5 94.9 L263 90.6"/>
+<!-- Pas d'aiguilles ici : `QuaiLayer.ts` les trace au rendu, à la vraie heure
+     (`anglesHorloge`). Un jeu fixe dans le dessin en ferait deux sur le
+     cadran — le même piège que le double grain ci-dessus. -->
+<circle cx="280" cy="120" r="43" stroke-dasharray="0 8"/>
+<circle cx="280" cy="120" r="50" stroke-dasharray="0 12"/>
+<path d="M85 499.25 V350 A55 55 0 0 1 195 350 V499.25"/>
+<path d="M85 350 H195"/>
+<path d="M140 350 L92.4 322.5 M140 350 L187.6 322.5"/>
+<rect x="95" y="362" width="39" height="38" fill="#0b0b0c"/>
+<rect x="146" y="362" width="39" height="38" fill="#0b0b0c"/>
+<rect x="95" y="408" width="39" height="38" fill="#0b0b0c"/>
+<rect x="146" y="408" width="39" height="38" fill="#0b0b0c"/>
+<rect x="95" y="454" width="39" height="38" fill="#0b0b0c"/>
+<rect x="146" y="454" width="39" height="38" fill="#0b0b0c"/>
+<path stroke-dasharray="0 9 0 12" d="M102 375 H127 M100 388 H129 M153 375 H178 M151 388 H180 M102 421 H127 M100 434 H129 M153 421 H178 M151 434 H180 M102 467 H127 M100 480 H129 M153 467 H178 M151 480 H180"/>
 </g>
 </svg>

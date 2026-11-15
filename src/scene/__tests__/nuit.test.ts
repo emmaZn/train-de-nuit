@@ -96,15 +96,28 @@ describe('l’assombrissement par groupe', () => {
     return { decor, plans: plansDuDecor(decor) }
   }
 
-  it('range les groupes du fond vers l’avant, les vitres hors de tout filtre', () => {
+  /**
+   * Le plateau est coupé en deux depuis que le quai d'« ailleurs » y pose ses
+   * lumières : `lumieres` doit tomber **devant** le voile du pied et
+   * **derrière** la rame, et la rame vit dans `plateau`.
+   */
+  it('range les groupes du fond vers l’avant, les non-filtrés hors de tout filtre', () => {
     const { decor, plans } = decorMonte()
-    expect(decor.children.map((c) => c.label)).toEqual(['massif', 'ciel', 'plateau', 'vitres'])
+    expect(decor.children.map((c) => c.label)).toEqual([
+      'massif',
+      'ciel',
+      'plateau-fond',
+      'lumieres',
+      'plateau',
+      'vitres',
+    ])
     expect(plans.vitres.filters ?? []).toHaveLength(0)
+    expect(plans.lumieres.filters ?? []).toHaveLength(0)
   })
 
   it('les mêmes groupes que ceux où peupler monte ses objets', () => {
     const { decor, plans } = decorMonte()
-    for (const g of [plans.massif, plans.ciel, plans.plateau]) {
+    for (const g of [plans.massif, plans.ciel, plans.plateauFond, plans.plateau]) {
       expect(decor.children).toContain(g)
       expect(g.filters).toHaveLength(1)
     }
@@ -121,6 +134,9 @@ describe('l’assombrissement par groupe', () => {
     appliquerNuit(plans, 1)
     expect(luminance(plans.nuit.massif)).toBeCloseTo(1 - NUIT_PROFONDEUR)
     expect(luminance(plans.nuit.plateau)).toBeCloseTo(1 - NUIT_PROFONDEUR)
+    // Les deux moitiés du plateau descendent ensemble : la coupure est un
+    // ordre de plans, pas une seconde profondeur.
+    expect(luminance(plans.nuit.plateauFond)).toBeCloseTo(1 - NUIT_PROFONDEUR)
     expect(luminance(plans.nuit.ciel)).toBeCloseTo(1 - NUIT_CIEL)
     expect(luminance(plans.nuit.ciel)).toBeGreaterThan(luminance(plans.nuit.massif))
     expect(luminance(plans.nuit.ciel)).toBeGreaterThan(luminance(plans.nuit.plateau))
