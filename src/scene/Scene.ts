@@ -658,10 +658,7 @@ export class Scene {
       if (restant > 0) {
         this.solDepuisGare = 0
         cible = solRestant(
-          Math.ceil(restant),
-          // À l'arrêt l'avancement vaut 1, mais l'étape est déjà comptée :
-          // la reprendre ici l'effacerait une seconde fois.
-          this.enRoute ? this.avancementEtape : 0,
+          restant,
           this.etapesRestantes,
           // À l'arrêt, l'étape à venir n'est pas encore décidée : on la prend
           // telle qu'elle sera au départ, pour que le clic ne révise rien.

@@ -142,28 +142,35 @@ export function ancreSuivante(
 /**
  * Le sol qui reste jusqu'à l'arrêt en gare, en pixels de cadre.
  *
- * On ne multiplie pas un nombre d'étapes par une longueur moyenne : les étapes
- * ne font pas la même longueur, et le profil change au passage de l'une à
- * l'autre — l'île sautait de cette différence à chaque changement de gare. On
- * additionne donc la fin de l'étape en cours, puis chaque étape entière avec
- * son propre profil : celle qui finit en gare freine, les autres passent.
+ * Tout se lit dans `restant`, qui est un nombre d'étapes **continu** : sa
+ * partie fractionnaire dit ce qui reste de l'étape en cours, sa partie entière
+ * combien d'étapes suivent. Mélanger `ceil(restant)` et un avancement venu
+ * d'ailleurs comptait l'étape deux fois à l'instant précis de l'arrivée, et
+ * l'île sautait d'une étape entière le temps d'une image.
  *
- * Rend 0 pour une gare déjà dépassée : au-delà, c'est le sol réellement
- * intégré qui fait foi, et non une prévision.
+ * Les étapes ne font pas la même longueur : celle qui finit en gare freine,
+ * les autres passent. On les additionne donc une à une, avec leur profil.
  */
 export function solRestant(
-  etapesAvantGare: number,
-  avancementEtape: number,
+  restant: number,
   etapesAvantTerminus: number,
   profil: { demarrage: boolean; freinage: boolean },
 ): number {
-  if (etapesAvantGare <= 0) return 0
-  let sol = (1 - avancementEtape) * solParEtape(profil.demarrage, profil.freinage)
-  for (let i = 1; i < etapesAvantGare; i += 1) {
-    // Le train roule déjà : plus de démarrage. Il ne freine que sur l'étape
-    // qui finit en gare, et seulement si c'est là qu'il s'arrête.
-    const derniere = i === etapesAvantGare - 1
-    sol += solParEtape(false, derniere && etapesAvantGare >= etapesAvantTerminus)
+  if (restant <= 0) return 0
+  const entieres = Math.max(0, Math.ceil(restant) - 1)
+  const fraction = restant - entieres
+  let sol = fraction * solParEtape(profil.demarrage, profil.freinage)
+  for (let i = 0; i < entieres; i += 1) {
+    const rang = i + 1
+    // Une étape qui vient **après** le terminus repart d'un arrêt, donc elle
+    // démarre — et elle est plus courte d'environ trois cents pixels. La
+    // compter comme une étape lancée faisait réviser l'estimation à l'instant
+    // précis où le train s'immobilise, et l'île glissait sous les yeux.
+    const derniere = i === entieres - 1
+    sol += solParEtape(
+      rang >= etapesAvantTerminus,
+      derniere && Math.ceil(restant) >= etapesAvantTerminus,
+    )
   }
   return sol
 }

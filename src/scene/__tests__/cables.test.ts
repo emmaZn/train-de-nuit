@@ -180,37 +180,92 @@ describe('POTEAU', () => {
 describe('solRestant', () => {
   const profil = { demarrage: true, freinage: true }
 
-  it('est nul quand on est à quai dans la gare', () => {
-    expect(solRestant(0, 0, 0, profil)).toBe(0)
+  it('est nul quand il n’y a plus rien à parcourir', () => {
+    expect(solRestant(0, 0, profil)).toBe(0)
+    expect(solRestant(-0.5, 0, profil)).toBe(0)
+  })
+
+  it('compte une étape entière quand il en reste exactement une', () => {
+    expect(solRestant(1, 1, profil)).toBeCloseTo(solParEtape(true, true))
   })
 
   it('décroît tout au long de l’étape', () => {
-    const a = solRestant(1, 0, 1, profil)
-    const b = solRestant(1, 0.5, 1, profil)
-    const c = solRestant(1, 1, 1, profil)
+    const a = solRestant(1, 1, profil)
+    const b = solRestant(0.5, 1, profil)
+    const c = solRestant(0.01, 1, profil)
     expect(b).toBeLessThan(a)
     expect(c).toBeLessThan(b)
-    expect(c).toBeCloseTo(0)
+    expect(c).toBeLessThan(50)
   })
 
   it('ne saute pas au passage d’une étape à la suivante', () => {
-    // Fin de la première étape d'un trajet de deux, puis début de la seconde :
-    // c'est là que le profil change, et c'est là que ça sautait.
-    const avant = solRestant(2, 0.999, 2, { demarrage: true, freinage: false })
-    const apres = solRestant(1, 0, 1, { demarrage: false, freinage: true })
-    expect(Math.abs(avant - apres)).toBeLessThan(5)
+    // C'est **le** piège : juste avant l'arrivée il reste un chouia plus d'une
+    // étape, juste après il en reste exactement une. Les deux doivent donner
+    // la même chose, sans quoi l'île se téléporte d'une étape entière.
+    // Chaque côté avec le profil de **son** étape courante : avant la
+    // frontière on traverse, après on est sur l'étape qui freine en gare.
+    const avant = solRestant(1.001, 2, { demarrage: false, freinage: false })
+    const apres = solRestant(1, 1, { demarrage: false, freinage: true })
+    expect(Math.abs(avant - apres)).toBeLessThan(10)
   })
 
-  it('compte une étape de passage plus longue qu’une étape qui freine', () => {
-    const passage = solRestant(2, 0, 3, { demarrage: false, freinage: false })
-    const arret = solRestant(2, 0, 2, { demarrage: false, freinage: false })
-    expect(passage).toBeGreaterThan(arret)
+  it('ne saute pas à l’arrivée en gare : une étape à venir redémarre', () => {
+    // Le dernier piège de la chaîne. Juste avant l'arrêt il reste une étape
+    // **entière** au-delà du terminus : elle repartira d'un arrêt, donc elle
+    // est plus courte. Si on la compte comme une étape lancée, l'estimation se
+    // révise de trois cents pixels à l'instant où le train s'immobilise.
+    const roulant = solRestant(1.0001, 1, { demarrage: false, freinage: true })
+    const arrete = solRestant(1, 0, { demarrage: true, freinage: true })
+    expect(Math.abs(roulant - arrete)).toBeLessThan(5)
   })
 
-  it('rend zéro pour une gare déjà passée : c’est l’intégration qui prend le relais', () => {
-    expect(solRestant(-1, 0.5, 0, profil)).toBe(0)
+  it('compte les étapes entières qui suivent, chacune avec son profil', () => {
+    const une = solRestant(1, 1, profil)
+    const trois = solRestant(3, 3, profil)
+    expect(trois).toBeGreaterThan(2 * une)
   })
 })
+
+describe('ancreSuivante', () => {
+  it('se pose où elle peut au premier appel', () => {
+    expect(ancreSuivante(null, 3, 0)).toBe(3)
+  })
+
+  it('ne saute pas tant que l’île précédente n’est pas hors champ', () => {
+    // Le train vient de quitter « plus loin » : la gare suivante dit que la
+    // prochaine est à trois étapes. L'île doit continuer de s'éloigner.
+    expect(ancreSuivante(0, 4, 1)).toBe(0)
+    expect(ancreSuivante(0, 4, RECUL_HORS_CHAMP - 0.1)).toBe(0)
+  })
+
+  it('reprend la suivante une fois l’île bien derrière', () => {
+    expect(ancreSuivante(0, 4, RECUL_HORS_CHAMP + 0.1)).toBe(4)
+  })
+
+  it('laisse l’ancre tranquille quand la gare est encore devant', () => {
+    expect(ancreSuivante(3, 3, 1)).toBe(3)
+  })
+})
+
+describe('POTEAU', () => {
+  it('porte ses isolateurs aux bouts des bras, pas au-delà', () => {
+    for (const bras of POTEAU.bras) {
+      expect(bras.isolateurs).toBeGreaterThan(0)
+      expect(bras.isolateurs).toBeLessThan(bras.demi)
+    }
+  })
+
+  it('accroche ses haubans au fût, sous le bras', () => {
+    for (const bras of POTEAU.bras) {
+      expect(bras.hauban).toBeGreaterThan(bras.epaisseur)
+    }
+  })
+
+  it('a un bras plus large en haut qu’en bas', () => {
+    expect(POTEAU.bras[0].demi).toBeGreaterThan(POTEAU.bras[1].demi)
+  })
+})
+
 
 describe('revision', () => {
   it('ne voit rien à rattraper la première fois', () => {
