@@ -138,7 +138,7 @@ export class Scene {
 
   /** À quel leg l'île de câbles est accrochée, et où est la prochaine. */
   private ancrePlusLoin: number | null = null
-  private prochainPlusLoin = 0
+  private prochainPlusLoin: number | null = null
 
   /**
    * Le sol réellement parcouru depuis qu'on a dépassé « plus loin ».
@@ -615,20 +615,24 @@ export class Scene {
     // y arrive en une étape ou en deux (cadrage §7.12).
     // L'ancre ne change qu'une fois l'île sortie du champ : sinon les poteaux
     // se téléporteraient de l'autre côté de la boucle au changement de gare.
-    this.ancrePlusLoin = ancreSuivante(
-      this.ancrePlusLoin,
-      this.prochainPlusLoin,
-      this.legsParcourues,
-    )
-    const restant = this.ancrePlusLoin - this.legsParcourues
-    if (restant > 0) {
-      this.solDepuisGare = 0
-      this.cables?.placer(
-        solRestant(Math.ceil(restant), this.avancementEtape, this.etapesRestantes, this.profil),
+    // Rien avant de savoir d'où l'on part : sinon la toute première image
+    // ancre l'île à « distance zéro », c'est-à-dire à quai, où qu'on soit.
+    if (this.prochainPlusLoin !== null) {
+      this.ancrePlusLoin = ancreSuivante(
+        this.ancrePlusLoin,
+        this.prochainPlusLoin,
+        this.legsParcourues,
       )
-    } else {
-      this.solDepuisGare += dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
-      this.cables?.placer(-this.solDepuisGare)
+      const restant = this.ancrePlusLoin - this.legsParcourues
+      if (restant > 0) {
+        this.solDepuisGare = 0
+        this.cables?.placer(
+          solRestant(Math.ceil(restant), this.avancementEtape, this.etapesRestantes, this.profil),
+        )
+      } else {
+        this.solDepuisGare += dt * DEFILEMENT * ECHELLE_TRAIN * (this.train?.vitesse ?? 0)
+        this.cables?.placer(-this.solDepuisGare)
+      }
     }
     this.cables?.avancer(dt)
     this.oiseaux?.avancer(dt)

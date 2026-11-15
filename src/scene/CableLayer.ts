@@ -166,12 +166,17 @@ export class Cables {
 
   private horloge = 0
   private parCadre = 1
+  private posee = false
 
   constructor(parent: Container) {
     parent.addChild(this.racine)
     this.racine.addChild(this.rangee)
     this.rangee.addChild(this.fils)
-    this.placer(0)
+    this.rangee.x = POSITION_A_QUAI
+    // Tant qu'on ne sait pas où est la gare, l'île n'est nulle part : la scène
+    // tourne sa première image avant que Vue ne lui dise d'où l'on part, et
+    // une île qui se pose quand même s'ancre à quai — à « ici ».
+    this.racine.visible = false
   }
 
   /** Combien de poteaux sont posés sur la ligne. */
@@ -200,9 +205,16 @@ export class Cables {
     }
   }
 
+  /** A-t-on dit à l'île où elle était ? */
+  get placee(): boolean {
+    return this.posee
+  }
+
   /** La rangée se pose sur le sol qui reste à parcourir, pas sur l'horloge. */
   placer(distanceGare: number): void {
     this.rangee.x = POSITION_A_QUAI + distanceGare
+    this.posee = true
+    this.racine.visible = true
   }
 
   cadrer(frame: Frame, resolution: number): void {

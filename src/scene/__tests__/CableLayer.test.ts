@@ -148,3 +148,19 @@ describe('la cuisson des poteaux', () => {
     }
   })
 })
+
+describe('avant de savoir où est la gare', () => {
+  it('ne se montre pas : tant qu’on ne l’a pas placée, elle n’est nulle part', () => {
+    // La scène tourne sa première image avant que Vue ne lui dise la gare.
+    // Une île qui se pose quand même s'ancre à « distance zéro », c'est-à-dire
+    // à quai — et les oiseaux apparaissent à « ici ».
+    const c = new Cables(new Container())
+    expect(c.placee).toBe(false)
+  })
+
+  it('se montre dès qu’on la place', () => {
+    const c = new Cables(new Container())
+    c.placer(0)
+    expect(c.placee).toBe(true)
+  })
+})
