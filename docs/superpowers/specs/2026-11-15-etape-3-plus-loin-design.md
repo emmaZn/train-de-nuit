@@ -391,9 +391,10 @@ src/components/
   et c'est le sol qui glisse : **toutes** les bosses défilent sous les roues à
   chaque départ et à chaque passage. Si ça se lit comme un écrasement, ce n'est
   pas un cas limite — c'est l'idée des corps qui restent qui ne tient pas.
-- **Dire quand le tas devient trop** (§7.5).
-- **Dire si le balayage lui manque** (§3). Il est construit et retiré ; le
-  remettre coûte peu.
+- ~~**Dire quand le tas devient trop**~~ (§7.5) — tranché le 15/11/2026 : le
+  tas lui va tel quel. Les corps restent, rien ne s'enfonce.
+- ~~**Dire si le balayage lui manque**~~ (§3) — tranché le 15/11/2026 : non.
+  Le balayage reste retiré, et la question est close.
 
 ## 13. Changements à apporter à `CONCEPT.md`
 
