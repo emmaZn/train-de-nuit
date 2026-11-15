@@ -4,8 +4,14 @@ Branche `spike-plus-loin`. À jeter. Rien ici n'est du code de production :
 `src/scene/Oiseaux.ts`, `src/components/RepliquesSpike.vue`, et six accroches
 dans `Scene.ts` / `useScene.ts` marquées `ESSAI JETABLE`.
 
-Pour le revoir : `npm run dev`, puis `/plus-loin`. Le bouton « faire tomber un
-oiseau » est en bas à droite, invisible jusqu'au focus clavier.
+Pour le revoir : `npm run dev`, puis `/plus-loin`. En bas à gauche, deux rangées
+de réglages : la **pose** des oiseaux posés, qu'on peut figer pour juger chaque
+dessin, et la **matière**. Le bouton « faire tomber un oiseau » est en bas à
+droite, invisible jusqu'au focus clavier.
+
+Le jeu de poses d'essai est complet : `essai-perche`, `essai-perche-ebouriffe`,
+`essai-sonne`, `essai-vol-haut`, `essai-vol-bas`. Celle qui regarde à gauche est
+la même, retournée au rendu.
 
 ## Les quatre variantes de matière
 
@@ -43,6 +49,56 @@ même, retournée.
 
 C'est une main qui n'est pas la sienne : le test dit si le **genre** de dessin
 est le bon, pas si ce dessin-là est bon.
+
+**Le dessin retenu : « sans intérieur ».** Cinq dessins de perché ont été
+comparés dans la scène — boule à nuque, boule nue, plus oiseau, tête à part,
+sans intérieur. Elle a pris le dernier : **la silhouette et l'œil, rien
+d'autre.** Pas de calotte, pas de ligne d'aile. Les autres poses s'y sont
+alignées ; seules restent les marques qui portent un sens — les plumes de
+l'ébouriffé, la croix dans l'œil et les pattes en l'air du sonné.
+
+**Deux poids de trait, pas un.** Tout affiner d'un cran avait emporté le
+« mignon » avec l'épaisseur. La silhouette, le bec et l'aile tiennent **1,5
+unité** — c'est de là que vient la rondeur — l'œil **1**, les pattes et les
+plumes **1,2**. (Passage par 2, trop gras, puis 1,2 partout, trop sec, puis 1,8
+sur la seule silhouette, encore « un chouia trop large ».)
+
+**La réplique s'affiche toujours au même endroit**, en haut au centre, sous la
+frise. Elle n'a plus ni à éviter le train ni à suivre l'oiseau, et une seule
+phrase est à l'écran à la fois : une nouvelle chute remplace la précédente.
+`birdFell(x, y)` n'a donc plus besoin de porter de coordonnées.
+
+**Le balayage est retiré.** Il a été essayé dans tous les sens — tous les corps
+à un signal de départ, puis au passage du nez de la loco, vers l'avant puis vers
+l'arrière, en roulant puis en glissant. Le dernier état était juste, et elle l'a
+quand même retiré : « on oublie le balayage pour le moment ». Les corps restent
+exactement où ils tombent. **L'idée n'est pas enterrée** — c'était la sienne au
+départ — elle attend.
+
+Ce que l'essai en retient quand même : depuis que le corps est une bosse
+plantée, il ne peut pas **rouler**, puisque tourner montrerait sa base plate.
+
+**Le sonné est une bosse, pas un oiseau couché.** Quatre formes ont été
+comparées — un dôme, une bosse à demi enfoncée, la silhouette du perché
+retournée, une version aplatie. Elle a pris la **bosse**. Un oiseau couché
+dessiné de face ou de dos finit toujours par se lire comme un insecte : deux
+pattes identiques sur un ovale lisse font des antennes, et un visage à cette
+taille embrouille au lieu d'aider. La bosse supprime le problème au lieu de le
+résoudre — on ne dessine plus un oiseau couché, on dessine un monticule planté
+dans la terre, avec deux petites pattes qui dépassent. Elle n'a **pas de trait
+sous elle** (le remplissage descend hors du cadre, le contour s'arrête au sol),
+sans quoi elle flotterait au lieu d'être plantée.
+
+`SOL` remonte à `HORIZON + 55` : la base de la bosse doit s'enfoncer dans la
+bande de terre, pas dans l'eau du reflet.
+
+**Le vol réutilise la silhouette du perché**, simplement inclinée de 12°, plus
+une aile. C'est la simplification la plus forte : il n'y a plus qu'un corps
+d'oiseau dans tout le jeu, et le vol ne demande plus de le relire. Le sonné a
+perdu sa queue carrée et ses inflexions : un dôme, deux pattes, une croix.
+
+**Taille : 80 px de cadre** pour la largeur du viewBox, soit un oiseau d'environ
+50 px pour un train de 180. 92 était « un peu trop gros ».
 
 **Résultat : l'hypothèse tient.** « Ta variante 5 est beaucoup plus sympa. »
 Donc les bouvreuils seront **redessinés pour la ligne** — c'est une décision,

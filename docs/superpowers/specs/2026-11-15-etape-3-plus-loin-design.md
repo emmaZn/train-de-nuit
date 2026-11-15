@@ -31,23 +31,19 @@ proche, et ils y **vivent** : l'un se retourne, l'autre fait un pas sur le fil,
 un troisième s'ébouriffe.
 
 À quai, on clique sur un oiseau : le fil vibre, sa réplique paraît aussitôt
-au-dessus de lui, **là-haut sur le fil**, et il tombe en culbutant. Il atterrit
-sur le dos, sur la terre sous les rails, trois petites étoiles tournent au-dessus
-de sa tête. **Il ne se relève pas, et il ne bouge plus.** Un autre bouvreuil
-arrive en vol et prend la place libre : on peut recommencer indéfiniment, et les
-corps s'accumulent en bas de l'écran.
-
-Quand le train repart, chaque corps est bousculé **au moment où le nez de la
-locomotive l'atteint**, et part en roulant vers l'arrière, dans le sillage.
-Rien n'est effacé : au tour suivant ils sont encore là, et la terre est un peu
-plus encombrée.
+**en haut de l'écran, au centre**, et il tombe en culbutant. Il se plante dans
+la terre sous les rails — on n'en voit plus qu'une **bosse**, deux pattes
+dépassant du ventre, et trois petites étoiles qui tournent au-dessus. **Il ne se
+relève pas, et plus rien ne le déplace** : ni lui-même, ni le passage du train.
+Un autre bouvreuil arrive en vol et prend la place libre : on peut recommencer
+indéfiniment, les bosses s'accumulent, et au tour suivant elles y sont encore.
+La terre s'encombre au fil de la visite.
 
 Au clavier, un bouton visible au focus fait tomber un oiseau ; les répliques
 sont annoncées.
 
 Le décor **reste là** quand le train traverse « plus loin » sans s'arrêter : les
-poteaux défilent à pleine vitesse, les oiseaux restent posés, et les corps se
-font bousculer au passage de la loco comme au départ.
+poteaux défilent à pleine vitesse, et les oiseaux restent posés.
 
 ## 3. Non-objectifs
 
@@ -60,6 +56,9 @@ font bousculer au passage de la loco comme au départ.
   Emmanuelle : « on verra ensuite si c'est nécessaire ».
 - **Un oiseau qui se relève et retourne se poser.** C'était le prototype ; ce
   n'est plus le gag. Rien ne remet un corps debout.
+- **Le balayage des corps au passage du train.** C'était l'idée d'Emmanuelle,
+  elle a été construite et essayée dans tous les sens, et elle l'a retirée :
+  « on oublie le balayage pour le moment ». Mise de côté, pas enterrée.
 - La perspective fuyante des fils (voir §5, approche D) : ce serait un autre
   cadrage de la gare, pas un choix de rendu.
 
@@ -77,9 +76,10 @@ Ce qui ferait rater l'étape même si tout fonctionne :
 - **Des corps qui tressaillent sans raison.** Essayé, et rejeté à l'œil :
   « bizarre que les oiseaux sonnés bougent pour aucune raison ». Un corps ne
   bouge que si quelque chose le pousse.
-- **Un souffle qui ne vient pas du train.** Un corps qui part avant que la loco
-  ne l'atteigne, ou qui part vers l'avant comme devant un chasse-neige : les
-  deux ont été vus dans l'essai, et corrigés.
+- **Un insecte.** Un oiseau couché, dessiné de face ou de dos, se lit à cette
+  taille comme un scarabée : deux pattes identiques sur un ovale lisse font des
+  antennes. C'est le piège qui a coûté le plus d'essais, et la bosse (§10) le
+  supprime au lieu de le résoudre.
 - **Du texte cuit dans le canvas.** Les répliques sont du HTML : c'est ce qui les
   rend annonçables, sélectionnables et nettes.
 - **La scène qui apprend à connaître Vue.** `src/scene/` reste du TypeScript pur ;
@@ -143,23 +143,30 @@ Les premiers points viennent de la conversation, les suivants de l'essai.
   finit par nuire au projet — pas par principe.
 - **Les corps sonnés ne bougent pas d'eux-mêmes.**
 - **Les oiseaux posés, eux, vivent** : ils se retournent, font un pas, s'ébouriffent.
-- **Le souffle se calcule sur la position de la loco**, et pousse **vers
-  l'arrière**, dans le sillage.
-- **La réplique sort au début de la chute, sur le fil**, au-dessus de l'oiseau et
-  jamais sur lui, avec une tache de nuit derrière elle pour rester lisible.
+- **La réplique sort au début de la chute**, et **toujours au même endroit** :
+  en haut de l'écran, au centre, sous la frise. Une seule à la fois.
 - **Les bouvreuils sont redessinés pour la ligne** (§10). Entre quatre recettes
   de matière, elle a choisi **« trait seul »** — donc la scène veut l'oiseau
   comme un trait, exactement comme le train.
+- **Le dessin retenu est « sans intérieur »** : la silhouette et l'œil, rien de
+  plus. Entre cinq dessins de perché comparés dans la scène, c'est le plus nu
+  qui a gagné.
+- **Le corps au sol est une bosse** plantée dans la terre, pas un oiseau couché.
+  Entre quatre formes essayées, c'est celle-là.
+- **Pas de visage sur le corps au sol** : ni œil, ni bec.
+- **Rien ne déplace les corps.** Le balayage est retiré (§3).
 
 ## 7. Ce que j'ai décidé à sa place
 
 Tout ce qui suit est mon choix, pas le sien. À relire et à corriger.
 
-1. **Les corps tombent sur la terre, pas dans l'eau.** La bande sous l'horizon
-   est un **reflet** : tout ce qui s'y trouve est la copie retournée de quelque
-   chose au-dessus, et un corps qui n'existe que là n'aurait pas d'original. Il
-   se poserait en plus sur l'eau, ce qui change le gag. Juste au-dessus il y a la
-   bonne zone : **la terre** (`Terre.ts`). Leur reflet, lui, vient tout seul.
+1. **Les corps se plantent dans la terre, pas dans l'eau.** La bande sous
+   l'horizon est un **reflet** : tout ce qui s'y trouve est la copie retournée
+   de quelque chose au-dessus, et un corps qui n'existe que là n'aurait pas
+   d'original. Il se poserait en plus sur l'eau. Juste au-dessus il y a la bonne
+   zone : **la terre** (`Terre.ts`). Le sol des corps se pose à
+   `HORIZON + 55`, pour que la base de la bosse s'enfonce dans cette bande.
+   Leur reflet, lui, vient tout seul.
 2. **Les oiseaux ne se posent que sur la rangée proche.** La rangée lointaine n'a
    que des fils. Sinon on voit des oiseaux qu'on a envie de cliquer et qui sont
    trop petits pour répondre.
@@ -185,36 +192,40 @@ Tout ce qui suit est mon choix, pas le sien. À relire et à corriger.
    pas dans `GarePlusLoin.vue`** : l'URL change à l'instant du clic sur une autre
    gare, bien avant que le train ne bouge, et le composant de gare serait détruit
    au milieu d'une phrase. Elles vivent dans une couche qui survit au changement
-   de route.
+   de route. Posées toujours au même endroit, elles n'ont plus besoin de
+   coordonnées : **`birdFell` n'a plus d'arguments**.
 8. **La tache de nuit des répliques est celle de `StarTooltip`** — un dégradé
    radial mélangé depuis `--fond`, qui suit donc l'œil. On ne réinvente pas un
    cadre : le projet a déjà résolu « du texte lisible par-dessus du grain ».
 9. **Le compteur de répliques vit le temps de la visite**, pas au-delà.
-10. **Les câbles roulent sur l'horloge des rails**, celle de la voie et de la
+10. **Une seule réplique à l'écran.** Une nouvelle chute remplace la
+    précédente. Elles se posaient avant au-dessus de l'oiseau ; cliquer vite les
+    empilait les unes sur les autres, par-dessus le train.
+11. **Les câbles roulent sur l'horloge des rails**, celle de la voie et de la
     terre (vitesse brute), et non sur celle du massif et de la frise (normalisée
     par étape). Les deux diffèrent d'un facteur 1,43 pendant la croisière : un
     poteau sur l'horloge du massif glisserait contre le ballast à chaque freinage.
-11. **L'ancrage se fait sur la distance qui reste jusqu'à l'arrêt**, pas sur une
+12. **L'ancrage se fait sur la distance qui reste jusqu'à l'arrêt**, pas sur une
     position absolue : selon qu'on arrive d'« ici » en une étape ou d'« ailleurs »
     en deux, le sol parcouru diffère de ~320 px.
-12. **La position à quai est composée, pas subie.** À l'arrêt, les oiseaux doivent
+13. **La position à quai est composée, pas subie.** À l'arrêt, les oiseaux doivent
     être dans le champ libre à droite du nez de la loco. Une chute doit être vue.
-13. **Les câbles passent derrière la rame, les oiseaux devant.** Sinon la chute
+14. **Les câbles passent derrière la rame, les oiseaux devant.** Sinon la chute
     traverse la silhouette du train et l'oiseau disparaît à mi-course. Vérifié
     dans l'essai.
-14. **L'installation est une île, pas une ligne infinie.** Une étape avec arrêt ne
+15. **L'installation est une île, pas une ligne infinie.** Une étape avec arrêt ne
     parcourt que ~2 270 px de sol, soit à peine une largeur de cadre (2 320 px).
     Les câbles tiennent donc dans **deux travées environ**, et leurs extrémités
     se **dissolvent** au lieu de se couper net. C'est aussi ce qui les empêche de
     déborder sur « ici », qui n'est « rien que le ciel ».
-15. **Les deux vitesses sont pour l'approche et le départ, pas pour l'arrêt.** Une
+16. **Les deux vitesses sont pour l'approche et le départ, pas pour l'arrêt.** Une
     parallaxe ne se voit que si ça bouge. La rangée lointaine entre plus tôt et
     sort plus tard, en se dissolvant : son travail, c'est le trajet.
-16. **Un oiseau à la fois par séquence**, mais plusieurs chutes en parallèle sont
+17. **Un oiseau à la fois par séquence**, mais plusieurs chutes en parallèle sont
     permises : c'est le plaisir du jeu.
-17. **L'envol de tous au départ de la gare** (CONCEPT §4.2) **tombe** : les
-    oiseaux encore sur le fil partent avec le décor, les corps sont bousculés.
-18. **Le grain des oiseaux est cuit une fois par pose**, et non recalculé à
+18. **L'envol de tous au départ de la gare** (CONCEPT §4.2) **tombe** : les
+    oiseaux encore sur le fil partent simplement avec le décor.
+19. **Le grain des oiseaux est cuit une fois par pose**, et non recalculé à
     chaque image. L'essai a vérifié qu'un oiseau grainé **ne scintille pas** en
     culbutant, ce qui était le risque technique de l'étape — c'est ce qui avait
     fait rejeter des versions du massif. Les textures se refont au
@@ -248,14 +259,13 @@ valeurs à revoir à l'œil, pas des constantes.
 
 | Temps | Ce qui se passe |
 |---|---|
-| clic | le fil reçoit une secousse (amortie en `exp(-2,2 t)`, oscillation ~9 rad/s, flèche en `sin(πu)`) ; **la réplique paraît aussitôt**, au-dessus de l'oiseau, sur le fil |
+| clic | le fil reçoit une secousse (amortie en `exp(-2,2 t)`, oscillation ~9 rad/s, flèche en `sin(πu)`) ; **la réplique paraît aussitôt**, en haut au centre |
 | chute | impulsion vers le haut puis gravité ; l'oiseau culbute jusqu'à π, dans la pose **debout** |
-| réplique | Inter Light 15 px sur une tache de nuit ; ~2,8 s, ~3,6 s au-delà de 24 caractères ; entrée en 0,35 s, sortie en 0,8 s en montant |
-| au sol | pose `sonné` **sans rotation** — elle porte déjà le retournement ; trois étoiles tournent au-dessus de la tête ~2,4 s |
-| ensuite | **il reste, et il ne bouge plus** |
+| réplique | Inter Light 15 px sur une tache de nuit, sous la frise ; ~2,8 s, ~3,6 s au-delà de 24 caractères ; entrée en 0,35 s, sortie en 0,8 s en montant |
+| au sol | la **bosse**, sans rotation ; trois étoiles tournent au-dessus ~2,4 s |
+| ensuite | **elle reste, et plus rien ne la déplace** |
 | sur le fil | toutes les 3 à 8 s, un oiseau posé se retourne, fait un pas (avec un bond, et le fil vibre à la pose), ou s'ébouriffe |
 | arrivée | un nouveau bouvreuil entre en vol et prend une place libre |
-| souffle | au passage du nez de la loco, et seulement là : poussée **vers l'arrière**, force très variable — la plupart basculent à peine, un ou deux roulent loin —, un rebond sur la terre, puis le frein |
 
 Neuf places **simultanées** sur les fils, à `u ∈ [0,08 ; 0,92]`, jamais deux à
 moins de 0,1 l'une de l'autre. Ce n'est pas le nombre total d'oiseaux de la
@@ -293,45 +303,37 @@ deviennent une densité de points. Le pied des poteaux se cale sur
 ### Les bouvreuils : redessinés
 
 **C'est le changement le plus important de ce cadrage.** On ne retravaille pas
-la matière des dessins existants : on redessine les poses.
+la matière des dessins existants : on redessine les poses. Et c'est moi qui les
+dessine — Emmanuelle ne redessine pas dans cette langue, et elle n'a pas à
+l'apprendre pour débloquer une étape. Elle dirige à l'œil, comme pour le reste.
 
-Les bouvreuils actuels sont dessinés **pour un autre médium**. Toute leur
+Les bouvreuils d'origine sont dessinés **pour un autre médium**. Toute leur
 information est dans les **aplats** — corps `#5f5f67`, poitrine `#d9d9de`,
 ventre `#f2f2f4` — et la règle du projet jette précisément les mi-teintes. La
-preuve la plus nette : réduits à leur trait, **l'œil disparaît**, parce que
-c'était un aplat. S'y ajoutent une quinzaine de formes distinctes pour ~55 px de
-haut — là où le train tient à 180 px avec de longues droites — et le fait qu'un
-bouvreuil se reconnaisse à sa **couleur**, qui n'existe pas ici.
+preuve : réduits à leur trait, **l'œil disparaît**, parce que c'était un aplat.
+S'y ajoutent une quinzaine de formes distinctes pour ~50 px de haut, et le fait
+qu'un bouvreuil se reconnaisse à sa **couleur**, qui n'existe pas ici.
 
-Ce que les poses redessinées doivent respecter, vérifié dans l'essai :
+**Les cinq poses retenues** vivent sur la branche de l'essai (`essai-perche`,
+`essai-perche-ebouriffe`, `essai2-sonne`, `essai-vol-haut`, `essai-vol-bas`).
+Elles ont été choisies et corrigées à l'écran, une par une ; c'est le seul
+endroit où le jetable n'est pas jeté. Ce qu'elles respectent :
 
 1. **Profil strict**, comme tout le premier plan.
 2. **Une silhouette fermée, remplie de `#0b0b0c`** : c'est elle qui fait que le
-   corps **masse** et éteint la montagne, comme celui du train. Sans elle
-   l'oiseau est creux.
-3. **Tout ce qui porte l'information est un trait**, l'œil compris.
-4. **Cinq ou six traits**, pas quinze formes.
-5. **Les poses exagérées** : à cette taille, « pattes en l'air » ne se lit que si
-   les pattes sont longues et écartées, doigts vers l'extérieur.
-6. **Une aile en vol est une forme fermée qui masse**, pas un trait ouvert — deux
-   traits montant du dos se lisent comme des antennes.
-
-**Les poses nécessaires** sont moins nombreuses qu'avant : celle qui regarde à
-gauche est la **même, retournée** au rendu. Il faut donc `perche`,
-`perche-ebouriffe`, `sonne`, et deux images de vol — ailes hautes et ailes
-basses suffisent à faire un battement.
-
-Quatre poses témoins existent sur la branche de l'essai (`essai-perche`,
-`essai-sonne`, `essai-vol-haut`, `essai-vol-bas`), et Emmanuelle les a trouvées
-« beaucoup plus sympa » que les siennes passées au trait.
-
-**C'est moi qui dessine le jeu définitif.** Elle a dit ne pas savoir redessiner
-dans cette langue, et il n'y a aucune raison qu'elle apprenne un métier pour
-débloquer une étape : la répartition qui marche depuis le début de ce cadrage,
-c'est qu'elle juge et qu'elle corrige à l'œil. Les poses se montrent donc dans
-la scène, et elle les dirige — « la tête plus grosse », « la queue plus
-carrée », « les pattes plus écartées ». Si elle préfère y remettre sa main, un
-croquis, même pris en photo, suffit : je le traduis dans la langue du projet.
+   corps **masse** et éteint la montagne, comme celui du train.
+3. **Rien à l'intérieur.** Pas de calotte, pas de ligne d'aile. Ne restent que
+   les marques qui portent un sens : les plumes qui dépassent sur l'ébouriffé,
+   les pattes du sonné.
+4. **Une seule silhouette dans tout le jeu.** Le perché sert aussi au vol,
+   simplement incliné de 12°, auquel on ajoute une aile — une forme fermée qui
+   masse, et non un trait ouvert, qui se lirait comme une antenne.
+5. **Le corps au sol est une bosse**, pas un oiseau couché, et **sans visage**.
+   Un oiseau couché se lit comme un insecte à cette taille. La bosse n'a **pas
+   de trait sous elle** — le remplissage descend hors du cadre, le contour
+   s'arrête au sol — sans quoi elle flotte au lieu d'être plantée.
+6. **La pose qui regarde à gauche est la même, retournée** au rendu : il n'y a
+   pas de dessin à faire pour elle.
 
 ### La recette de matière
 
@@ -343,16 +345,20 @@ Quatre ont été comparées dans la scène ; Emmanuelle a choisi **« trait seul
   sort troué ;
 - le corps ne reçoit **aucune matière** : il n'est que la masse couleur du fond.
 
-Taille de départ : la largeur du cadre de la pose (viewBox 120 × 90) fait
-**~92 px de cadre**, soit un oiseau d'environ 55 px pour un train de 180.
+**Deux poids de trait, pas un.** Tout affiner d'un cran enlève le « mignon »
+avec l'épaisseur ; tout épaissir rend le dessin gras. La silhouette, le bec et
+l'aile tiennent **1,5 unité** — c'est de là que vient la rondeur —, l'œil **1**,
+les pattes et les plumes **1,2**.
+
+**Taille : 80 px de cadre** pour la largeur du viewBox (120 × 90), soit un
+oiseau d'environ 50 px pour un train de 180.
 
 ## 11. Où ça vit dans le code
 
 ```
 src/scene/
   Cables.ts     les deux rangées, leur défilement à la distance, la vibration
-  Birds.ts      les bouvreuils : poses, gestes sur le fil, chute, tas, arrivées,
-                le souffle au passage de la loco
+  Birds.ts      les bouvreuils : poses, gestes sur le fil, chute, tas, arrivées
   oiseaux.ts    les fonctions pures : places libres, choix du geste, soupape
 src/components/
   RepliquesOiseaux.vue   les répliques (HTML, aria-live) et le bouton clavier,
@@ -361,8 +367,8 @@ src/components/
 
 - `Cables` s'ajoute à `decor` **derrière** la rame, `Birds` **devant** (§7.13).
 - La scène gagne de quoi savoir **où est « plus loin » sur la ligne**, et émet
-  `birdFell(x, y)` — l'événement existe déjà dans `events.ts` — **au clic**, à la
-  hauteur du haut de l'oiseau, et non à l'arrivée au sol.
+  `birdFell()` — l'événement existe déjà dans `events.ts`, **mais il perd ses
+  coordonnées** : la réplique paraît toujours au même endroit.
 - **Vue décide quoi dire**, la scène décide **où** et **comment ça bouge**. La
   variante de séquence (pirouette, regard) et la durée d'affichage sont passées à
   la scène par l'appelant, puisqu'elles dépendent du texte.
@@ -370,34 +376,33 @@ src/components/
 
 ## 12. Ce qui revient à Emmanuelle
 
-- **Diriger les poses** : je les dessine (§10), elle les corrige en les
-  regardant dans la scène.
-- **Régler les deux vitesses** et la **taille des poteaux**.
-- **Juger la profondeur de la terre** : elle fait 46 px de cadre, un oiseau
-  couché en fait ~60. Posés dessus, les corps ont l'air d'être *sur* la voie ;
-  descendus, ils mordent le haut du reflet. Il faudra peut-être la creuser à
-  cette gare.
-- **Regarder le passage des corps sous la rame.** Le train est fixe à l'écran et
-  c'est le sol qui glisse : **tous** les corps défilent sous les roues à chaque
-  départ et à chaque passage. Si ça se lit comme un écrasement, ce n'est pas un
-  cas limite — c'est l'idée des corps qui restent qui ne tient pas.
+- **Régler les deux vitesses** et la **taille des poteaux**. C'est le seul gros
+  réglage visuel que l'essai n'a pas abordé : il n'avait qu'une rangée.
+- **Regarder le passage des bosses sous la rame.** Le train est fixe à l'écran
+  et c'est le sol qui glisse : **toutes** les bosses défilent sous les roues à
+  chaque départ et à chaque passage. Si ça se lit comme un écrasement, ce n'est
+  pas un cas limite — c'est l'idée des corps qui restent qui ne tient pas.
 - **Dire quand le tas devient trop** (§7.5).
+- **Dire si le balayage lui manque** (§3). Il est construit et retiré ; le
+  remettre coûte peu.
 
 ## 13. Changements à apporter à `CONCEPT.md`
 
 - §4.2 : deux rangées de poteaux à deux vitesses, et non « deux poteaux » ; les
   oiseaux ne se posent que sur la rangée proche.
-- §4.2 : le gag change de fin. La réplique sort **au début de la chute**.
-  L'oiseau ne se relève pas et ne retourne pas se poser ; il reste au sol et n'y
-  bouge plus, un autre arrive, les corps s'accumulent, et le passage de la loco
-  les bouscule sans les effacer. L'envol de tous au départ disparaît.
+- §4.2 : le gag change de fin. La réplique sort **au début de la chute**, et
+  **toujours en haut au centre**. L'oiseau ne se relève pas et ne retourne pas
+  se poser ; il se plante dans la terre, où il devient une **bosse** que plus
+  rien ne déplace. Un autre arrive, les bosses s'accumulent. L'envol de tous au
+  départ disparaît.
 - §4.2 : la gare **ne se réinitialise jamais** ; la terre s'encombre au fil de la
   visite.
 - §4.2 : les oiseaux posés ont une vie propre — demi-tours, pas sur le fil,
   ébouriffages.
 - §4.2 : le décor existe aussi quand le train traverse sans s'arrêter.
-- §7 : `cables-scene.svg` sert de **mesures**, pas de texture ; et les bouvreuils
-  sont **redessinés pour la ligne**, en moins de poses qu'avant.
+- §7 : `cables-scene.svg` sert de **mesures**, pas de texture. Les bouvreuils
+  d'origine ne servent plus : **cinq poses redessinées pour la ligne** les
+  remplacent, et la pose qui regarde à gauche est un simple retournement.
 - §9 : ajouter `Cables.ts` à côté de `Birds.ts`, et la couche des répliques hors
   de la route.
 
@@ -405,7 +410,6 @@ src/components/
 
 - La fabrication exacte des textures de pose (seuil, dilatation, cache par
   densité de pixels), en suivant ce que l'essai a établi.
-- La physique du souffle : courbe de force, rebond, frein.
 - Le nombre de travées fabriquées et le recyclage des poteaux sortis du champ.
 - La structure de données des places sur les fils et du tas.
 - Le comportement en mouvement réduit. Défaut proposé : l'oiseau ne tombe pas, la
