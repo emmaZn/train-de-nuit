@@ -1,7 +1,7 @@
 import { Container } from 'pixi.js'
 import { describe, expect, it } from 'vitest'
 
-import { Faisceau, coneDuFaisceau, grainsDuFaisceau } from '@/scene/Faisceau'
+import { Faisceau, coneDuFaisceau, grainsDuFaisceau, nappesDuCone } from '@/scene/Faisceau'
 import type { Cone } from '@/scene/Faisceau'
 import { Quai } from '@/scene/QuaiLayer'
 import { plansDuDecor } from '@/scene/Scene'
@@ -88,6 +88,39 @@ describe('les grains du faisceau', () => {
     expect(moyenne(grains.filter((g) => g.y > milieu))).toBeGreaterThan(
       moyenne(grains.filter((g) => g.y <= milieu)),
     )
+  })
+})
+
+/**
+ * Le cône peint (réglage 3). Ce qui se garde ici n'est pas la valeur des
+ * réglages — ils sont faits pour bouger — mais les deux choses que la maquette
+ * demande et qu'on ne verrait pas casser dans jsdom : il tient dans le cône, et
+ * il s'éteint avant les rails.
+ */
+describe('le cône peint', () => {
+  const nappes = nappesDuCone(cone)
+
+  it('tient tout entier dans le cône, donc jamais sur les rails', () => {
+    for (const nappe of nappes) {
+      for (let i = 0; i < nappe.points.length; i += 2) {
+        expect(dansLeCone(cone, { x: nappe.points[i], y: nappe.points[i + 1] })).toBe(true)
+      }
+    }
+  })
+
+  it('s’éteint vers le bas : la dernière tranche est plus pâle que la première', () => {
+    const haut = nappes[0].alpha
+    const bas = nappes[nappes.length - 1].alpha
+    expect(haut).toBeGreaterThan(0)
+    expect(bas).toBeGreaterThan(0)
+    expect(bas).toBeLessThan(haut / 10)
+  })
+
+  it('se recouvre : plusieurs nappes par tranche, pour faire le dégradé latéral', () => {
+    const parTranche = nappes.filter((n) => n.points[1] === nappes[0].points[1])
+    expect(parTranche.length).toBeGreaterThan(1)
+    // Elles partagent l'alpha de leur tranche : c'est le cumul qui éclaire l'axe.
+    expect(new Set(parTranche.map((n) => n.alpha)).size).toBe(1)
   })
 })
 
