@@ -526,11 +526,16 @@ export function versCadre(px: number, py: number, frame: Frame): { x: number; y:
  *
  * VALEURS DE DÉPART PROVISOIRES — à régler à l'œil avec Emmanuelle dans la
  * scène en mouvement (spec §7). Ne pas les figer sans son accord.
+ *
+ * Réglage 3 : elles valaient 0,72 et 0,35. À 0,72 il ne restait que 28 % de la
+ * luminance, et la maquette, elle, garde le train, le banc, la valise et le
+ * grain du bâtiment lisibles. Descendues à 0,45 et 0,15 : la gare reste une
+ * gare de nuit, mais on y voit encore ce qui est dessiné.
  */
 /** Opacité maximale du voile du décor : massif, quai, rails, corps du train. */
-export const NUIT_PROFONDEUR = 0.72
+export const NUIT_PROFONDEUR = 0.45
 /** Opacité maximale du voile du ciel : poussière et étoiles. */
-export const NUIT_CIEL = 0.35
+export const NUIT_CIEL = 0.15
 
 /**
  * L'opacité d'un voile pour une nuit donnée (0 à 1) et son maximum. La nuit

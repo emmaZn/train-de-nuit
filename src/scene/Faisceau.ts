@@ -1,9 +1,22 @@
 /**
  * Le faisceau du réverbère de « ailleurs » (spec §6.2).
  *
- * **Ce n'est pas un cône peint.** C'est de la poussière — des points pleins, de
- * la même matière que `Sky.ts` — qui s'allume dans un cône. Un dégradé plaqué
- * serait une mi-teinte, et le projet n'en allume jamais.
+ * **Un cône peint, et de la poussière dessus.** La poussière — des points
+ * pleins, de la même matière que `Sky.ts` — est ce qui fait vivre le faisceau,
+ * et elle ne bouge pas d'un pouce. Mais seule, elle ne faisait pas de cône :
+ * la maquette en montre un, large et plein de lumière, et quelques grains
+ * épars le long du mât n'en sont pas un.
+ *
+ * Le cône est donc **un dégradé**, donc des mi-teintes. C'est l'entorse à
+ * « blanc ou absent » (CONCEPT §12.2), étendue au réglage 3 des vitres du
+ * train (`Vitres.HALO_ALPHA`) **aux trois sources de la gare** : la lueur de
+ * la lanterne, ce cône, et le halo de l'horloge. Elle s'arrête là : le mur, le
+ * banc, la valise, la bordure, le massif et le train restent blancs ou absents.
+ *
+ * Il est peint en nappes de blanc translucide qui se recouvrent — pas un
+ * dégradé de Pixi : un `FillGradient` se construit sur un canvas 2D, que jsdom
+ * n'a pas, et le faisceau disparaîtrait des tests. Des nappes, elles, se
+ * cumulent en alpha et se lisent comme un dégradé.
  *
  * Il porte **sa propre population**, il n'éclaire pas celle du fond : la
  * poussière à `1/600` par pixel² ne met qu'une centaine de points dans un cône
@@ -34,7 +47,13 @@ export type Cone = {
   hauteur: number
 }
 
-/** Où la lanterne finit, en unités du SVG du réverbère (`reverbere.svg`) : le bas du corps vitré. */
+/**
+ * D'où part le faisceau, en unités du SVG du réverbère (`reverbere.svg`) : le
+ * **haut** du corps vitré, qui court de 48 à 86. La lanterne se tient donc
+ * dans la pointe du cône, là où il est le plus clair — c'est ce qui la pose
+ * comme la source. (Le commentaire disait « le bas » : il était faux, la
+ * valeur ne bouge pas.)
+ */
 const BAS_LANTERNE_SVG = 48
 /** Le cadre du dessin : 560 unités de haut, posées à `piece.hauteur` pixels. */
 const HAUTEUR_SVG = 560
@@ -92,6 +111,60 @@ export function grainsDuFaisceau(cone: Cone, graine: number, mobile: boolean): G
   return grains
 }
 
+/* ---- Le cône peint. Les quatre réglages sont PROVISOIRES (§7). ---- */
+
+/**
+ * Opacité d'**une** nappe au sommet du cône. Elles se recouvrent : sur l'axe,
+ * les `CONE_NAPPES` se cumulent — à 0,055 et 6 nappes, le cœur du cône monte
+ * à environ 0,29, le bord reste à 0,055. C'est ce cumul qui fait le dégradé
+ * latéral. **Le réglage de la luminosité du faisceau, c'est ce nombre.**
+ */
+const CONE_ALPHA = 0.055
+/** Combien de nappes, de l'axe vers le bord : plus il y en a, plus le cœur est clair. */
+const CONE_NAPPES = 6
+/** En combien de tranches le cône se découpe en profondeur : la finesse du dégradé vertical. */
+const CONE_BANDES = 22
+/**
+ * Jusqu'où le cône descend clair avant de s'éteindre : l'opacité suit
+ * `1 - t^CONE_TENUE`, nulle à la base. Plus grand, plus il tient bas.
+ */
+const CONE_TENUE = 2
+
+/**
+ * Les nappes du cône : pour chaque tranche de profondeur, un trapèze par
+ * nappe, du plus étroit au plus large. Pur calcul, pour que le dessin reste
+ * une boucle lisible — et pour pouvoir le vérifier sans rastériser.
+ */
+export type NappeDuCone = { points: number[]; alpha: number }
+
+export function nappesDuCone(cone: Cone): NappeDuCone[] {
+  const nappes: NappeDuCone[] = []
+  const bord = (t: number, large: number, cote: 0 | 1) =>
+    cone.sommet.x + (cone.base[cote] - cone.sommet.x) * t * large
+  for (let b = 0; b < CONE_BANDES; b += 1) {
+    const t0 = b / CONE_BANDES
+    const t1 = (b + 1) / CONE_BANDES
+    const t = (t0 + t1) / 2
+    const alpha = CONE_ALPHA * (1 - t ** CONE_TENUE)
+    if (alpha <= 0) continue
+    const y0 = cone.sommet.y + cone.hauteur * t0
+    const y1 = cone.sommet.y + cone.hauteur * t1
+    for (let n = 0; n < CONE_NAPPES; n += 1) {
+      const large = (n + 1) / CONE_NAPPES
+      nappes.push({
+        points: [
+          bord(t0, large, 0), y0,
+          bord(t0, large, 1), y0,
+          bord(t1, large, 1), y1,
+          bord(t1, large, 0), y1,
+        ],
+        alpha,
+      })
+    }
+  }
+  return nappes
+}
+
 /** Les couches respirent chacune à leur rythme : quelques `Graphics`, pas un par grain. */
 const COUCHES = 4
 /** De combien une couche s'éteint au creux de sa respiration. */
@@ -99,6 +172,12 @@ const CREUX = 0.45
 
 export class Faisceau {
   private readonly racine = new Container()
+  /**
+   * Le cône peint, **sous** la poussière et hors des couches qui respirent :
+   * il est immobile, de jour comme de nuit, en mouvement réduit comme ailleurs.
+   * C'est la masse de lumière ; la poussière, elle, est ce qui vit dedans.
+   */
+  private readonly cone = new Graphics()
   private readonly couches: Graphics[] = []
   private horloge = 0
   private echelle = 0
@@ -109,6 +188,12 @@ export class Faisceau {
 
   constructor(parent: Container, reducedMotion = false) {
     this.anime = !reducedMotion
+    // Le cône ne dépend que de la géométrie du quai : une fois tracé, il ne
+    // bouge plus — ni avec l'échelle, ni avec l'écran.
+    this.racine.addChild(this.cone)
+    for (const nappe of nappesDuCone(coneDuFaisceau(PIECES.reverbere))) {
+      this.cone.poly(nappe.points).fill({ color: 0xffffff, alpha: nappe.alpha })
+    }
     for (let i = 0; i < COUCHES; i += 1) {
       const g = new Graphics()
       this.couches.push(g)

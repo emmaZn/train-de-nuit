@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { Container, Graphics } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
-import { Quai, anglesHorloge } from '@/scene/QuaiLayer'
+import { HALO_HORLOGE, Quai, anglesHorloge } from '@/scene/QuaiLayer'
 import { fabriquerPiece } from '@/scene/poses'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
@@ -163,8 +163,10 @@ describe('l’horloge allumée', () => {
   it('porte le halo : son emprise dépasse le disque du cadran', () => {
     const { quai } = poser()
     const b = quai.horloge.getLocalBounds()
-    // Le halo extérieur est à 50/36 du rayon du cadran.
-    const rayonHalo = (HORLOGE.rayon * 50) / 36
+    // Le halo était deux cercles de points, à 43 et 50 sur 36 du rayon du
+    // cadran ; depuis le réglage 3 c'est un dégradé en nappes, dont la plus
+    // large porte à `HALO_HORLOGE.rayon`. C'est elle qui fixe l'emprise.
+    const rayonHalo = HORLOGE.rayon * HALO_HORLOGE.rayon
     expect(b.minX).toBeLessThanOrEqual(HORLOGE.x - rayonHalo + 1)
     expect(b.maxX).toBeGreaterThanOrEqual(HORLOGE.x + rayonHalo - 1)
     expect(b.minY).toBeLessThanOrEqual(HORLOGE.y - rayonHalo + 1)

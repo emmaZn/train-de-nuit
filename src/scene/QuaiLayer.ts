@@ -35,6 +35,10 @@ import { GRAIN_ECRAN, fabriquerPiece } from './poses'
 import { Faisceau } from './Faisceau'
 
 const GRIS = 0xededed
+/** Le blanc plein des sources : plus clair que le gris du décor, c'est voulu. */
+const BLANC = 0xffffff
+/** Le noir du projet, celui que le shader de recoloration rend à la couleur du fond. */
+const NOIR = 0x0b0b0c
 
 /** Les pièces qui viennent d'un dessin. La bordure et le cadre se tracent ici. */
 const PIECES_DESSINEES = ['reverbere', 'banc', 'valise', 'batiment'] as const
@@ -53,14 +57,54 @@ const PANNEAU_FILET = 8
 
 /**
  * Le cadran de l'horloge, en fractions de son rayon (celui du disque = 1).
- * Miroir de l'ancien dessin : graduations de 29 à 34 sur 36, halos à 43 et 50
- * avec un point toutes les 8 et 12 unités de SVG. PROVISOIRE (§7).
+ * Miroir de l'ancien dessin : graduations de 29 à 34 sur 36. PROVISOIRE (§7).
  */
 const GRADUATION = { de: 29 / 36, a: 34 / 36 } as const
-const HALOS = [
-  { rayon: 43 / 36, pas: 8 },
-  { rayon: 50 / 36, pas: 12 },
-] as const
+
+/* ----------------------------------------------------------------------------
+ * Les trois sources de la gare sont des DÉGRADÉS (réglage 3).
+ *
+ * La maquette montre une lanterne blanche entourée d'une lueur, un cône plein
+ * de lumière et une horloge à cadran blanc cerclée d'un halo. Les trois sont
+ * des dégradés, donc des mi-teintes : c'est l'entorse à « blanc ou absent »
+ * (CONCEPT §12.2) que la propriétaire avait déjà assumée pour le halo des
+ * vitres du train (`Vitres.HALO_ALPHA`), et qu'elle étend ici. Elle s'arrête
+ * aux sources : le mur, le banc, la valise, la bordure, le massif et la rame
+ * restent blancs ou absents.
+ *
+ * Techniquement ce ne sont pas des dégradés de Pixi mais des **nappes** de
+ * blanc translucide qui se recouvrent : un `FillGradient` se construit sur un
+ * canvas 2D, que jsdom n'a pas, et les lumières disparaîtraient des tests.
+ * L'alpha se cumule, et quelques dizaines de nappes se lisent comme un dégradé.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Le corps vitré de la lanterne, en unités du SVG du réverbère — **miroir du
+ * dessin**, à tenir à jour avec lui (même parti que `PORTE_SVG`). C'est le
+ * trapèze `M24 48 L20 86 H60 L56 48` de `reverbere.svg`.
+ *
+ * Il est rempli **ici** et non dans le dessin : un `fill` dans un SVG part
+ * dans la masse, que `fabriquerPiece` aplatit au noir du fond. Le réverbère
+ * sortait donc en peigne de traits gris, et la maquette veut une lampe.
+ */
+const LANTERNE_SVG = { hautY: 48, basY: 86, hautDemi: 16, basDemi: 20, cx: 40 } as const
+
+/**
+ * La lueur autour de la lanterne : rayon en unités du SVG du réverbère, et
+ * opacité d'**une** nappe. Les nappes se cumulent au centre — à 0,05 et 26
+ * nappes, le cœur monte vers 0,74. **Le réglage de la luminosité du
+ * lampadaire, c'est `alpha`** ; `rayon` dit jusqu'où la lueur porte.
+ * PROVISOIRE (§7).
+ */
+const LUEUR = { rayon: 150, nappes: 26, alpha: 0.05 } as const
+
+/**
+ * Le halo de l'horloge : rayon en fractions du rayon du cadran, et opacité
+ * d'une nappe. Il remplace les deux cercles de points de l'ancien dessin, qui
+ * se lisaient comme un anneau et non comme un halo. **Le réglage de la
+ * luminosité de l'horloge, c'est `alpha`.** PROVISOIRE (§7).
+ */
+export const HALO_HORLOGE = { rayon: 2.4, nappes: 20, alpha: 0.055 } as const
 
 /**
  * Les deux pieds du panneau : écartement du bord du cadre, et largeur de chaque
@@ -151,6 +195,8 @@ export class Quai {
   private readonly bordure = new Graphics()
   private readonly cadran = new Graphics()
   private readonly cadrePanneau = new Graphics()
+  /** La lanterne : sa lueur et son corps blanc, tracés en code, pas dessinés. */
+  private readonly lanterne = new Graphics()
   private readonly faisceau: Faisceau
 
   private readonly svgs = new Map<PieceDessinee, string>()
@@ -182,6 +228,10 @@ export class Quai {
     this.racineAllumee.addChild(this.cadrePanneau, this.cadran)
     // Le faisceau est dans la racine allumée : il suit l'île, et ne s'éteint pas.
     this.faisceau = new Faisceau(this.racineAllumee, reducedMotion)
+    // La lanterne **après** le faisceau : c'est la source, rien ne passe
+    // devant elle — sinon le sprite du réverbère, qui n'est que du trait.
+    // Et jamais en tête de la racine allumée : `cadrePanneau` y reste premier.
+    this.racineAllumee.addChild(this.lanterne)
     // Tant qu'on ne sait pas où est la gare, l'île n'est nulle part : la scène
     // tourne sa première image avant que Vue ne lui dise d'où l'on part, et
     // une île qui se pose quand même s'ancre à quai — à « ailleurs ».
@@ -306,8 +356,41 @@ export class Quai {
   private redessiner(): void {
     this.tracerBordure()
     this.tracerCadrePanneau()
+    this.tracerLanterne()
     this.minuteTracee = -1
     this.tracerAiguilles()
+  }
+
+  /**
+   * La lanterne : une lueur en nappes, puis le corps vitré en blanc plein.
+   *
+   * C'est la source de la gare, et elle doit être la chose la plus claire de
+   * l'écran — d'où le blanc pur, et non le gris du décor. Voir `LANTERNE_SVG`
+   * pour la raison qui interdit de la remplir dans son dessin.
+   */
+  private tracerLanterne(): void {
+    const g = this.lanterne
+    g.clear()
+    const b = boite('reverbere')
+    const k = b.largeur / CADRES.reverbere.largeur
+    const px = (x: number) => b.x + x * k
+    const py = (y: number) => b.y + y * k
+    const cx = px(LANTERNE_SVG.cx)
+    const cy = py((LANTERNE_SVG.hautY + LANTERNE_SVG.basY) / 2)
+    // La lueur, du plus large au plus étroit : l'alpha se cumule vers le centre.
+    for (let i = LUEUR.nappes; i >= 1; i -= 1) {
+      g.circle(cx, cy, (LUEUR.rayon * k * i) / LUEUR.nappes).fill({
+        color: BLANC,
+        alpha: LUEUR.alpha,
+      })
+    }
+    const { hautY, basY, hautDemi, basDemi, cx: c } = LANTERNE_SVG
+    g.poly([
+      px(c - hautDemi), py(hautY),
+      px(c + hautDemi), py(hautY),
+      px(c + basDemi), py(basY),
+      px(c - basDemi), py(basY),
+    ]).fill({ color: BLANC })
   }
 
   /** La bande du quai au-dessus des rails, soulignée d'un liseré (§5.4). */
@@ -352,12 +435,19 @@ export class Quai {
   }
 
   /**
-   * L'horloge entière, dans la racine **allumée** : disque, graduations, halo,
-   * aiguilles à la vraie heure. Le halo se fait comme le reste de la scène, en
-   * cellules de grain — des points sur deux cercles, jamais un dégradé. Le
-   * cadran ne change qu'avec le cadrage et les aiguilles qu'à la minute, mais
-   * tout se trace d'un seul `Graphics` : une minute, quelques centaines de
-   * cellules.
+   * L'horloge entière, dans la racine **allumée** : halo, cadran blanc,
+   * graduations et aiguilles à la vraie heure.
+   *
+   * Le halo est un dégradé en nappes (voir `HALO_HORLOGE`), et le cadran un
+   * **disque blanc plein** : la maquette en montre un, l'ancien anneau de
+   * points n'en faisait pas un. Graduations et aiguilles passent donc au
+   * **noir du projet**, celui que le shader rend à la couleur du fond : sur un
+   * cadran blanc, elles sont des creux, et du gris sur du blanc ne se verrait
+   * pas. C'est la règle « blanc ou absent » appliquée à l'envers, pas levée.
+   *
+   * Le cadran ne change qu'avec le cadrage et les aiguilles qu'à la minute,
+   * mais tout se trace d'un seul `Graphics` : une minute, quelques centaines
+   * de cellules.
    */
   private tracerAiguilles(): void {
     const maintenant = new Date()
@@ -373,23 +463,18 @@ export class Quai {
       const r = (angle * Math.PI) / 180
       return { x: HORLOGE.x + Math.sin(r) * longueur, y: HORLOGE.y - Math.cos(r) * longueur }
     }
-    // Le disque, comme un trait fermé.
-    const tour = Math.max(12, Math.ceil((2 * Math.PI * HORLOGE.rayon) / c))
-    for (let i = 0; i < tour; i += 1) {
-      const p = sur((i / tour) * 360, HORLOGE.rayon)
-      g.rect(p.x - c / 2, p.y - c / 2, c, c)
+    // Le halo, du plus large au plus étroit : l'alpha se cumule vers le cadran.
+    for (let i = HALO_HORLOGE.nappes; i >= 1; i -= 1) {
+      g.circle(HORLOGE.x, HORLOGE.y, (HORLOGE.rayon * HALO_HORLOGE.rayon * i) / HALO_HORLOGE.nappes)
+        .fill({ color: BLANC, alpha: HALO_HORLOGE.alpha })
     }
+    // Le cadran : un disque blanc plein, sur lequel tout le reste se creuse.
+    g.circle(HORLOGE.x, HORLOGE.y, HORLOGE.rayon).fill({ color: BLANC })
+
     for (let k = 0; k < 12; k += 1) {
       const a = sur(k * 30, HORLOGE.rayon * GRADUATION.de)
       const b = sur(k * 30, HORLOGE.rayon * GRADUATION.a)
       ligneCellules(g, a.x, a.y, b.x, b.y, c)
-    }
-    for (const halo of HALOS) {
-      const n = Math.round((2 * Math.PI * halo.rayon * HORLOGE.rayon) / (halo.pas * HORLOGE.rayon / 36))
-      for (let i = 0; i < n; i += 1) {
-        const p = sur((i / n) * 360, HORLOGE.rayon * halo.rayon)
-        g.rect(p.x - c / 2, p.y - c / 2, c, c)
-      }
     }
     for (const [angle, part] of [
       [heures, 0.55],
@@ -398,7 +483,7 @@ export class Quai {
       const f = sur(angle, HORLOGE.rayon * part)
       ligneCellules(g, HORLOGE.x, HORLOGE.y, f.x, f.y, c)
     }
-    g.fill({ color: GRIS })
+    g.fill({ color: NOIR })
   }
 
   /* ------------------------------------------------------------ textures */
