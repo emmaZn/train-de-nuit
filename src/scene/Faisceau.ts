@@ -58,8 +58,14 @@ const BAS_LANTERNE_SVG = 48
 /** Le cadre du dessin : 560 unités de haut, posées à `piece.hauteur` pixels. */
 const HAUTEUR_SVG = 560
 
-/** Demi-ouverture de la base, en pixels de cadre. PROVISOIRE (§7) : à régler à vue. */
-const DEMI_BASE = 170
+/**
+ * Demi-ouverture de la base, en pixels de cadre : **la largeur du faisceau**.
+ * Elle commande le cône peint **et** la population de poussière, qui garde sa
+ * densité — élargir le faisceau ne l'éclaircit pas, il en met simplement sur
+ * plus de surface. Passée de 170 à 230 au réglage 3 : la maquette montre un
+ * cône large. PROVISOIRE (§7) : à régler à vue.
+ */
+const DEMI_BASE = 230
 /** De combien le cône s'arrête au-dessus du sol, en pixels. PROVISOIRE (§7) : à régler à vue. */
 const GARDE_AU_SOL = 36
 
@@ -111,24 +117,33 @@ export function grainsDuFaisceau(cone: Cone, graine: number, mobile: boolean): G
   return grains
 }
 
-/* ---- Le cône peint. Les quatre réglages sont PROVISOIRES (§7). ---- */
+/* ---- Le cône peint. Les quatre réglages sont PROVISOIRES (§7), posés à vue
+ *      sur la scène qui tourne, en regardant la maquette à côté. ---- */
 
 /**
  * Opacité d'**une** nappe au sommet du cône. Elles se recouvrent : sur l'axe,
- * les `CONE_NAPPES` se cumulent — à 0,055 et 6 nappes, le cœur du cône monte
- * à environ 0,29, le bord reste à 0,055. C'est ce cumul qui fait le dégradé
+ * les `CONE_NAPPES` se cumulent — à 0,045 et 24 nappes, le cœur du cône monte
+ * à environ 0,67, le bord reste à 0,045. C'est ce cumul qui fait le dégradé
  * latéral. **Le réglage de la luminosité du faisceau, c'est ce nombre.**
+ * À 0,02 le cône ne se lisait plus sur le mur du bâtiment ; à 0,08 il lavait
+ * le grain du massif.
  */
-const CONE_ALPHA = 0.055
-/** Combien de nappes, de l'axe vers le bord : plus il y en a, plus le cœur est clair. */
-const CONE_NAPPES = 6
+const CONE_ALPHA = 0.045
+/**
+ * Combien de nappes, de l'axe vers le bord : plus il y en a, plus le cœur est
+ * clair — et plus le dégradé est fin. À six nappes, le cumul se voyait en
+ * bandes à l'écran ; c'est le pas d'alpha (`CONE_ALPHA`) qui doit rester
+ * petit, pas le nombre de nappes.
+ */
+const CONE_NAPPES = 24
 /** En combien de tranches le cône se découpe en profondeur : la finesse du dégradé vertical. */
-const CONE_BANDES = 22
+const CONE_BANDES = 28
 /**
  * Jusqu'où le cône descend clair avant de s'éteindre : l'opacité suit
- * `1 - t^CONE_TENUE`, nulle à la base. Plus grand, plus il tient bas.
+ * `1 - t^CONE_TENUE`, nulle à la base. Plus grand, plus il tient bas. À 2, il
+ * mourait vers la moitié du mât ; la maquette le fait descendre sur le quai.
  */
-const CONE_TENUE = 2
+const CONE_TENUE = 3
 
 /**
  * Les nappes du cône : pour chaque tranche de profondeur, un trapèze par

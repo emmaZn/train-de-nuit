@@ -91,20 +91,24 @@ const LANTERNE_SVG = { hautY: 48, basY: 86, hautDemi: 16, basDemi: 20, cx: 40 } 
 
 /**
  * La lueur autour de la lanterne : rayon en unités du SVG du réverbère, et
- * opacité d'**une** nappe. Les nappes se cumulent au centre — à 0,05 et 26
+ * opacité d'**une** nappe. Les nappes se cumulent au centre — à 0,022 et 60
  * nappes, le cœur monte vers 0,74. **Le réglage de la luminosité du
  * lampadaire, c'est `alpha`** ; `rayon` dit jusqu'où la lueur porte.
- * PROVISOIRE (§7).
+ *
+ * Le nombre de nappes, lui, n'est pas un réglage de goût : c'est la finesse
+ * du dégradé. À 26 nappes de 0,05, les marches se voyaient en anneaux autour
+ * de la lampe. PROVISOIRE (§7).
  */
-const LUEUR = { rayon: 150, nappes: 26, alpha: 0.05 } as const
+const LUEUR = { rayon: 150, nappes: 60, alpha: 0.022 } as const
 
 /**
  * Le halo de l'horloge : rayon en fractions du rayon du cadran, et opacité
  * d'une nappe. Il remplace les deux cercles de points de l'ancien dessin, qui
  * se lisaient comme un anneau et non comme un halo. **Le réglage de la
- * luminosité de l'horloge, c'est `alpha`.** PROVISOIRE (§7).
+ * luminosité de l'horloge, c'est `alpha`** ; `nappes`, comme pour `LUEUR`,
+ * n'est que la finesse du dégradé. PROVISOIRE (§7).
  */
-export const HALO_HORLOGE = { rayon: 2.4, nappes: 20, alpha: 0.055 } as const
+export const HALO_HORLOGE = { rayon: 2.4, nappes: 48, alpha: 0.023 } as const
 
 /**
  * Les deux pieds du panneau : écartement du bord du cadre, et largeur de chaque
