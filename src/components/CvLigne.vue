@@ -11,7 +11,7 @@
  * Premier endroit du site où l'on fait défiler : la barre est fine et dans la
  * palette (`scrollbar-width: thin`, couleur dérivée de --texte).
  */
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { HORS_DE_LA_VOIE, PARCOURS, TERMINUS } from '@/contenu/cv'
 import { adresseMail } from '@/contenu/liens'
@@ -47,10 +47,20 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', surTouche)
+  const cible = rendreLeFocusA
+  rendreLeFocusA = null
+  // **Pas tout de suite.** Tant que le CV est ouvert, `App.vue` pose `inert`
+  // sur les deux `.dessous` — dont celui qui porte le panneau des départs, donc
+  // le lien par lequel on est arrivé. `focus()` sur un élément à l'ancêtre
+  // inerte ne fait rien, en silence, et le focus retombe sur `<body>` : le
+  // symptôme même qu'on corrige. `nextTick` rend la main après la purge
+  // complète, `inert` retiré, quel que soit l'ordre des mises à jour.
+  //
   // `isConnected` : un élément sorti du document entre-temps ne prendrait pas
   // le focus, et le lui demander quand même laisserait croire que si.
-  if (rendreLeFocusA?.isConnected) rendreLeFocusA.focus({ preventScroll: true })
-  rendreLeFocusA = null
+  if (cible) void nextTick(() => {
+    if (cible.isConnected) cible.focus({ preventScroll: true })
+  })
 })
 </script>
 

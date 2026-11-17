@@ -11,6 +11,7 @@ import CvLigne from '@/components/CvLigne.vue'
 import GareAilleurs from '@/components/gares/GareAilleurs.vue'
 import { HORS_DE_LA_VOIE, PARCOURS } from '@/contenu/cv'
 import { brancherVoyage, createAppRouter } from '@/router'
+import { fitStage } from '@/scene/layout'
 import { useVoyage } from '@/stores/voyage'
 
 async function monter(depart: string, chemin?: string) {
@@ -28,10 +29,17 @@ async function monter(depart: string, chemin?: string) {
   return { router, wrapper, voyage: useVoyage() }
 }
 
+/**
+ * Le cadre de la scène, que `PanneauDeparts` exige pour se poser : nul par
+ * défaut — le panneau ne s'affiche donc pas — et renseigné par le seul test
+ * qui a besoin de son lien « CV ».
+ */
+const faux = vi.hoisted(() => ({ frame: null as unknown }))
+
 vi.mock('@/composables/useScene', async (importOriginal) => {
   const { ref } = await import('vue')
   const reel = await importOriginal<typeof import('@/composables/useScene')>()
-  return { ...reel, useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(null), changerFond: () => {} }) }
+  return { ...reel, useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(faux.frame), changerFond: () => {} }) }
 })
 
 async function monterApp(chemin: string) {
@@ -165,6 +173,49 @@ describe('CvLigne', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await flushPromises()
     expect(router.currentRoute.value.path).toBe('/ailleurs')
+  })
+
+  /**
+   * Le vrai parcours, et le vrai piège. Tant que le CV est ouvert, `App.vue`
+   * pose `inert` sur les deux `.dessous` — dont celui qui porte le panneau des
+   * départs, donc le lien « CV · QUAI 2 » par lequel on est arrivé. Dans un
+   * navigateur, `focus()` sur un élément à l'ancêtre inerte **ne fait rien**,
+   * en silence, et le focus retombe sur `<body>` : exactement le symptôme
+   * qu'on corrige. jsdom, lui, ne fait pas respecter `inert` — regarder
+   * `document.activeElement` ne prouverait donc rien. On regarde l'appel
+   * lui-même : au moment où le focus est rendu, le lien ne doit plus avoir
+   * d'ancêtre inerte.
+   */
+  it('rend le focus au lien du panneau, et hors de toute zone inerte', async () => {
+    faux.frame = fitStage(1440, 900)
+    const vraiFocus = HTMLElement.prototype.focus
+    try {
+      const { wrapper, router } = await monterApp('/ailleurs')
+      const lien = wrapper.findAll('a').find((a) => a.text().includes('CV'))
+      expect(lien, 'le panneau ne montre pas son lien CV').toBeTruthy()
+      const cible = lien!.element as HTMLElement
+      // On y arrive au clavier, depuis le lien : c'est lui qui a le focus.
+      cible.focus()
+      expect(document.activeElement).toBe(cible)
+      await router.push('/ailleurs/cv')
+      await flushPromises()
+      expect(cible.closest('[inert]'), 'le lien devrait être inerte, CV ouvert').toBeTruthy()
+
+      const appels: (Element | null)[] = []
+      HTMLElement.prototype.focus = function (this: HTMLElement, o?: FocusOptions) {
+        if (this === cible) appels.push(this.closest('[inert]'))
+        return vraiFocus.call(this, o)
+      }
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+      await flushPromises()
+
+      expect(appels, 'le focus n’a jamais été rendu au lien').toHaveLength(1)
+      expect(appels[0], 'le focus a été rendu alors que le lien était encore inerte').toBeNull()
+      expect(document.activeElement).toBe(cible)
+    } finally {
+      HTMLElement.prototype.focus = vraiFocus
+      faux.frame = null
+    }
   })
 
   it('« retour » porte un vrai anneau de focus, pas qu’une opacité', () => {
