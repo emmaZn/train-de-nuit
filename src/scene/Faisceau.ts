@@ -33,7 +33,7 @@
 import { Container, Graphics } from 'pixi.js'
 import type { Frame } from './layout'
 import { GRAIN_ECRAN } from './poses'
-import { PIECES } from './quai'
+import { CADRES, PIECES } from './quai'
 import { alea } from './Sky'
 import type { Grain } from './Sky'
 
@@ -49,7 +49,7 @@ export type Cone = {
 
 /**
  * D'où part le faisceau, en unités du cadre du réverbère : le **haut** du
- * corps vitré, qui court de 108 à 164 (`LANTERNE` dans `QuaiLayer.ts`). La
+ * corps vitré, qui court de 110 à 165 (`LANTERNE` dans `QuaiLayer.ts`). La
  * lanterne se tient donc dans la pointe du cône, là où il est le plus clair —
  * c'est ce qui la pose comme la source.
  *
@@ -59,8 +59,8 @@ export type Cone = {
  * sinon il partirait du vide au-dessus d'elle.
  */
 const HAUT_LANTERNE = 108
-/** Le cadre du dessin : 560 unités de haut, posées à `piece.hauteur` pixels. */
-const HAUTEUR_SVG = 560
+/** Le cadre du dessin, en unités : posé à `piece.hauteur` pixels. */
+const HAUTEUR_CADRE = CADRES.reverbere.hauteur
 
 /**
  * Demi-ouverture de la base, en pixels de cadre : **la largeur du faisceau**.
@@ -83,7 +83,7 @@ const PLANCHER = 40
 export function coneDuFaisceau(piece: typeof PIECES.reverbere): Cone {
   const sommet = {
     x: piece.x,
-    y: piece.pied - piece.hauteur + (HAUT_LANTERNE * piece.hauteur) / HAUTEUR_SVG,
+    y: piece.pied - piece.hauteur + (HAUT_LANTERNE * piece.hauteur) / HAUTEUR_CADRE,
   }
   return {
     sommet,

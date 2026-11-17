@@ -155,10 +155,17 @@ describe('la géométrie du quai', () => {
   })
 
   it('le réverbère occupe son cadre sans l’étirer', () => {
-    // Posé à `hauteur` px, il fait `largeur` px : le rapport du cadre, à l'échelle près.
-    const k = PIECES.reverbere.hauteur / CADRES.reverbere.hauteur
-    const largeur = PIECES.reverbere.hauteur / (CADRES.reverbere.hauteur / CADRES.reverbere.largeur)
-    expect(largeur).toBeCloseTo(CADRES.reverbere.largeur * k, 6)
+    // `PIECES.reverbere` ne porte qu'une hauteur : la largeur posée se déduit,
+    // et elle peut se déduire de deux côtés. Par l'image (108 × 756, lue dans
+    // l'en-tête du PNG par le test d'au-dessus) et par le cadre (80 × 560, où
+    // se lisent lanterne, lueur et faisceau) : deux littéraux indépendants, qui
+    // doivent s'accorder sur ce que fait le lampadaire à l'écran. Réduire la
+    // pièce (`hauteur`) sans toucher à l'un des deux ne les sépare pas ; changer
+    // l'un sans l'autre, si.
+    const h = PIECES.reverbere.hauteur
+    const parLImage = (h * IMAGES.reverbere.largeur) / IMAGES.reverbere.hauteur
+    const parLeCadre = (CADRES.reverbere.largeur * h) / CADRES.reverbere.hauteur
+    expect(parLImage).toBeCloseTo(parLeCadre, 6)
   })
 
   /** L'emprise sert au test du hors-champ : le panneau déborde, il en fait partie. */

@@ -179,8 +179,12 @@ export const HORLOGE = {
   rayon: HORLOGE_IMAGE.rayon * ECHELLE_BATIMENT,
 } as const
 
-/** Demi-largeur de l'embase du réverbère, pour que la gare ait un bord gauche. */
-const DEMI_EMBASE = CADRES.reverbere.largeur / 2
+/**
+ * Demi-largeur de l'embase du réverbère, pour que la gare ait un bord gauche :
+ * la largeur de son cadre, à l'échelle où il est posé (`hauteur / hauteur`).
+ */
+const DEMI_EMBASE =
+  (CADRES.reverbere.largeur / 2) * (PIECES.reverbere.hauteur / CADRES.reverbere.hauteur)
 
 const bords = [
   PIECES.reverbere.x - DEMI_EMBASE,
