@@ -12,7 +12,15 @@ import {
 } from '@/scene/quai'
 import { lirePngIndexe } from './png'
 import { RECUL_HORS_CHAMP, solParEtape } from '@/scene/cables'
-import { HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
+import {
+  FORMATS_GARE,
+  HORIZON,
+  MARGE_GARE,
+  STAGE,
+  TETE_LOCO,
+  bandeCommuneGare,
+  bandeVisible,
+} from '@/scene/layout'
 
 describe('la géométrie du quai', () => {
   it('la gare sort du champ avant que la suivante entre', () => {
@@ -155,8 +163,10 @@ describe('la géométrie du quai', () => {
   })
 
   it('le réverbère occupe son cadre sans l’étirer', () => {
+    // Posé à `hauteur` px, il fait `largeur` px : le rapport du cadre, à l'échelle près.
+    const k = PIECES.reverbere.hauteur / CADRES.reverbere.hauteur
     const largeur = PIECES.reverbere.hauteur / (CADRES.reverbere.hauteur / CADRES.reverbere.largeur)
-    expect(largeur).toBeCloseTo(CADRES.reverbere.largeur, 6)
+    expect(largeur).toBeCloseTo(CADRES.reverbere.largeur * k, 6)
   })
 
   /** L'emprise sert au test du hors-champ : le panneau déborde, il en fait partie. */
@@ -164,5 +174,38 @@ describe('la géométrie du quai', () => {
     expect(FIN_GARE).toBeGreaterThanOrEqual(PIECES.panneau.x + PIECES.panneau.largeur)
     expect(DEBUT_GARE).toBeLessThanOrEqual(PIECES.reverbere.x)
     expect(FIN_GARE - DEBUT_GARE).toBeCloseTo(LARGEUR_GARE, 6)
+  })
+
+  /**
+   * La règle : le cadre de 2320 est rogné par la fenêtre, donc « dans le
+   * cadre » ne suffit pas. Chaque pièce doit être dans la bande que TOUS les
+   * formats de `FORMATS_GARE` voient, avec `MARGE_GARE` de jeu.
+   */
+  it('aucune pièce de la gare ne sort de la bande visible commune', () => {
+    const [gauche, droite] = bandeCommuneGare()
+    const p = PIECES
+    const emprises: Array<[string, number, number]> = [
+      ['reverbere', p.reverbere.x - CADRES.reverbere.largeur / 2, p.reverbere.x + CADRES.reverbere.largeur / 2],
+      ['banc', p.banc.x - p.banc.largeur / 2, p.banc.x + p.banc.largeur / 2],
+      ['valise', p.valise.x - p.valise.largeur / 2, p.valise.x + p.valise.largeur / 2],
+      ['batiment', p.batiment.x, p.batiment.x + p.batiment.largeur],
+      ['panneau', p.panneau.x, p.panneau.x + p.panneau.largeur],
+    ]
+    for (const [nom, x0, x1] of emprises) {
+      expect(x0, `${nom} : bord gauche`).toBeGreaterThanOrEqual(gauche + MARGE_GARE)
+      expect(x1, `${nom} : bord droit`).toBeLessThanOrEqual(droite - MARGE_GARE)
+    }
+    expect(DEBUT_GARE).toBeGreaterThanOrEqual(gauche + MARGE_GARE)
+    expect(FIN_GARE).toBeLessThanOrEqual(droite - MARGE_GARE)
+  })
+
+  it('la bande commune est celle que fitStage laisse voir à 1432×900 et en 4:3', () => {
+    const [g, d] = bandeVisible(1432, 900)
+    expect(g).toBeCloseTo(191.6, 0)
+    expect(d).toBeCloseTo(2128.4, 0)
+    const [gc, dc] = bandeCommuneGare()
+    expect(gc).toBeGreaterThanOrEqual(g)
+    expect(dc).toBeLessThanOrEqual(d)
+    expect(FORMATS_GARE.length).toBeGreaterThan(3)
   })
 })

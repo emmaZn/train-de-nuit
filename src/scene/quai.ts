@@ -66,11 +66,19 @@ export const IMAGES = {
  * Les abscisses de `PIECES` sont écrites à la place d'origine (gare entière à
  * droite du nez de la loco), moins ce décalage.
  *
- * 60 est un premier essai, décidé en regardant la scène tourner (réglage 1) :
- * la propriétaire demandera plus ou moins. Plus le décalage grandit, plus la
- * rame cache de la gare à l'arrêt — et c'est permis.
+ * **La borne** : toute la gare doit tenir dans `bandeCommuneGare()` (layout.ts)
+ * moins `MARGE_GARE` de chaque côté. Le cadre de 2320 est rogné par la
+ * fenêtre — de 192 à 2128 à 1432×900, de 349 à 1971 en 4:3 — et la bande que
+ * tous les formats de `FORMATS_GARE` voient va de 349 à 1971. La gare (de
+ * `DEBUT_GARE` à `FIN_GARE`) en fait 1386 : elle y entre avec 236 px de
+ * jeu au total. `quai.test.ts` le vérifie : déplacer la gare au-delà casse un
+ * test, pas seulement l'œil. Le décalage ne se règle donc plus à vue en
+ * dehors de cette borne ; en deçà, la rame cache de la gare à l'arrêt, permis.
+ *
+ * 60 (réglage 1) laissait le panneau sortir à droite du champ : 360 ancre la
+ * fin de la gare à 1930, marge de 40 sous le bord de la bande.
  */
-export const DECALAGE_GARE = 60
+export const DECALAGE_GARE = 360
 
 /**
  * La largeur du bâtiment, en pixels de cadre — à l'échelle 1 de son dessin
@@ -94,7 +102,10 @@ export const LARGEUR_BATIMENT = 1316
 const BORD_DROIT_BATIMENT = 2220
 
 export const PIECES = {
-  reverbere: { x: 1290 - DECALAGE_GARE, pied: HORIZON, hauteur: 560 },
+  // 490 = 560 × 0,875 : réduit de 12,5 % (réglage 4). `hauteur` est la hauteur
+  // **posée** ; le dessin reste mesuré dans `CADRES.reverbere`, et lanterne,
+  // lueur et sommet du faisceau en suivent l'échelle (`hauteur / CADRES…`).
+  reverbere: { x: 1290 - DECALAGE_GARE, pied: HORIZON, hauteur: 490 },
   // Banc et valise se tiennent **devant** le mur (le bâtiment passe derrière
   // eux, comme derrière le réverbère). La valise ne cache plus le pied de la
   // porte : celle-ci est au milieu du **corps de gare**, pas du cadre, depuis
