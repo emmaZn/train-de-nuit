@@ -192,8 +192,13 @@ reflété dans l'eau, comme les câbles.
 
 ### 6.2 Le faisceau du réverbère
 
-**Ce n'est pas un cône peint.** C'est la poussière d'étoiles qui s'allume à
-l'intérieur du cône : même matière que partout, et ça bouge tout seul.
+**C'est un cône peint, et de la poussière dessus.** Cette ligne disait
+d'abord le contraire — « ce n'est pas un cône peint » —, et elle a cessé
+d'être vraie au réglage 3, quand la propriétaire a demandé de coller à son
+prototype : quelques grains épars le long du mât ne faisaient pas un faisceau.
+Le cône est donc un dégradé en nappes (`Faisceau.nappesDuCone`), et la
+poussière d'étoiles s'allume dedans : même matière que partout, et ça bouge
+tout seul.
 
 Deux choses à vérifier en construisant, parce qu'elles peuvent rendre cette
 promesse fausse :
