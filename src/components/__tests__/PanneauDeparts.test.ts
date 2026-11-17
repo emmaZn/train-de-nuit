@@ -3,13 +3,14 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick, ref } from 'vue'
 import { describe, expect, it } from 'vitest'
-import { createMemoryHistory } from 'vue-router'
+import { RouterLink, createMemoryHistory } from 'vue-router'
 
 import PanneauDeparts from '@/components/PanneauDeparts.vue'
 import { FRAME_KEY } from '@/composables/useScene'
 import { fitStage } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
 import { createAppRouter } from '@/router'
+import { CV } from '@/contenu/liens'
 import { PIECES } from '@/scene/quai'
 import { useVoyage } from '@/stores/voyage'
 
@@ -68,8 +69,38 @@ describe('PanneauDeparts', () => {
     expect(a.attributes('rel')).toContain('noopener')
   })
 
-  it('CV mène à /ailleurs/cv', () => {
-    expect(lien(monter().wrapper, 'CV').attributes('href')).toBe('/ailleurs/cv')
+  /**
+   * `href === '/ailleurs/cv'` passerait aussi pour un `<a>` nu — et un `<a>`
+   * nu veut dire rechargement complet de la page, donc scène qui repart de
+   * zéro, train rendu à « ici », fond remis au défaut. C'est le composant qui
+   * doit être un `RouterLink`, pas seulement l'adresse qui doit être la bonne.
+   */
+  it('CV est un RouterLink vers /ailleurs/cv, pas un <a> nu', () => {
+    const { wrapper } = monter()
+    const liens = wrapper.findAllComponents(RouterLink)
+    const cv = liens.find((l) => l.text().includes('CV'))
+    expect(cv, 'aucun RouterLink ne porte CV').toBeTruthy()
+    expect(cv!.props('to')).toBe(CV)
+    expect(lien(wrapper, 'CV').attributes('href')).toBe('/ailleurs/cv')
+  })
+
+  it('LINKEDIN et ÉCRIRE restent des <a>, eux : ils sortent du site', () => {
+    const { wrapper } = monter()
+    const routes = wrapper.findAllComponents(RouterLink).map((l) => l.text())
+    expect(routes.some((t) => t.includes('LINKEDIN'))).toBe(false)
+    expect(routes.some((t) => t.includes('ÉCRIRE'))).toBe(false)
+  })
+
+  /**
+   * Au départ, le panneau s'efface sur place pendant une demi-seconde (spec
+   * §6.6). Cliquer `CV` pendant ce fondu poussait `/ailleurs/cv`, dont
+   * l'`afterEach` appelle `partirVers('ailleurs')` sur un train déjà en
+   * marche : il le redirigeait, et l'envoyait faire tout le tour de la boucle.
+   */
+  it('les liens ne sont plus cliquables pendant le fondu du départ', () => {
+    const source = readFileSync('src/components/PanneauDeparts.vue', 'utf8')
+    const bloc = source.slice(source.indexOf('.dissoudre-leave-active .reel'))
+    expect(bloc.slice(0, bloc.indexOf('}'))).toMatch(/pointer-events:\s*none/)
   })
 
   it('ÉCRIRE porte un href mailto dès le montage, pas au clic', () => {

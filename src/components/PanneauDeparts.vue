@@ -173,6 +173,14 @@ const place = computed(() => {
   transition: opacity 0.5s ease;
 }
 
+/* Au départ, le panneau s'efface sur place pendant une demi-seconde. Cliquer
+   `CV` à ce moment poussait `/ailleurs/cv`, dont l'`afterEach` appelle
+   `partirVers('ailleurs')` sur un train déjà en marche : il le **redirigeait**,
+   et l'envoyait faire tout le tour de la boucle. */
+.dissoudre-leave-active .reel {
+  pointer-events: none;
+}
+
 .dissoudre-enter-from,
 .dissoudre-leave-to {
   opacity: 0;

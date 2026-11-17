@@ -70,6 +70,18 @@ describe('horaires du panneau', () => {
     expect(departsEteints(new Date(), 1, 99)).toHaveLength(VIVIER.length)
   })
 
+  /**
+   * Un `combien` non entier mélangeait ⌈n⌉ cartes et n'en rendait que ⌊n⌋ :
+   * un tirage de plus que de lignes, donc une suite différente de celle de
+   * `⌊n⌋` à graine égale, pour rien.
+   */
+  it('arrondit un compte non entier vers le bas, mélange compris', () => {
+    const m = new Date('2026-11-15T21:03:00')
+    expect(departsEteints(m, 42, 3.7)).toHaveLength(3)
+    expect(departsEteints(m, 42, 3.7)).toEqual(departsEteints(m, 42, 3))
+    expect(departsEteints(m, 42, -0.5)).toHaveLength(0)
+  })
+
   it('le vivier est celui qu’elle a approuvé, mot pour mot', () => {
     expect(VIVIER.map((v) => `${v.destination} / ${v.statut}`)).toEqual([
       "L'ENFANCE / ANNULÉ", 'NULLE PART / SUPPRIMÉ', "LE PRINTEMPS / À L'HEURE", 'LA LUNE / RETARDÉ',

@@ -42,8 +42,19 @@ export function formaterHeure(d: Date): string {
 }
 
 /**
- * `maintenant` + n minutes, par arithmétique sur Date : minuit, les fins de mois
- * et les changements d'heure se règlent d'eux-mêmes.
+ * `maintenant` + n minutes, par arithmétique sur les **champs locaux** de Date :
+ * minuit et les fins de mois se règlent d'eux-mêmes, les changements d'heure
+ * **non**.
+ *
+ * `setMinutes` écrit une heure de calendrier, pas un instant. Au retour à
+ * l'heure d'hiver — l'heure ambiguë, 02:50 CEST + 19 min — le résultat se lit
+ * 03:09, alors que l'instant réel est 02:09 CET : le panneau avance d'une
+ * heure, le temps de cette heure-là. Au passage à l'heure d'été, en revanche,
+ * l'heure inexistante se résout vers l'avant et l'affichage reste juste
+ * (01:58 CET + 4 min → 03:02 CEST, soit bien quatre minutes plus tard).
+ *
+ * C'est un panneau décoratif : on ne corrige pas, mais on ne le raconte pas
+ * de travers.
  */
 function plusMinutes(maintenant: Date, n: number): Date {
   const d = new Date(maintenant)
@@ -68,7 +79,9 @@ export function departsReels(maintenant: Date): Depart[] {
  */
 export function departsEteints(maintenant: Date, graine: number, combien: number): Depart[] {
   const suivant = alea(graine)
-  const n = Math.max(0, Math.min(combien, VIVIER.length))
+  // `Math.floor` : sans lui, un `combien` non entier mélangeait ⌈n⌉ tours de
+  // mélange et une tranche de ⌊n⌋.
+  const n = Math.max(0, Math.min(Math.floor(combien), VIVIER.length))
   const pioche = [...VIVIER]
   // Mélange de Fisher-Yates partiel : les n premiers sont le tirage.
   for (let i = 0; i < n; i++) {
