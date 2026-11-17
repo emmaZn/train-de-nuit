@@ -432,6 +432,10 @@ export class Scene {
     this.oiseaux = new Birds(planOiseaux, this.cables, { reducedMotion: this.reducedMotion })
     this.oiseaux.surChute = () => this.emitter.emit('birdFell')
     void this.oiseaux.charger()
+    // Un plan qui vient de s'inscrire est encore blanc : sur un lien partagé
+    // vers « ailleurs », la terre se montrerait en pleine lumière le temps
+    // d'une image avant que le prochain tick ne la teinte.
+    this.assombrir()
     this.cadrer()
 
     // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
@@ -442,6 +446,7 @@ export class Scene {
     const rame = monterLaRame(this.plans, this.train, manifest, this.reducedMotion)
     this.vitres = rame.vitres
     this.fumee = rame.fumee
+    this.assombrir()
     this.cadrer()
 
     let relief: Relief | null = null
