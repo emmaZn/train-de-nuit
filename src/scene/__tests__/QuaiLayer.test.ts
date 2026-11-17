@@ -50,7 +50,23 @@ function ancetres(noeud: Container): Container[] {
   return chaine
 }
 
-/** Combien d'ancêtres portent un filtre — zéro au-dessus d'une lumière. */
+/**
+ * La clarté qu'un nœud garde, teintes des ancêtres comprises : 1 = intact.
+ *
+ * C'est ce qui a remplacé le compte des filtres au-dessus de lui. Une lumière
+ * est désormais une branche que la nuit ne teint pas — ni elle, ni aucun de
+ * ses ancêtres, puisque sous Pixi v8 la teinte se multiplie en descendant.
+ */
+function clarte(noeud: Container): number {
+  return (noeud.getGlobalTint() & 0xff) / 255
+}
+
+/**
+ * Combien d'ancêtres portent un filtre. Zéro partout depuis la teinte : ce qui
+ * se garde ici, c'est qu'on n'en remette pas un sur le chemin d'une lumière —
+ * un filtre rendrait son groupe dans une cible intermédiaire, et la passe
+ * plein écran qu'on vient de retirer reviendrait avec lui.
+ */
 function filtresAuDessus(noeud: Container): number {
   return ancetres(noeud).filter((n) => {
     const f = n.filters as unknown
@@ -79,23 +95,27 @@ function stubFetchEnEchec(piece: string): () => void {
 describe('les plans du quai dans le décor', () => {
   /**
    * Le test du brief visait un `voile-nuit` qui n'existe plus : depuis
-   * `b8a5627` l'assombrissement se fait par un filtre de luminance par groupe,
-   * pas par un rectangle plein cadre. Ce qui se vérifie à la place, c'est la
-   * règle des lumières elle-même.
+   * `b8a5627` l'assombrissement a cessé d'être un rectangle plein cadre, et
+   * depuis la teinte il n'est même plus un filtre. Ce qui se vérifie à la
+   * place, c'est la règle des lumières elle-même : une lumière est une branche
+   * que la nuit ne teint pas, ni elle ni aucun de ses ancêtres.
    */
-  it('les lumières du quai n’ont aucun filtre au-dessus d’elles', () => {
-    const { quai } = poser()
+  it('les lumières du quai ne sont teintées par aucun de leurs ancêtres', () => {
+    const { plans, quai } = poser()
+    appliquerNuit(plans, 1)
+    expect(clarte(quai.allume)).toBe(1)
     expect(filtresAuDessus(quai.allume)).toBe(0)
   })
 
-  it('le décor éteint du quai est bien sous un groupe filtré', () => {
+  it('le décor éteint du quai descend bien avec la nuit', () => {
     const { plans, quai } = poser()
-    expect(filtresAuDessus(quai.eteint)).toBeGreaterThan(0)
+    appliquerNuit(plans, 1)
+    expect(clarte(quai.eteint)).toBeLessThan(1)
     expect(ancetres(quai.eteint)).toContain(plans.plateauFond)
   })
 
   /**
-   * « Hors des groupes filtrés » ne suffit pas : monté après `vitres`, le
+   * « Hors des branches teintées » ne suffit pas : monté après le plateau, le
    * réverbère passerait **devant la rame**. Le quai est derrière elle par
    * construction — c'est la prémisse du test « aucune pièce n'est cachée
    * derrière la rame » de `quai.test.ts`. Les lumières sont donc entre le fond
@@ -109,23 +129,24 @@ describe('les plans du quai dans le décor', () => {
     expect(rang(p.ciel)).toBeLessThan(rang(p.plateauFond))
     expect(rang(p.plateauFond)).toBeLessThan(rang(p.lumieres))
     expect(rang(p.lumieres)).toBeLessThan(rang(p.plateau))
-    expect(rang(p.plateau)).toBeLessThan(rang(p.vitres))
   })
 
-  it('la nuit éteint le fond du plateau comme le plateau', () => {
+  it('la nuit éteint le fond du plateau comme le massif', () => {
     const decor = new Container()
     const p = plansDuDecor(decor)
     appliquerNuit(p, 1)
-    expect(p.nuit.plateauFond.enabled).toBe(true)
+    expect(clarte(p.plateauFond)).toBeLessThan(1)
+    expect(clarte(p.plateauFond)).toBe(clarte(p.massif))
     appliquerNuit(p, 0)
-    expect(p.nuit.plateauFond.enabled).toBe(false)
+    expect(clarte(p.plateauFond)).toBe(1)
   })
 
   it('la scène monte le quai au fond du plateau, avant la rame', () => {
     const source = readFileSync('src/scene/Scene.ts', 'utf8')
     const quai = source.indexOf('planQuai')
-    const train = source.indexOf('new Train(')
+    const train = source.indexOf('monterLeTrain(this.plans')
     expect(quai).toBeGreaterThan(0)
+    expect(train).toBeGreaterThan(0)
     expect(quai).toBeLessThan(train)
     expect(source).toContain('plateauFond.addChild(planQuai)')
   })
@@ -134,9 +155,10 @@ describe('les plans du quai dans le décor', () => {
 describe('les pieds du panneau', () => {
   /** Le cadre est une lumière : ses pieds se dessinent avec lui, allumés. */
   it('descendent jusqu’au rail, dans le cadre allumé', () => {
-    const { quai } = poser()
+    const { plans, quai } = poser()
     const cadre = quai.allume.children[0] as Graphics
-    expect(filtresAuDessus(cadre)).toBe(0)
+    appliquerNuit(plans, 1)
+    expect(clarte(cadre)).toBe(1)
     const p = PIECES.panneau
     const b = cadre.getLocalBounds()
     expect(b.maxY).toBeGreaterThanOrEqual(HORIZON - 1)
@@ -152,11 +174,12 @@ describe('l’horloge allumée', () => {
    * aiguilles sont dans la racine allumée, d'un seul tenant. Allumer les
    * aiguilles sur un cadran éteint serait laid.
    */
-  it('est tout entière hors de tout filtre, et absente de la racine éteinte', () => {
-    const { quai } = poser()
+  it('est tout entière hors de toute teinte, et absente de la racine éteinte', () => {
+    const { plans, quai } = poser()
+    appliquerNuit(plans, 1)
     const h = quai.horloge
     expect(ancetres(h)).toContain(quai.allume)
-    expect(filtresAuDessus(h)).toBe(0)
+    expect(clarte(h)).toBe(1)
     expect(ancetres(h)).not.toContain(quai.eteint)
   })
 
@@ -173,9 +196,17 @@ describe('l’horloge allumée', () => {
     expect(b.maxY).toBeGreaterThanOrEqual(HORLOGE.y + rayonHalo - 1)
   })
 
+  /**
+   * `cx="280"` était le centre du bâtiment **de 560 de large**, avant qu'un
+   * réglage ne l'élargisse à 1040 : la coordonnée ne pouvait plus revenir, et
+   * remettre un cadran au nouveau centre serait passé sous le garde. Ce qu'on
+   * interdit, c'est le cercle — le dessin du bâtiment n'en contient aucun, et
+   * un cadran, un halo ou une graduation ronde en serait un.
+   */
   it('n’est plus dans le dessin du bâtiment, qui s’éteint', () => {
     const svg = readFileSync('public/assets/ailleurs/batiment.svg', 'utf8')
-    expect(svg).not.toMatch(/<circle[^>]*cx="280"[^>]*cy="120"/)
+    expect(svg).not.toMatch(/<circle\b/)
+    expect(svg).not.toMatch(/<ellipse\b/)
   })
 })
 

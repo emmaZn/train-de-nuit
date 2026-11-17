@@ -7,9 +7,10 @@
  *
  * **Deux racines, une seule île.** La règle des lumières (spec §6.3) dit que ce
  * qui s'éteint, c'est tout ce qui n'est pas une lumière. Le banc, la valise, le
- * bâtiment et la bordure s'éteignent : ils vivent dans un groupe filtré. Le
- * réverbère, le cadre du panneau et l'horloge sont des lumières : ils vivent hors de tout
- * groupe filtré. Mais c'est un seul objet posé sur un seul sol, alors
+ * bâtiment et la bordure s'éteignent : ils vivent dans un plan que la nuit
+ * teinte. Le réverbère, le cadre du panneau et l'horloge sont des lumières : ils
+ * vivent dans une branche qu'aucune teinte n'atteint — ni elle, ni aucun de ses
+ * ancêtres. Mais c'est un seul objet posé sur un seul sol, alors
  * `avancer()` pose la **même abscisse** sur les deux racines : elles défilent
  * d'un seul mouvement, et rien ne peut les désynchroniser.
  *
@@ -221,7 +222,7 @@ export class Quai {
   private minuteTracee = -1
 
   /**
-   * `lumieres` est le groupe **non filtré**. Il vaut `parent` par défaut, ce
+   * `lumieres` est le groupe **non teinté**. Il vaut `parent` par défaut, ce
    * qui laisse construire un quai d'un seul tenant — c'est ce que font les
    * tests qui ne s'intéressent pas à l'assombrissement.
    */
@@ -326,9 +327,10 @@ export class Quai {
    * coupée en deux plans reste une seule chose posée sur un seul sol.
    *
    * **`nuit` ne sert toujours à rien ici**, et c'est voulu : les lumières du
-   * quai — faisceau compris — ne s'éteignent pas, elles sont hors de tout
-   * filtre, et le faisceau est aussi lumineux de jour que de nuit. Le paramètre
-   * est gardé, préfixé, pour ne pas changer la signature de `avancer`.
+   * quai — faisceau compris — ne s'éteignent pas, aucune teinte ne les
+   * atteint, et le faisceau est aussi lumineux de jour que de nuit. Le
+   * paramètre est gardé, préfixé, pour ne pas changer la signature de
+   * `avancer`.
    */
   avancer(distance: number, _nuit: number): void {
     this.racineEteinte.x = distance

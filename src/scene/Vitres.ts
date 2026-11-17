@@ -272,6 +272,9 @@ export class Vitres {
     positionsWagons: number[],
     reducedMotion: boolean,
   ) {
+    // Nommée : c'est la seule branche de la scène qui ne porte aucune teinte,
+    // ni sur elle ni sur un ancêtre, et un test doit pouvoir le dire.
+    this.racine.label = 'vitres'
     parent.addChild(this.racine)
     const spec = manifest.train.wagon
     this.origine = { x: spec.x, y: spec.y }

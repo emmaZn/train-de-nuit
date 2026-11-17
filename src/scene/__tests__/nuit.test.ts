@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest'
 
-import { ColorMatrixFilter, Container } from 'pixi.js'
+import { readFileSync } from 'node:fs'
+
+import { Container } from 'pixi.js'
 
 import { nuitDeLaGare } from '@/scene/nuit'
-import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
+import {
+  appliquerNuit,
+  grisDeNuit,
+  monterLaRame,
+  monterLeTrain,
+  plansDuDecor,
+} from '@/scene/Scene'
+import type { Manifest } from '@/scene/types'
 import { NUIT_CIEL, NUIT_PROFONDEUR, opaciteVoile } from '@/scene/layout'
 import { PHASE_FREINAGE, PHASE_ROULE } from '@/scene/Train'
 
@@ -123,12 +132,28 @@ describe('nuitDeLaGare', () => {
   })
 })
 
-/** Le premier coefficient de la matrice : la luminance que le filtre laisse passer. */
-function luminance(f: ColorMatrixFilter): number {
-  return f.enabled ? f.matrix[0] : 1
+/** La clarté que la teinte laisse passer, de 0 (noir) à 1 (blanc). */
+function clarte(n: Container): number {
+  return (n.getGlobalTint() & 0xff) / 255
 }
 
-describe('l’assombrissement par groupe', () => {
+/** Le train monté comme `peupler` le monte, avec le manifeste réel. */
+function rameMontee(reducedMotion = false) {
+  const decor = new Container()
+  const plans = plansDuDecor(decor)
+  const manifeste = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as Manifest
+  const train = monterLeTrain(plans, manifeste)
+  monterLaRame(plans, train, manifeste, reducedMotion)
+  const rame = train.rameContainer
+  const nomme = (label: string) => {
+    const n = rame.children.find((c) => c.label === label)
+    if (!n) throw new Error(`pas de ${label} dans la rame : ${rame.children.map((c) => c.label)}`)
+    return n as Container
+  }
+  return { decor, plans, train, rame, nomme }
+}
+
+describe('l’assombrissement par teinte', () => {
   function decorMonte() {
     const decor = new Container()
     return { decor, plans: plansDuDecor(decor) }
@@ -137,54 +162,121 @@ describe('l’assombrissement par groupe', () => {
   /**
    * Le plateau est coupé en deux depuis que le quai d'« ailleurs » y pose ses
    * lumières : `lumieres` doit tomber **devant** le voile du pied et
-   * **derrière** la rame, et la rame vit dans `plateau`.
+   * **derrière** la rame, et la rame vit dans `plateau`. Il n'y a plus de plan
+   * `vitres` au-dessus de tout : elles sont retournées dans la rame.
    */
-  it('range les groupes du fond vers l’avant, les non-filtrés hors de tout filtre', () => {
-    const { decor, plans } = decorMonte()
+  it('range les plans du fond vers l’avant, sans plan « vitres » au sommet', () => {
+    const { decor } = decorMonte()
     expect(decor.children.map((c) => c.label)).toEqual([
       'massif',
       'ciel',
       'plateau-fond',
       'lumieres',
       'plateau',
-      'vitres',
     ])
-    expect(plans.vitres.filters ?? []).toHaveLength(0)
+  })
+
+  /**
+   * Zéro passe plein écran : plus un seul filtre sur les groupes. Le shader de
+   * recoloration reste sur `decor`, et c'est le seul.
+   */
+  it('n’accroche aucun filtre aux plans', () => {
+    const { decor, plans } = decorMonte()
+    for (const g of decor.children) expect(g.filters ?? []).toHaveLength(0)
     expect(plans.lumieres.filters ?? []).toHaveLength(0)
   })
 
-  it('les mêmes groupes que ceux où peupler monte ses objets', () => {
-    const { decor, plans } = decorMonte()
-    for (const g of [plans.massif, plans.ciel, plans.plateauFond, plans.plateau]) {
-      expect(decor.children).toContain(g)
-      expect(g.filters).toHaveLength(1)
-    }
+  it('teinte le massif et le fond du plateau, jamais les lumières ni le plateau', () => {
+    const { plans } = decorMonte()
+    expect(plans.nuit.profond).toEqual([plans.massif, plans.plateauFond])
+    expect(plans.nuit.ciel).toEqual([plans.ciel])
+    expect(plans.nuit.profond).not.toContain(plans.lumieres)
+    // Le plateau porte la rame, donc les vitres : il ne peut pas être teinté.
+    expect(plans.nuit.profond).not.toContain(plans.plateau)
   })
 
-  it('à nuit nulle, aucun filtre ne travaille et rien ne s’assombrit', () => {
+  it('à nuit nulle, rien n’est teinté', () => {
     const { plans } = decorMonte()
     appliquerNuit(plans, 0)
-    for (const f of Object.values(plans.nuit)) expect(luminance(f)).toBe(1)
+    for (const n of [...plans.nuit.profond, ...plans.nuit.ciel]) expect(clarte(n)).toBe(1)
   })
 
   it('à pleine nuit, le ciel reste plus clair que le massif et le plateau', () => {
     const { plans } = decorMonte()
     appliquerNuit(plans, 1)
-    expect(luminance(plans.nuit.massif)).toBeCloseTo(1 - NUIT_PROFONDEUR)
-    expect(luminance(plans.nuit.plateau)).toBeCloseTo(1 - NUIT_PROFONDEUR)
+    expect(clarte(plans.massif)).toBeCloseTo(1 - NUIT_PROFONDEUR, 2)
     // Les deux moitiés du plateau descendent ensemble : la coupure est un
     // ordre de plans, pas une seconde profondeur.
-    expect(luminance(plans.nuit.plateauFond)).toBeCloseTo(1 - NUIT_PROFONDEUR)
-    expect(luminance(plans.nuit.ciel)).toBeCloseTo(1 - NUIT_CIEL)
-    expect(luminance(plans.nuit.ciel)).toBeGreaterThan(luminance(plans.nuit.massif))
-    expect(luminance(plans.nuit.ciel)).toBeGreaterThan(luminance(plans.nuit.plateau))
+    expect(clarte(plans.plateauFond)).toBeCloseTo(1 - NUIT_PROFONDEUR, 2)
+    expect(clarte(plans.ciel)).toBeCloseTo(1 - NUIT_CIEL, 2)
+    expect(clarte(plans.ciel)).toBeGreaterThan(clarte(plans.massif))
   })
 
   it('à mi-nuit, le ciel est encore plus clair', () => {
     const { plans } = decorMonte()
     appliquerNuit(plans, 0.5)
-    expect(luminance(plans.nuit.ciel)).toBeGreaterThan(luminance(plans.nuit.massif))
-    expect(luminance(plans.nuit.massif)).toBeLessThan(1)
+    expect(clarte(plans.ciel)).toBeGreaterThan(clarte(plans.massif))
+    expect(clarte(plans.massif)).toBeLessThan(1)
+  })
+
+  it('grisDeNuit rend un gris, borné, qui suit la nuit', () => {
+    expect(grisDeNuit(0, NUIT_PROFONDEUR)).toBe(0xffffff)
+    expect(grisDeNuit(2, NUIT_PROFONDEUR)).toBe(grisDeNuit(1, NUIT_PROFONDEUR))
+    expect(grisDeNuit(-1, NUIT_PROFONDEUR)).toBe(0xffffff)
+    const g = grisDeNuit(1, NUIT_PROFONDEUR)
+    expect((g >> 16) & 0xff).toBe(g & 0xff)
+    expect((g >> 8) & 0xff).toBe(g & 0xff)
+  })
+})
+
+/**
+ * L'ordre des trois bandes de la rame, et l'exemption des vitres.
+ *
+ * Ces deux-là tombent ensemble : les vitres sont exemptées parce qu'aucun de
+ * leurs ancêtres n'est teinté, et c'est exactement ce qui leur permet de rester
+ * **dans** la rame, entre le corps des wagons et la fumée. Une teinte posée sur
+ * le plateau, sur `train.racine` ou sur la rame les rattraperait sans qu'elles
+ * puissent s'en défaire : sous Pixi v8 la teinte se multiplie en descendant.
+ */
+/** La voie : inscrite par `monterLeTrain`, elle vit dans la racine du train. */
+function voieDuTrain(plans: { nuit: { profond: Container[] } }): Container {
+  const voie = plans.nuit.profond.find((n) => n.label === 'voie')
+  if (!voie) throw new Error('la voie n’est pas inscrite dans la nuit')
+  return voie
+}
+
+describe('les trois bandes de la rame', () => {
+  it('range le corps, puis les vitres, puis la fumée', () => {
+    const { rame } = rameMontee()
+    expect(rame.children.map((c) => c.label)).toEqual(['corps', 'vitres', 'fumee'])
+  })
+
+  it('ne teinte aucun ancêtre des vitres', () => {
+    const { plans, train, nomme } = rameMontee()
+    appliquerNuit(plans, 1)
+    const vitres = nomme('vitres')
+    for (const n of [plans.plateau, train.container, train.rameContainer, vitres]) {
+      expect(plans.nuit.profond).not.toContain(n)
+    }
+    expect(vitres.getGlobalTint()).toBe(0xffffff)
+  })
+
+  it('éteint le corps, la voie et la fumée à la même profondeur', () => {
+    const { plans, nomme } = rameMontee()
+    appliquerNuit(plans, 1)
+    for (const label of ['corps', 'fumee']) {
+      expect(clarte(nomme(label)), label).toBeCloseTo(1 - NUIT_PROFONDEUR, 2)
+    }
+    const voie = voieDuTrain(plans)
+    expect(clarte(voie)).toBeCloseTo(1 - NUIT_PROFONDEUR, 2)
+  })
+
+  it('rallume tout quand la nuit retombe, vitres comprises', () => {
+    const { plans, nomme } = rameMontee()
+    appliquerNuit(plans, 1)
+    appliquerNuit(plans, 0)
+    expect(nomme('vitres').getGlobalTint()).toBe(0xffffff)
+    expect(nomme('corps').getGlobalTint()).toBe(0xffffff)
   })
 })
 

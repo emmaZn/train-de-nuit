@@ -107,10 +107,13 @@ describe('l’ordre des plans du décor', () => {
     // Sinon la chute traverse la silhouette du train et l'oiseau disparaît à
     // mi-course (cadrage §7.14).
     const cables = source.indexOf('planCables')
-    const train = source.indexOf('new Train(')
+    // `monterLeTrain(this.plans` : l'appel dans `peupler`, et non la
+    // définition de la fonction, qui est déclarée plus haut dans le fichier.
+    const train = source.indexOf('monterLeTrain(this.plans')
     const terre = source.indexOf('new Terre(')
     const oiseaux = source.indexOf('planOiseaux')
     expect(cables).toBeGreaterThan(0)
+    expect(train).toBeGreaterThan(0)
     expect(oiseaux).toBeGreaterThan(0)
     expect(cables).toBeLessThan(train)
     expect(train).toBeLessThan(terre)

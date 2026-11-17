@@ -22,8 +22,8 @@
  * poussière à `1/600` par pixel² ne met qu'une centaine de points dans un cône
  * de cette taille, sans marge, et elle est encore réduite sur mobile.
  *
- * Il se monte dans la racine **allumée** du quai, donc dans `lumieres` : hors de
- * tout filtre d'assombrissement, et **devant** le voile du pied du massif — qui,
+ * Il se monte dans la racine **allumée** du quai, donc dans `lumieres` : hors
+ * de toute teinte d'assombrissement, et **devant** le voile du pied du massif — qui,
  * sans cela, éteindrait le bas du cône, là où il est le plus lumineux. Rien
  * n'est à reconstruire ici : c'est l'ordre des plans (`plansDuDecor`).
  *

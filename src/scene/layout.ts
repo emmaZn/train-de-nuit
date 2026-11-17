@@ -520,9 +520,15 @@ export function versCadre(px: number, py: number, frame: Frame): { x: number; y:
 }
 
 /**
- * L'assombrissement d'« ailleurs » : deux voiles noirs, dont l'opacité monte
- * avec `nuitDeLaGare`. Le noir devient la couleur du fond sous le shader de
- * recoloration, comme le voile du pied.
+ * L'assombrissement d'« ailleurs » : deux profondeurs de teinte, qui suivent
+ * `nuitDeLaGare`. Chacune multiplie vers le noir les plans qui la portent
+ * (`Nuit`, dans `Scene.ts`), et le noir devient la couleur du fond sous le
+ * shader de recoloration — comme le voile du pied. « Opacité » se lit donc ici
+ * « ce que la teinte retire » : à 0,45, il reste 55 % de la clarté.
+ *
+ * Ce bloc a longtemps décrit « deux voiles noirs », un design abandonné depuis
+ * longtemps : un rectangle plein cadre aurait assombri tout ce qui est dessiné
+ * dessous, lumières comprises.
  *
  * VALEURS DE DÉPART PROVISOIRES — à régler à l'œil avec Emmanuelle dans la
  * scène en mouvement (spec §7). Ne pas les figer sans son accord.
@@ -532,9 +538,9 @@ export function versCadre(px: number, py: number, frame: Frame): { x: number; y:
  * grain du bâtiment lisibles. Descendues à 0,45 et 0,15 : la gare reste une
  * gare de nuit, mais on y voit encore ce qui est dessiné.
  */
-/** Opacité maximale du voile du décor : massif, quai, rails, corps du train. */
+/** Ce que la nuit retire au décor : massif, quai, rails, corps du train. */
 export const NUIT_PROFONDEUR = 0.45
-/** Opacité maximale du voile du ciel : poussière et étoiles. */
+/** Ce que la nuit retire au ciel : poussière et étoiles. Plus léger. */
 export const NUIT_CIEL = 0.15
 
 /**
