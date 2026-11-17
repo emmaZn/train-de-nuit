@@ -341,7 +341,12 @@ export class Quai {
       PIECES_DESSINEES.map(async (piece) => {
         if (vientDUneImage(piece)) {
           const texture = await loadTexture(`/assets/ailleurs/${piece}.png`)
-          if (texture && !this.detruite) {
+          if (!texture) {
+            // Sans cela le visiteur verrait l'horloge et son halo flotter là où
+            // était le pignon, et le cadre du panneau debout sur rien — sans
+            // que personne n'ait rien su.
+            console.warn(`Quai : /assets/ailleurs/${piece}.png n'a pas chargé, la pièce est absente.`)
+          } else if (!this.detruite) {
             // `nearest`, comme les pièces cuites ici — et pour la même raison.
             // Le filtrage linéaire **fabrique des mi-teintes** : réduite de
             // moitié, une image en blanc-ou-absent sort en gris, le trait pâlit

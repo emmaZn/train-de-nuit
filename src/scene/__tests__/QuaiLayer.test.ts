@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { Container, Graphics } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
+import { loadTexture } from '@/scene/assets'
 import { HALO_HORLOGE, Quai, anglesHorloge } from '@/scene/QuaiLayer'
 import { fabriquerPiece } from '@/scene/poses'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
@@ -19,13 +20,16 @@ vi.mock('@/scene/poses', async (importOriginal) => {
  * Le bâtiment et le réverbère sont des images, chargées par `Assets`. Sous
  * jsdom il n'y a personne pour décoder un PNG : sans ce mock, les deux pièces
  * manqueraient à chaque montage et les tests de la couche compteraient faux.
- * `Texture.EMPTY` est partagée et n'est jamais détruite — c'est exactement ce
- * que `Quai` doit faire des textures qui ne sont pas les siennes.
+ * Chaque appel rend une texture **neuve** : `Texture.EMPTY` est le singleton de
+ * Pixi, partagé par tout le worker, et `charger()` écrit sur sa source
+ * (`scaleMode`). Elle n'est jamais détruite par `Quai`, qui ne détruit pas
+ * les textures qui ne sont pas les siennes ; on la jette ici avec le test.
  */
 vi.mock('@/scene/assets', async (importOriginal) => {
   const vrai = await importOriginal<typeof import('@/scene/assets')>()
-  const { Texture } = await import('pixi.js')
-  return { ...vrai, loadTexture: vi.fn(async () => Texture.EMPTY) }
+  const { Texture, TextureSource } = await import('pixi.js')
+  const neuve = () => new Texture({ source: new TextureSource({ width: 4, height: 4 }) })
+  return { ...vrai, loadTexture: vi.fn(async () => neuve()) }
 })
 
 /**
@@ -332,6 +336,45 @@ describe('le quai qui défile', () => {
     } finally {
       restaurer()
       rendre2D()
+    }
+  })
+
+  /**
+   * Le seul maillon qui peut encore fabriquer la mi-teinte interdite : le
+   * filtrage linéaire de la carte graphique, qui moyenne deux texels voisins.
+   */
+  it('les pièces en image se lisent au plus près, jamais en filtrage linéaire', async () => {
+    const restaurer = stubFetchEnEchec('rien-du-tout')
+    try {
+      const { quai } = poser()
+      await quai.charger()
+      for (const piece of ['batiment', 'reverbere'] as const) {
+        const texture = quai.texture(piece)
+        expect(texture, `${piece} : chargé`).not.toBeNull()
+        expect(texture!.source.scaleMode, `${piece} : scaleMode`).toBe('nearest')
+      }
+    } finally {
+      restaurer()
+    }
+  })
+
+  it('une image qui ne charge pas manque sans arrêter le quai, et le dit', async () => {
+    const restaurer = stubFetchEnEchec('rien-du-tout')
+    const avertir = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.mocked(loadTexture).mockImplementationOnce(async (chemin) => {
+      expect(chemin).toContain('/assets/ailleurs/')
+      return null
+    })
+    try {
+      const { quai } = poser()
+      await expect(quai.charger()).resolves.toBeUndefined()
+      expect(avertir).toHaveBeenCalledTimes(1)
+      expect(avertir.mock.calls[0][0]).toMatch(/\.png/)
+      expect(quai.piecesChargees).toBe(3)
+      expect(() => quai.avancer(0, 1)).not.toThrow()
+    } finally {
+      avertir.mockRestore()
+      restaurer()
     }
   })
 
