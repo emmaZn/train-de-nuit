@@ -135,6 +135,44 @@ describe('CvLigne', () => {
     expect(document.activeElement).toBe(wrapper.find('.cv').element)
   })
 
+  /**
+   * Fermer le CV ne doit pas lâcher le focus sur `<body>` : on y arrive depuis
+   * « CV · QUAI 2 », et c'est là qu'on doit revenir. Sinon il faut retraverser
+   * la frise, la gare, les répliques d'oiseaux et la liste d'étoiles.
+   */
+  it('rend le focus à ce qui l’avait avant, en se démontant', async () => {
+    const { router } = await monter('/ailleurs')
+    const depuis = document.createElement('button')
+    document.body.appendChild(depuis)
+    depuis.focus()
+    await router.push('/ailleurs/cv')
+    await flushPromises()
+    expect(document.activeElement).not.toBe(depuis)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(document.activeElement).toBe(depuis)
+    depuis.remove()
+  })
+
+  it('ne rend rien à un élément qui a quitté le document entre-temps', async () => {
+    const { router } = await monter('/ailleurs')
+    const depuis = document.createElement('button')
+    document.body.appendChild(depuis)
+    depuis.focus()
+    await router.push('/ailleurs/cv')
+    await flushPromises()
+    depuis.remove()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/ailleurs')
+  })
+
+  it('« retour » porte un vrai anneau de focus, pas qu’une opacité', () => {
+    const source = readFileSync('src/components/CvLigne.vue', 'utf8')
+    const bloc = source.slice(source.indexOf('.retour:focus-visible'))
+    expect(bloc.slice(0, bloc.indexOf('}'))).toMatch(/outline:\s*1px solid var\(--trait\)/)
+  })
+
   it('Échap ferme le CV et ramène à /ailleurs, comme « retour »', async () => {
     const { wrapper, router } = await monter('/ailleurs/cv')
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))

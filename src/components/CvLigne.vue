@@ -28,11 +28,30 @@ const router = useRouter()
 function surTouche(e: KeyboardEvent) {
   if (e.key === 'Escape') router.push('/ailleurs')
 }
+
+/**
+ * Qui avait le focus avant que le CV ne le prenne — le lien « CV · QUAI 2 » du
+ * panneau, qui reste monté pendant tout ce temps (`gare === 'ailleurs' &&
+ * !enRoute` tient toujours). Sans cette mémoire, fermer le CV lâchait le focus
+ * sur `<body>` : on se retrouvait en haut de l'ordre de tabulation, et il
+ * fallait retraverser la frise, la gare, les répliques d'oiseaux et la liste
+ * d'étoiles pour revenir au panneau.
+ */
+let rendreLeFocusA: HTMLElement | null = null
+
 onMounted(() => {
+  const avant = document.activeElement
+  rendreLeFocusA = avant instanceof HTMLElement ? avant : null
   cv.value?.focus({ preventScroll: true })
   window.addEventListener('keydown', surTouche)
 })
-onBeforeUnmount(() => window.removeEventListener('keydown', surTouche))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', surTouche)
+  // `isConnected` : un élément sorti du document entre-temps ne prendrait pas
+  // le focus, et le lui demander quand même laisserait croire que si.
+  if (rendreLeFocusA?.isConnected) rendreLeFocusA.focus({ preventScroll: true })
+  rendreLeFocusA = null
+})
 </script>
 
 <template>
@@ -105,10 +124,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', surTouche))
   opacity: var(--moyen);
 }
 
-.retour:hover,
+.retour:hover {
+  opacity: var(--fort);
+}
+
+/* La commande principale de fermeture. Monter l'opacité de --moyen à --fort
+   est trop faible pour elle : au clavier, elle porte le même anneau que l'œil
+   et les gares de la frise. */
 .retour:focus-visible {
   opacity: var(--fort);
-  outline: none;
+  outline: 1px solid var(--trait);
+  outline-offset: 4px;
 }
 
 .voie {
