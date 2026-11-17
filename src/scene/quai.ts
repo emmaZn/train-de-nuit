@@ -4,7 +4,10 @@
  * Pendant de `cables.ts` : des nombres et des fonctions pures, rien ne dessine.
  * La composition vient du §5.4 de la spec (maquette du 15 novembre) : loco à
  * gauche, réverbère vers le centre, banc et valise, bâtiment à droite, panneau
- * en bas à droite par-dessus le mur.
+ * en bas à droite par-dessus le mur. Le bâtiment n'est plus un mur mais la
+ * gare entière dessinée par la propriétaire, marquise de quai comprise : celle-
+ * ci part vers la gauche et passe **au-dessus** du banc et du réverbère, qui
+ * se tiennent devant elle.
  *
  * La rame est opaque et s'arrête le nez à `TETE_LOCO × STAGE.width`, en
  * s'allongeant vers l'arrière : elle occupe toute la moitié gauche du cadre.
@@ -20,19 +23,38 @@
 import { HORIZON } from './layout'
 
 /**
- * Le cadre de chaque dessin, tel que le `viewBox` de son SVG le porte.
+ * Le cadre de chaque dessin, en pixels de cadre à l'échelle 1.
  *
- * `fabriquerPiece` rasterise dans une boîte calculée depuis un ratio : une
- * pièce posée à un autre ratio que son dessin l'**étire**. Ces cadres sont donc
- * la source du ratio, et `quai.test.ts` les relit dans les fichiers.
+ * Une pièce posée à un autre rapport que son dessin l'**étire** — la porte
+ * cintrée devient un ovale, l'horloge une ellipse. Ces cadres sont donc la
+ * source du rapport, et `quai.test.ts` les confronte aux fichiers servis :
+ * au `viewBox` pour le banc et la valise, qui sont des SVG, aux dimensions de
+ * l'image pour le bâtiment et le réverbère, qui sont des PNG déjà grainés
+ * (`IMAGES`).
  *
- * Tous sont à l'échelle 1 : un pixel de cadre vaut une unité de SVG.
+ * Les deux cadres d'image ne valent **pas** les dimensions de leur fichier :
+ * ils restent à l'échelle du cadre, parce que c'est en unités de cadre que se
+ * lisent la lueur de la lanterne (`LUEUR.rayon`) et le sommet du faisceau.
+ * Seul leur rapport doit suivre l'image.
  */
 export const CADRES = {
   reverbere: { largeur: 80, hauteur: 560 },
   banc: { largeur: 280, hauteur: 140 },
   valise: { largeur: 96, hauteur: 80 },
-  batiment: { largeur: 1040, hauteur: 500 },
+  batiment: { largeur: 1316, hauteur: 500 },
+} as const
+
+/**
+ * La taille des deux images servies, en pixels de leur fichier.
+ *
+ * Elles ne servent qu'à une chose : vérifier que le cadre ci-dessus est au
+ * rapport de l'image, et convertir les repères relevés **sur le dessin** (la
+ * porte, le trou d'horloge) en pixels de cadre. `quai.test.ts` les relit dans
+ * les en-têtes PNG.
+ */
+export const IMAGES = {
+  batiment: { largeur: 1745, hauteur: 663 },
+  reverbere: { largeur: 108, hauteur: 756 },
 } as const
 
 /**
@@ -52,13 +74,21 @@ export const DECALAGE_GARE = 60
 
 /**
  * La largeur du bâtiment, en pixels de cadre — à l'échelle 1 de son dessin
- * (`CADRES.batiment`, `viewBox` de `batiment.svg`). Il s'**étire vers la
- * gauche** : son bord droit reste là où il était, et le mur passe derrière le
- * banc, la valise et le réverbère, qui se tiennent devant lui comme sur un vrai
- * quai. Un second réglage, indépendant de `DECALAGE_GARE`. Le changer demande
- * de refaire le dessin : le test des `viewBox` le rappelle.
+ * (`CADRES.batiment`). Il s'**étire vers la gauche** : son bord droit reste là
+ * où il était, et le mur passe derrière le banc, la valise et le réverbère,
+ * qui se tiennent devant lui comme sur un vrai quai. Un second réglage,
+ * indépendant de `DECALAGE_GARE`. Le changer demande de refaire le dessin : le
+ * test des rapports le rappelle.
+ *
+ * **Passée de 1040 à 1316 avec le nouveau dessin, et ce n'est pas un réglage
+ * de goût.** Le dessin de la propriétaire n'est pas un mur : c'est une gare
+ * entière, avec une marquise de quai qui part vers la gauche. Son rapport est
+ * de 0,380 (663 / 1745) là où l'ancien était de 0,481. On a gardé la
+ * **hauteur** — 500 px, la présence du bâtiment dans le cadre et la place de
+ * l'horloge dans la bande des étoiles —, donc la largeur suit le rapport. La
+ * tenir à 1040 aurait rabaissé la gare à 395 px de haut.
  */
-export const LARGEUR_BATIMENT = 1040
+export const LARGEUR_BATIMENT = 1316
 
 /** Le bord droit du bâtiment avant décalage : fixe, c'est lui qui ancre le mur. */
 const BORD_DROIT_BATIMENT = 2220
@@ -66,7 +96,9 @@ const BORD_DROIT_BATIMENT = 2220
 export const PIECES = {
   reverbere: { x: 1290 - DECALAGE_GARE, pied: HORIZON, hauteur: 560 },
   // Banc et valise se tiennent **devant** le mur (le bâtiment passe derrière
-  // eux, comme derrière le réverbère). La valise cache le pied de la porte, qui est au milieu du mur.
+  // eux, comme derrière le réverbère). La valise ne cache plus le pied de la
+  // porte : celle-ci est au milieu du **corps de gare**, pas du cadre, depuis
+  // que la marquise occupe le tiers gauche du dessin.
   banc: { x: 1480 - DECALAGE_GARE, pied: HORIZON, largeur: 280 },
   valise: { x: 1672 - DECALAGE_GARE, pied: HORIZON, largeur: 96 },
   batiment: {
@@ -77,34 +109,42 @@ export const PIECES = {
   },
   // En bas à droite, **sur deux pieds** qui descendent jusqu'au rail
   // (`tracerCadrePanneau`), débordant à droite du mur jusque vers le bord du
-  // cadre. La porte, au milieu du mur, reste à sa gauche : il ne la recouvre pas.
+  // cadre. La porte reste à sa gauche : il ne la recouvre pas.
   panneau: { x: 1950 - DECALAGE_GARE, y: 640, largeur: 340, hauteur: 250 },
   quai: { y: HORIZON - 24, epaisseur: 24 },
 } as const
 
-/** Unités du SVG du bâtiment → pixels de cadre. */
-const ECHELLE_BATIMENT = PIECES.batiment.largeur / CADRES.batiment.largeur
+/** Pixels de l'image du bâtiment → pixels de cadre. */
+const ECHELLE_BATIMENT = PIECES.batiment.largeur / IMAGES.batiment.largeur
 
 /** Le haut du bâtiment, d'où se comptent les `y` de son dessin. */
 const SOMMET_BATIMENT = PIECES.batiment.pied - PIECES.batiment.hauteur
 
 /**
- * La porte cintrée, en unités du SVG — **miroir du dessin**, à tenir à jour
- * avec lui. Elle est **au milieu** du mur (réglage 2), derrière la valise. C'est ce qui permet de vérifier que le panneau ne la recouvre pas
- * sans avoir à rasteriser quoi que ce soit.
+ * La porte cintrée, en pixels de l'image — **relevée sur le dessin**, à tenir
+ * à jour avec lui. C'est ce qui permet de vérifier que le panneau ne la
+ * recouvre pas sans avoir à rasteriser quoi que ce soit.
+ *
+ * Elle n'est plus au milieu de la pièce : la marquise de quai occupe tout le
+ * tiers gauche de l'image, et la porte est au milieu du **corps de gare**, pas
+ * du cadre. Elle est en revanche exactement sous l'horloge, et c'est ce que le
+ * test affirme désormais.
  */
-export const PORTE_SVG = {
-  x0: CADRES.batiment.largeur / 2 - 55,
-  x1: CADRES.batiment.largeur / 2 + 55,
-} as const
+export const PORTE_IMAGE = { x0: 1097, x1: 1283 } as const
 
-/** L'horloge du pignon, en unités du SVG du bâtiment — pignon et porte sont centrés. */
-export const HORLOGE_SVG = { x: CADRES.batiment.largeur / 2, y: 120, rayon: 36 } as const
+/**
+ * Le trou d'horloge du pignon, en pixels de l'image du bâtiment.
+ *
+ * Mesuré sur le cadran que le dessin portait, et que `preparer_ailleurs.py`
+ * efface : c'est le dessinateur qui a choisi la place, la scène vient s'y
+ * poser. Le rayon est celui du cercle extérieur du cadran.
+ */
+export const HORLOGE_IMAGE = { x: 1188, y: 221, rayon: 38 } as const
 
 /** La porte cintrée, en pixels de cadre. */
 export const PORTE = {
-  x0: PIECES.batiment.x + PORTE_SVG.x0 * ECHELLE_BATIMENT,
-  x1: PIECES.batiment.x + PORTE_SVG.x1 * ECHELLE_BATIMENT,
+  x0: PIECES.batiment.x + PORTE_IMAGE.x0 * ECHELLE_BATIMENT,
+  x1: PIECES.batiment.x + PORTE_IMAGE.x1 * ECHELLE_BATIMENT,
 } as const
 
 /**
@@ -112,12 +152,17 @@ export const PORTE = {
  *
  * **Elle n'est pas dans le dessin** : cadran, halo et aiguilles se tracent au
  * rendu (`QuaiLayer.ts`), dans la racine allumée — c'est une des lumières de la
- * gare, et le SVG du bâtiment s'éteint. Le dessin n'en garde que la place.
+ * gare, et l'image du bâtiment s'éteint. Le dessin n'en garde que la place.
+ *
+ * Le dessin de la propriétaire, lui, en portait une, aiguilles figées. Elle
+ * est effacée à la fabrication de l'asset et **c'est la nôtre qui vient se
+ * poser dans son trou** (`HORLOGE_IMAGE`) : la gare a une place d'horloge
+ * choisie par le dessinateur, c'est elle qui a raison.
  */
 export const HORLOGE = {
-  x: PIECES.batiment.x + HORLOGE_SVG.x * ECHELLE_BATIMENT,
-  y: SOMMET_BATIMENT + HORLOGE_SVG.y * ECHELLE_BATIMENT,
-  rayon: HORLOGE_SVG.rayon * ECHELLE_BATIMENT,
+  x: PIECES.batiment.x + HORLOGE_IMAGE.x * ECHELLE_BATIMENT,
+  y: SOMMET_BATIMENT + HORLOGE_IMAGE.y * ECHELLE_BATIMENT,
+  rayon: HORLOGE_IMAGE.rayon * ECHELLE_BATIMENT,
 } as const
 
 /** Demi-largeur de l'embase du réverbère, pour que la gare ait un bord gauche. */

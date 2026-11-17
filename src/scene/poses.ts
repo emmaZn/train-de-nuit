@@ -100,7 +100,9 @@ function contexte(largeur: number, hauteur: number): CanvasRenderingContext2D | 
  * le corps du train — et le contour en cellules pleines par-dessus.
  *
  * `ratio` est celui du dessin, hauteur sur largeur : une pose d'oiseau a le
- * sien (`RATIO_POSE`), le réverbère et le bâtiment du quai ont le leur.
+ * sien (`RATIO_POSE`), le banc et la valise du quai ont le leur. Le bâtiment
+ * et le réverbère ne passent plus par ici : ce sont des images déjà grainées
+ * (`QuaiLayer.PIECES_IMAGE`).
  *
  * Rend `null` plutôt que de lever : sans contexte 2D, la scène garde ses
  * câbles et perd ses oiseaux, elle ne s'arrête pas.

@@ -3,6 +3,7 @@ import { join } from 'node:path'
 
 import { framePath, loadManifest } from '@/scene/assets'
 import { PIECES } from '@/scene/quai'
+import { lirePngIndexe } from './png'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -42,9 +43,19 @@ test('loadManifest rend null sur un JSON illisible', async () => {
   await expect(loadManifest()).resolves.toBeNull()
 })
 
-/** Les pièces du quai d'« ailleurs », servies comme les poses des bouvreuils. */
+/**
+ * Les pièces du quai d'« ailleurs », par la voie qui les sert.
+ *
+ * Le banc et la valise sont des SVG, cuits au rendu par `fabriquerPiece`
+ * comme les poses des bouvreuils. Le bâtiment et le réverbère viennent des
+ * dessins de la propriétaire, passés au grain du projet hors ligne
+ * (`outils/preparer_ailleurs.py`, puis `outils/grain_train.py`) et servis en
+ * PNG indexé, comme les images du train sont servies en WebP.
+ */
 const AILLEURS = 'public/assets/ailleurs'
-const PIECES_SERVIES = ['banc.svg', 'batiment.svg', 'reverbere.svg', 'valise.svg']
+const PIECES_SVG = ['banc.svg', 'valise.svg']
+const PIECES_IMAGE = ['batiment.png', 'reverbere.png']
+const PIECES_SERVIES = [...PIECES_SVG, ...PIECES_IMAGE]
 
 /** Les couleurs qu'un SVG nomme : celles de ses `fill` et de ses `stroke`. */
 function couleursDe(svg: string): string[] {
@@ -75,8 +86,19 @@ function clarte(couleur: string): number {
  * servies, pas que rien d'autre ne traîne à côté.
  */
 test('les quatre pièces du quai sont servies', () => {
-  const svg = readdirSync(AILLEURS).filter((f) => f.endsWith('.svg'))
-  expect(svg).toEqual(expect.arrayContaining([...PIECES_SERVIES]))
+  const servies = readdirSync(AILLEURS).filter((f) => /\.(svg|png)$/.test(f))
+  expect(servies).toEqual(expect.arrayContaining([...PIECES_SERVIES]))
+})
+
+/**
+ * Les deux dessins à la main sont **remplacés**, pas doublés : un
+ * `batiment.svg` qui traînerait à côté de `batiment.png` serait chargé par
+ * personne et relu par le prochain qui passe.
+ */
+test('les deux dessins à la main ne sont plus servis', () => {
+  const servies = readdirSync(AILLEURS)
+  expect(servies).not.toContain('batiment.svg')
+  expect(servies).not.toContain('reverbere.svg')
 })
 
 /**
@@ -89,7 +111,7 @@ test('les quatre pièces du quai sont servies', () => {
  * Ce qu'on interdit, c'est le milieu.
  */
 test('aucun asset d’« ailleurs » ne contient de gris moyen', () => {
-  for (const fichier of PIECES_SERVIES) {
+  for (const fichier of PIECES_SVG) {
     const couleurs = couleursDe(readFileSync(join(AILLEURS, fichier), 'utf8'))
     expect(couleurs.length, `${fichier} ne nomme aucune couleur`).toBeGreaterThan(0)
     for (const couleur of couleurs) {
@@ -105,7 +127,7 @@ test('aucun asset d’« ailleurs » ne contient de gris moyen', () => {
  * en est plein (`opacity=".7"`), on ne reprend pas l'habitude.
  */
 test('aucun asset d’« ailleurs » n’éteint un trait à demi', () => {
-  for (const fichier of PIECES_SERVIES) {
+  for (const fichier of PIECES_SVG) {
     const svg = readFileSync(join(AILLEURS, fichier), 'utf8')
     for (const [, valeur] of svg.matchAll(/\b(?:fill-|stroke-)?opacity="([^"]*)"/g)) {
       expect(Number(valeur), `${fichier} : opacity="${valeur}"`).toBe(1)
@@ -114,17 +136,43 @@ test('aucun asset d’« ailleurs » n’éteint un trait à demi', () => {
 })
 
 /**
+ * L'équivalent, pour une image grainée, du test des couleurs ci-dessus — et
+ * son remplaçant : c'est ici que « blanc ou absent » (CONCEPT §12.2) se garde
+ * depuis que les deux pièces ne sont plus des SVG.
+ *
+ * Le PNG indexé rend l'invariant **structurel** : une image qui n'a que trois
+ * entrées de palette ne *peut* pas allumer un point à mi-teinte, quoi qu'elle
+ * contienne. On vérifie les trois entrées, l'opacité — pleine ou nulle, jamais
+ * entre les deux, c'est l'équivalent du test des `opacity` fractionnaires — et
+ * qu'aucun pixel ne pointe hors de la palette.
+ */
+test('aucune pièce grainée d’« ailleurs » n’allume un point à mi-teinte', () => {
+  for (const fichier of PIECES_IMAGE) {
+    const png = lirePngIndexe(readFileSync(join(AILLEURS, fichier)))
+    expect(png.palette.length, `${fichier} : entrées de palette`).toBeLessThanOrEqual(3)
+    for (const [r, v, b] of png.palette) {
+      const l = clarte(`#${[r, v, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`)
+      expect(l < 0.1 || l > 0.9, `${fichier} : rgb(${r}, ${v}, ${b})`).toBe(true)
+    }
+    for (const [index, opacite] of png.opacites.entries()) {
+      expect([0, 255], `${fichier} : opacité de l’entrée ${index}`).toContain(opacite)
+    }
+    // `Math.max(...)` sur un million de pixels fait sauter la pile d'appels.
+    let plusHaut = 0
+    for (const index of png.index) if (index > plusHaut) plusHaut = index
+    expect(plusHaut, `${fichier} : index hors palette`).toBeLessThan(png.palette.length)
+  }
+})
+
+/**
  * Le bâtiment est la seule pièce dont `quai.ts` fixe les deux dimensions :
  * c'est donc la seule qu'un cadre mal proportionné étirerait sans qu'on
- * puisse s'en apercevoir en regardant le SVG seul.
+ * puisse s'en apercevoir en regardant l'image seule.
  */
 test('le bâtiment est dessiné aux proportions que le quai lui donne', () => {
-  const svg = readFileSync(join(AILLEURS, 'batiment.svg'), 'utf8')
-  const cadre = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)
-  expect(cadre, 'le bâtiment n’a pas de viewBox à l’origine').not.toBeNull()
-  const [, largeur, hauteur] = cadre!
-  expect(Number(hauteur) / Number(largeur)).toBeCloseTo(
+  const png = lirePngIndexe(readFileSync(join(AILLEURS, 'batiment.png')))
+  expect(png.hauteur / png.largeur).toBeCloseTo(
     PIECES.batiment.hauteur / PIECES.batiment.largeur,
-    5,
+    4,
   )
 })

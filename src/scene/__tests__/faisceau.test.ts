@@ -16,12 +16,22 @@ function aireDuCone(c: Cone): number {
   return ((c.base[1] - c.base[0]) * c.hauteur) / 2
 }
 
+/**
+ * Un cheveu de tolérance, parce qu'un point du bord du cône y revient par un
+ * aller-retour en virgule flottante : `nappesDuCone` calcule `y` depuis `t`,
+ * on recalcule `t` depuis `y`, et les deux ne retombent pas toujours sur le
+ * même dernier bit. L'écart mesuré vaut 2 × 10⁻¹³ pixel. Sans cette marge, le
+ * test dit « hors du cône » d'un point qui est exactement dessus, et ce qu'il
+ * garde — le cône ne déborde pas sur les rails — n'a rien à voir avec ça.
+ */
+const CHEVEU = 1e-9
+
 function dansLeCone(c: Cone, g: { x: number; y: number }): boolean {
   const t = (g.y - c.sommet.y) / c.hauteur
-  if (t < 0 || t > 1) return false
+  if (t < -CHEVEU || t > 1 + CHEVEU) return false
   const gauche = c.sommet.x + (c.base[0] - c.sommet.x) * t
   const droite = c.sommet.x + (c.base[1] - c.sommet.x) * t
-  return g.x >= gauche && g.x <= droite
+  return g.x >= gauche - CHEVEU && g.x <= droite + CHEVEU
 }
 
 describe('la géométrie du faisceau', () => {

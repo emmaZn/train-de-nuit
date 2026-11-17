@@ -6,12 +6,26 @@ import { HALO_HORLOGE, Quai, anglesHorloge } from '@/scene/QuaiLayer'
 import { fabriquerPiece } from '@/scene/poses'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
-import { HORLOGE, PIECES } from '@/scene/quai'
+import { HORLOGE, HORLOGE_IMAGE, PIECES } from '@/scene/quai'
+import { lirePngIndexe } from './png'
 import { DUREE_ETAPE, HORIZON, STAGE } from '@/scene/layout'
 
 vi.mock('@/scene/poses', async (importOriginal) => {
   const vrai = await importOriginal<typeof import('@/scene/poses')>()
   return { ...vrai, fabriquerPiece: vi.fn() }
+})
+
+/**
+ * Le bâtiment et le réverbère sont des images, chargées par `Assets`. Sous
+ * jsdom il n'y a personne pour décoder un PNG : sans ce mock, les deux pièces
+ * manqueraient à chaque montage et les tests de la couche compteraient faux.
+ * `Texture.EMPTY` est partagée et n'est jamais détruite — c'est exactement ce
+ * que `Quai` doit faire des textures qui ne sont pas les siennes.
+ */
+vi.mock('@/scene/assets', async (importOriginal) => {
+  const vrai = await importOriginal<typeof import('@/scene/assets')>()
+  const { Texture } = await import('pixi.js')
+  return { ...vrai, loadTexture: vi.fn(async () => Texture.EMPTY) }
 })
 
 /**
@@ -197,16 +211,45 @@ describe('l’horloge allumée', () => {
   })
 
   /**
-   * `cx="280"` était le centre du bâtiment **de 560 de large**, avant qu'un
-   * réglage ne l'élargisse à 1040 : la coordonnée ne pouvait plus revenir, et
-   * remettre un cadran au nouveau centre serait passé sous le garde. Ce qu'on
-   * interdit, c'est le cercle — le dessin du bâtiment n'en contient aucun, et
-   * un cadran, un halo ou une graduation ronde en serait un.
+   * Le piège du double dessin, pour la troisième fois sur cette branche : le
+   * dessin de la propriétaire **portait** une horloge, aiguilles figées, et
+   * deux horloges superposées ne sont pas une horloge.
+   *
+   * L'ancien garde lisait le SVG et y interdisait le mot `circle`. Le dessin
+   * est devenu une image : le garde lit donc les pixels. Deux choses s'y
+   * vérifient.
+   *
+   * **Le pignon reste plein** sous le cadran : pas un pixel de vide, sans quoi
+   * on verrait le ciel au travers.
+   *
+   * **Aucun cercle n'y est tracé** : on échantillonne la couronne du cadran,
+   * là où le dessin posait son cerclage. Un cadran dessiné l'allumerait
+   * presque tout entier ; le grain du mur, lui, n'en allume qu'une poignée de
+   * points. C'est la même chose que l'ancien `not.toMatch(/<circle\b/)`, dite
+   * en pixels — et le seuil est large exprès : ce qu'on veut attraper, c'est
+   * un cadran, pas quelques points.
    */
-  it('n’est plus dans le dessin du bâtiment, qui s’éteint', () => {
-    const svg = readFileSync('public/assets/ailleurs/batiment.svg', 'utf8')
-    expect(svg).not.toMatch(/<circle\b/)
-    expect(svg).not.toMatch(/<ellipse\b/)
+  it('n’est plus dans le dessin du bâtiment, qui garde son trou', () => {
+    const png = lirePngIndexe(readFileSync('public/assets/ailleurs/batiment.png'))
+    const { x, y, rayon } = HORLOGE_IMAGE
+    // 0 = vide, 1 = masse, 2 = trait (voir `preparer_ailleurs.PALETTE`).
+    const au = (c: number, l: number) => png.index[Math.round(l) * png.largeur + Math.round(c)]
+
+    for (let l = y - rayon; l <= y + rayon; l += 1) {
+      for (let c = x - rayon; c <= x + rayon; c += 1) {
+        if ((c - x) ** 2 + (l - y) ** 2 > rayon ** 2) continue
+        expect(au(c, l), `vide sous le cadran en ${c},${l}`).not.toBe(0)
+      }
+    }
+
+    for (const r of [rayon, rayon - 3]) {
+      let allumes = 0
+      for (let k = 0; k < 360; k += 1) {
+        const a = (k * Math.PI) / 180
+        if (au(x + Math.cos(a) * r, y + Math.sin(a) * r) === 2) allumes += 1
+      }
+      expect(allumes / 360, `un cercle est dessiné au rayon ${r}`).toBeLessThan(0.35)
+    }
   })
 })
 

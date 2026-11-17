@@ -48,13 +48,17 @@ export type Cone = {
 }
 
 /**
- * D'où part le faisceau, en unités du SVG du réverbère (`reverbere.svg`) : le
- * **haut** du corps vitré, qui court de 48 à 86. La lanterne se tient donc
- * dans la pointe du cône, là où il est le plus clair — c'est ce qui la pose
- * comme la source. (Le commentaire disait « le bas » : il était faux, la
- * valeur ne bouge pas.)
+ * D'où part le faisceau, en unités du cadre du réverbère : le **haut** du
+ * corps vitré, qui court de 108 à 164 (`LANTERNE` dans `QuaiLayer.ts`). La
+ * lanterne se tient donc dans la pointe du cône, là où il est le plus clair —
+ * c'est ce qui la pose comme la source.
+ *
+ * Passé de 48 à 108 avec le lampadaire de la propriétaire : son dessin porte
+ * une flèche et un toit au-dessus de la lanterne, là où l'ancien SVG avait
+ * presque tout de suite le verre. Le sommet du cône **suit la lanterne**,
+ * sinon il partirait du vide au-dessus d'elle.
  */
-const BAS_LANTERNE_SVG = 48
+const HAUT_LANTERNE = 108
 /** Le cadre du dessin : 560 unités de haut, posées à `piece.hauteur` pixels. */
 const HAUTEUR_SVG = 560
 
@@ -79,7 +83,7 @@ const PLANCHER = 40
 export function coneDuFaisceau(piece: typeof PIECES.reverbere): Cone {
   const sommet = {
     x: piece.x,
-    y: piece.pied - piece.hauteur + (BAS_LANTERNE_SVG * piece.hauteur) / HAUTEUR_SVG,
+    y: piece.pied - piece.hauteur + (HAUT_LANTERNE * piece.hauteur) / HAUTEUR_SVG,
   }
   return {
     sommet,

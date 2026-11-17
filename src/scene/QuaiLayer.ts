@@ -32,6 +32,7 @@ import { Container, Graphics, Sprite, Texture } from 'pixi.js'
 import { HORIZON, STAGE } from './layout'
 import type { Frame } from './layout'
 import { CADRES, DEBUT_GARE, FIN_GARE, HORLOGE, PIECES } from './quai'
+import { loadTexture } from './assets'
 import { GRAIN_ECRAN, fabriquerPiece } from './poses'
 import { Faisceau } from './Faisceau'
 
@@ -46,10 +47,35 @@ const PIECES_DESSINEES = ['reverbere', 'banc', 'valise', 'batiment'] as const
 export type PieceDessinee = (typeof PIECES_DESSINEES)[number]
 
 /**
+ * Les deux pièces qui viennent d'une **image déjà grainée**, et non d'un SVG.
+ *
+ * Le bâtiment et le réverbère étaient les deux seules pièces qu'un modèle
+ * avait dessinées à la main, en écrivant des coordonnées SVG à l'aveugle. La
+ * propriétaire a fourni ses deux dessins ; ils sont passés au grain du projet
+ * par `outils/preparer_ailleurs.py` puis `outils/grain_train.py`, exactement
+ * comme les images du train.
+ *
+ * Elles ne passent donc **pas** par `fabriquerPiece` : il sépare masse et
+ * trait d'un SVG, rasterise et quantifie en cellules de grain — tout ce qui
+ * est déjà cuit dans le PNG. Elles se chargent comme une texture, comme les
+ * WebP du train (`Train.charger`). Deux conséquences qui ne sont pas des
+ * détails : leur grain ne dépend plus de `parCadre`, donc le mur ne s'éteint
+ * plus sous 0,6 (spec §4) ; et leurs textures appartiennent au cache
+ * d'`Assets`, donc on ne les détruit pas — voir `destroy`.
+ */
+const PIECES_IMAGE = ['batiment', 'reverbere'] as const
+type PieceImage = (typeof PIECES_IMAGE)[number]
+
+function vientDUneImage(piece: PieceDessinee): piece is PieceImage {
+  return (PIECES_IMAGE as readonly string[]).includes(piece)
+}
+
+/**
  * Ce qui reste allumé. Les sources arrêtées par Emmanuelle sont le réverbère et
  * son faisceau, les vitres du train, le cadre du panneau des départs, et
- * l'horloge — celle-ci tracée en code (`horloge`), pas dessinée : son cadran
- * n'est plus dans `batiment.svg`.
+ * l'horloge — celle-ci tracée en code (`horloge`), pas dessinée : le cadran
+ * du dessin est effacé à la fabrication de l'image (`preparer_ailleurs.py`),
+ * qui ne lui laisse qu'un trou.
  */
 const ALLUMEES: readonly PieceDessinee[] = ['reverbere']
 
@@ -80,18 +106,24 @@ const GRADUATION = { de: 29 / 36, a: 34 / 36 } as const
  * ------------------------------------------------------------------------- */
 
 /**
- * Le corps vitré de la lanterne, en unités du SVG du réverbère — **miroir du
- * dessin**, à tenir à jour avec lui (même parti que `PORTE_SVG`). C'est le
- * trapèze `M24 48 L20 86 H60 L56 48` de `reverbere.svg`.
+ * Le corps vitré de la lanterne, en unités du cadre du réverbère —
+ * **miroir du dessin**, à tenir à jour avec lui (même parti que
+ * `PORTE_IMAGE`).
  *
- * Il est rempli **ici** et non dans le dessin : un `fill` dans un SVG part
- * dans la masse, que `fabriquerPiece` aplatit au noir du fond. Le réverbère
- * sortait donc en peigne de traits gris, et la maquette veut une lampe.
+ * Le dessin de la propriétaire **garde le verre en creux** : `vider_le_verre`
+ * y retire la masse et ne laisse que les meneaux, exactement comme le pignon
+ * de la gare garde son trou d'horloge. C'est la raison d'être de ce trapèze :
+ * une masse noire à cet endroit serait rendue à la couleur du fond par le
+ * shader, et le lampadaire serait éteint.
+ *
+ * Il est posé **en retrait** du trait de la lanterne, qui est galbé là où le
+ * trapèze est droit : il vaut mieux laisser paraître un filet de lueur au bord
+ * du verre que déborder du dessin.
  */
-const LANTERNE_SVG = { hautY: 48, basY: 86, hautDemi: 16, basDemi: 20, cx: 40 } as const
+const LANTERNE = { hautY: 110, basY: 165, hautDemi: 31, basDemi: 14, cx: 40 } as const
 
 /**
- * La lueur autour de la lanterne : rayon en unités du SVG du réverbère, et
+ * La lueur autour de la lanterne : rayon en unités du cadre du réverbère, et
  * opacité d'**une** nappe. Les nappes se cumulent au centre — à 0,022 et 60
  * nappes, le cœur monte vers 0,74. **Le réglage de la luminosité du
  * lampadaire, c'est `alpha`** ; `rayon` dit jusqu'où la lueur porte.
@@ -206,7 +238,15 @@ export class Quai {
 
   private readonly svgs = new Map<PieceDessinee, string>()
   private readonly sprites = new Map<PieceDessinee, Sprite>()
+  /** Les textures **cuites ici**, qu'on détruit : celles des pièces en SVG. */
   private readonly textures = new Map<PieceDessinee, Texture>()
+  /**
+   * Les textures venues d'`Assets`, qu'on **ne détruit pas** : elles sont
+   * partagées par le cache, et les détruire laisserait la prochaine scène —
+   * un changement de route, un rechargement à chaud — sur une texture morte.
+   * `Train.destroy` fait de même : il démonte sans toucher aux textures.
+   */
+  private readonly images = new Map<PieceImage, Texture>()
 
   private parCadre = 1
   private posee = false
@@ -267,12 +307,12 @@ export class Quai {
 
   /** Combien de dessins ont été trouvés. Une pièce manquante est sautée. */
   get piecesChargees(): number {
-    return this.svgs.size
+    return this.svgs.size + this.images.size
   }
 
   /** La texture que porte une pièce, s'il y en a une. */
   texture(piece: PieceDessinee): Texture | null {
-    return this.textures.get(piece) ?? null
+    return this.textures.get(piece) ?? this.images.get(piece as PieceImage) ?? null
   }
 
   /** A-t-on dit à l'île où elle était ? */
@@ -299,6 +339,22 @@ export class Quai {
   async charger(): Promise<void> {
     await Promise.all(
       PIECES_DESSINEES.map(async (piece) => {
+        if (vientDUneImage(piece)) {
+          const texture = await loadTexture(`/assets/ailleurs/${piece}.png`)
+          if (texture && !this.detruite) {
+            // `nearest`, comme les pièces cuites ici — et pour la même raison.
+            // Le filtrage linéaire **fabrique des mi-teintes** : réduite de
+            // moitié, une image en blanc-ou-absent sort en gris, le trait pâlit
+            // et le grain du mur s'éteint. C'est le défaut qu'on vient
+            // corriger, et il revient par la carte graphique si on le laisse.
+            // Au plus près, un texel allumé reste allumé, un texel éteint reste
+            // éteint, et la pièce ne porte jamais que ses deux valeurs.
+            texture.source.scaleMode = 'nearest'
+            this.images.set(piece, texture)
+            this.poser(piece, texture)
+          }
+          return
+        }
         try {
           const reponse = await fetch(`/assets/ailleurs/${piece}.svg`)
           if (reponse.ok) this.svgs.set(piece, await reponse.text())
@@ -371,7 +427,7 @@ export class Quai {
    * La lanterne : une lueur en nappes, puis le corps vitré en blanc plein.
    *
    * C'est la source de la gare, et elle doit être la chose la plus claire de
-   * l'écran — d'où le blanc pur, et non le gris du décor. Voir `LANTERNE_SVG`
+   * l'écran — d'où le blanc pur, et non le gris du décor. Voir `LANTERNE`
    * pour la raison qui interdit de la remplir dans son dessin.
    */
   private tracerLanterne(): void {
@@ -381,8 +437,8 @@ export class Quai {
     const k = b.largeur / CADRES.reverbere.largeur
     const px = (x: number) => b.x + x * k
     const py = (y: number) => b.y + y * k
-    const cx = px(LANTERNE_SVG.cx)
-    const cy = py((LANTERNE_SVG.hautY + LANTERNE_SVG.basY) / 2)
+    const cx = px(LANTERNE.cx)
+    const cy = py((LANTERNE.hautY + LANTERNE.basY) / 2)
     // La lueur, du plus large au plus étroit : l'alpha se cumule vers le centre.
     for (let i = LUEUR.nappes; i >= 1; i -= 1) {
       g.circle(cx, cy, (LUEUR.rayon * k * i) / LUEUR.nappes).fill({
@@ -390,7 +446,7 @@ export class Quai {
         alpha: LUEUR.alpha,
       })
     }
-    const { hautY, basY, hautDemi, basDemi, cx: c } = LANTERNE_SVG
+    const { hautY, basY, hautDemi, basDemi, cx: c } = LANTERNE
     g.poly([
       px(c - hautDemi), py(hautY),
       px(c + hautDemi), py(hautY),
@@ -552,6 +608,11 @@ export class Quai {
       const racine = ALLUMEES.includes(piece) ? this.racineAllumee : this.racineEteinte
       // Le bâtiment passe derrière les petites pièces : c'est le fond du quai.
       if (piece === 'batiment') racine.addChildAt(sprite, 0)
+      // Le réverbère passe **sous** la lanterne : son dessin garde le verre en
+      // creux (voir `LANTERNE`), et c'est le blanc tracé ici qui le remplit.
+      // Au-dessus, le mât et le toit de la lampe masqueraient la lueur, qui est
+      // la source — un lampadaire éteint devant son propre halo.
+      else if (piece === 'reverbere') racine.addChildAt(sprite, racine.getChildIndex(this.lanterne))
       else racine.addChild(sprite)
     }
     const b = boite(piece)
@@ -567,6 +628,8 @@ export class Quai {
     // détruit que celles qu'on a fabriquées.
     for (const texture of this.textures.values()) texture.destroy(true)
     this.textures.clear()
+    // Celles d'`Assets` ne sont pas à nous : on les lâche, on ne les tue pas.
+    this.images.clear()
     this.sprites.clear()
     this.racineEteinte.destroy({ children: true })
     this.racineAllumee.destroy({ children: true })
