@@ -13,6 +13,7 @@ const base = {
   enRoute: false,
   phase: 0,
   derniereEtape: false,
+  demarrage: false,
   reducedMotion: false,
 } as const
 
@@ -45,23 +46,60 @@ describe('nuitDeLaGare', () => {
   })
 
   it('redescend pendant le démarrage depuis « ailleurs »', () => {
-    const part = { ...base, gare: 'ailleurs', cible: 'ici', enRoute: true, phase: 0 } as const
+    const part = {
+      ...base,
+      gare: 'ailleurs',
+      cible: 'ici',
+      enRoute: true,
+      derniereEtape: true,
+      demarrage: true,
+      phase: 0,
+    } as const
     expect(nuitDeLaGare(part)).toBe(1)
+    expect(nuitDeLaGare({ ...part, phase: 0.05 })).toBeLessThan(1)
     expect(nuitDeLaGare({ ...part, phase: PHASE_ROULE })).toBe(0)
   })
 
+  /**
+   * Le piège de l'étape 4. `finirEtape` avance `gare` à **chaque** frontière,
+   * traversées comprises, et `Scene.tick` remet la phase à 0 à la même image :
+   * une traversée a donc exactement l'état d'un départ, à `demarrage` près.
+   * Sans lui, la scène basculait au noir complet à l'instant où le train
+   * dépassait le quai, puis remontait sur ~1,8 s — un flash plein écran sur
+   * un clic ordinaire, que la spec §6.3 interdit nommément.
+   *
+   * On sonde **au départ de la traversée**, pas au milieu : l'ancien garde ne
+   * regardait que `phase: 0.5`, au-delà de la fin de la rampe, là où la
+   * fonction rendait 0 pour la mauvaise raison.
+   */
   it('ne s’assombrit pas quand le train traverse « ailleurs » sans s’arrêter', () => {
-    // de « là-haut » vers « ici » : « ailleurs » est sur la route, pas la cible
-    expect(
-      nuitDeLaGare({
-        ...base,
-        gare: 'ailleurs',
-        cible: 'ici',
-        enRoute: true,
-        derniereEtape: false,
-        phase: 0.5,
-      }),
-    ).toBe(0)
+    // « là-haut » → « ici » : une seule étape reste, et « ailleurs » est
+    // derrière le train sans avoir été un arrêt.
+    const traverse = {
+      ...base,
+      gare: 'ailleurs',
+      cible: 'ici',
+      enRoute: true,
+      derniereEtape: true,
+      demarrage: false,
+    } as const
+    expect(nuitDeLaGare({ ...traverse, phase: 0 })).toBe(0)
+    expect(nuitDeLaGare({ ...traverse, phase: 0.05 })).toBe(0)
+    expect(nuitDeLaGare({ ...traverse, phase: 0.5 })).toBe(0)
+  })
+
+  it('ne s’assombrit pas non plus sur une traversée à deux étapes du terme', () => {
+    // « plus loin » → « là-haut » : deux étapes, donc `derniereEtape` faux.
+    const traverse = {
+      ...base,
+      gare: 'ailleurs',
+      cible: 'la-haut',
+      enRoute: true,
+      derniereEtape: false,
+      demarrage: false,
+    } as const
+    expect(nuitDeLaGare({ ...traverse, phase: 0 })).toBe(0)
+    expect(nuitDeLaGare({ ...traverse, phase: 0.05 })).toBe(0)
   })
 
   it('s’inverse sans sortir de [0, 1] si le voyage se redirige pendant le freinage', () => {

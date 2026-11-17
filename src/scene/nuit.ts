@@ -8,6 +8,16 @@ export type EtatVoyage = {
   enRoute: boolean
   phase: number // avancement de l'étape en cours, 0 à 1
   derniereEtape: boolean
+  /**
+   * Vrai seulement si le train est **reparti d'un arrêt** sur cette étape-ci.
+   *
+   * C'est le seul discriminant entre « repartir d'« ailleurs » » et « venir de
+   * passer devant sans s'arrêter » : les deux ont `gare === 'ailleurs'`,
+   * `enRoute` vrai et la phase remise à zéro, parce que `finirEtape` avance la
+   * gare à **chaque** frontière d'étape, traversées comprises. C'est le
+   * `profil.demarrage` de `Scene`, figé au début de l'étape.
+   */
+  demarrage: boolean
   reducedMotion: boolean
 }
 
@@ -24,16 +34,21 @@ function rampe(phase: number, debut: number, fin: number, marche: boolean): numb
  * « ailleurs » d'emblée est sombre dès la première image, sans freinage joué.
  * La montée court sur le freinage de la dernière étape vers « ailleurs »
  * (`PHASE_FREINAGE` → 1), la descente sur le démarrage depuis « ailleurs »
- * (0 → `PHASE_ROULE`). Traverser « ailleurs » sans s'y arrêter ne l'assombrit pas.
+ * (0 → `PHASE_ROULE`).
+ *
+ * **Traverser « ailleurs » sans s'y arrêter ne l'assombrit pas** (spec §6.3 :
+ * l'assombrissement tient à l'arrêt, pas au lieu). Une traversée a pourtant
+ * exactement l'état d'un départ — même gare derrière le train, même phase
+ * remise à zéro — et seul `demarrage` les distingue.
  */
 export function nuitDeLaGare(etat: EtatVoyage): number {
-  const { gare, cible, enRoute, phase, derniereEtape, reducedMotion } = etat
+  const { gare, cible, enRoute, phase, derniereEtape, demarrage, reducedMotion } = etat
 
   if (enRoute && derniereEtape && cible === 'ailleurs') {
     return rampe(phase, PHASE_FREINAGE, 1, reducedMotion)
   }
   if (enRoute && gare === 'ailleurs') {
-    return 1 - rampe(phase, 0, PHASE_ROULE, reducedMotion)
+    return demarrage ? 1 - rampe(phase, 0, PHASE_ROULE, reducedMotion) : 0
   }
   return gare === 'ailleurs' ? 1 : 0
 }

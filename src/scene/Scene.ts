@@ -853,6 +853,9 @@ export class Scene {
       enRoute: this.enRoute,
       phase: this.phase,
       derniereEtape: this.etapesRestantes <= 1,
+      // Ce qui sépare « reparti d'« ailleurs » » de « vient de passer devant
+      // sans s'arrêter » : les deux états sont sinon identiques.
+      demarrage: this.profil.demarrage,
       reducedMotion: this.reducedMotion,
     })
     appliquerNuit(this.plans, nuit)
