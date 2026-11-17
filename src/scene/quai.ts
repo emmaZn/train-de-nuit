@@ -66,19 +66,22 @@ export const IMAGES = {
  * Les abscisses de `PIECES` sont écrites à la place d'origine (gare entière à
  * droite du nez de la loco), moins ce décalage.
  *
- * **La borne** : toute la gare doit tenir dans `bandeCommuneGare()` (layout.ts)
- * moins `MARGE_GARE` de chaque côté. Le cadre de 2320 est rogné par la
- * fenêtre — de 192 à 2128 à 1432×900, de 349 à 1971 en 4:3 — et la bande que
- * tous les formats de `FORMATS_GARE` voient va de 349 à 1971. La gare (de
- * `DEBUT_GARE` à `FIN_GARE`) en fait 1386 : elle y entre avec 236 px de
- * jeu au total. `quai.test.ts` le vérifie : déplacer la gare au-delà casse un
- * test, pas seulement l'œil. Le décalage ne se règle donc plus à vue en
- * dehors de cette borne ; en deçà, la rame cache de la gare à l'arrêt, permis.
+ * **Mesure, pour qui voudra la déplacer ou remplacer l'asset.** Le cadre de
+ * 2320 est rogné par la fenêtre dès qu'elle est plus étroite que 2320:1217
+ * (1,906). Bande visible (`fitStage`, cover), en pixels de cadre : 0 à 2320 à
+ * 2560×1080 ; 78 à 2242 à 1920×1080 ; 186 à 2134 à 1440×900 ; 192 à 2128 à
+ * 1432×900 ; 349 à 1971 à 1280×960 et 1024×768. La bande commune à tous ces
+ * formats (2560×1080 à 1024×768) va donc de **349 à 1971, soit environ
+ * 1622 px**. La gare en occupe environ 1386 (de `DEBUT_GARE` à `FIN_GARE`) :
+ * elle pourrait y entrer, mais à 360 de décalage elle passe presque entière
+ * derrière la rame — la locomotive mange le flanc du bâtiment, le réverbère
+ * tient sur la cabine, la marquise disparaît. La propriétaire préfère le
+ * rognage : **le bord droit de la gare sort de la bande commune, à dessein.**
+ * Un portrait de téléphone ne montre que ~560 px (879 à 1441).
  *
- * 60 (réglage 1) laissait le panneau sortir à droite du champ : 360 ancre la
- * fin de la gare à 1930, marge de 40 sous le bord de la bande.
+ * 60 est la valeur du réglage 1, décidée en regardant la scène tourner.
  */
-export const DECALAGE_GARE = 360
+export const DECALAGE_GARE = 60
 
 /**
  * La largeur du bâtiment, en pixels de cadre — à l'échelle 1 de son dessin

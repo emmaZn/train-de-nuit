@@ -26,44 +26,6 @@ export function fitStage(viewportW: number, viewportH: number): Frame {
 }
 
 /**
- * La bande de scène que le cadrage en cover laisse voir : `[gauche, droite]`,
- * en pixels de cadre. Le cadre fait `STAGE.width`, la fenêtre en montre
- * `w / scale` ; dès qu'elle est plus étroite que 2320:1217 (1,906), les bords
- * gauche et droit sont coupés — d'autant plus que la fenêtre est haute. Une
- * fenêtre large et basse montre tout le cadre : ce n'est PAS le pire cas.
- */
-export function bandeVisible(viewportW: number, viewportH: number): [number, number] {
-  const { scale, offsetX } = fitStage(viewportW, viewportH)
-  return [-offsetX / scale, (Math.max(viewportW, 1) - offsetX) / scale]
-}
-
-/**
- * Les formats de fenêtre pour lesquels la gare doit rester entière : du 16:9
- * large au 4:3 (tablette à l'horizontale, vieux portables). Le portrait de
- * téléphone n'y est pas : il ne montre que ~560 px de large, moins que la
- * gare — aucune position ne l'y tient (voir `quai.test.ts`).
- */
-export const FORMATS_GARE: ReadonlyArray<readonly [number, number]> = [
-  [2560, 1080], // ultra-large : tout le cadre
-  [1920, 1080], // 16:9
-  [1440, 900], // 16:10
-  [1432, 900],
-  [1366, 768],
-  [1280, 800],
-  [1280, 960], // 5:4
-  [1024, 768], // 4:3 : le plus étroit, c'est lui qui borne la bande
-]
-
-/** L'intersection des bandes visibles de `FORMATS_GARE` : ce que tous voient. */
-export function bandeCommuneGare(): [number, number] {
-  const bandes = FORMATS_GARE.map(([w, h]) => bandeVisible(w, h))
-  return [Math.max(...bandes.map((b) => b[0])), Math.min(...bandes.map((b) => b[1]))]
-}
-
-/** Ce que la gare garde entre elle et le bord de la bande commune, en pixels de cadre. */
-export const MARGE_GARE = 40
-
-/**
  * Stage y of the rail line: every asset standing on the track — mountains
  * behind, poles, the signpost — is placed against it. Measured on rails.png.
  */
