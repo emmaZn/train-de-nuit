@@ -154,6 +154,12 @@ test('aucune pièce grainée d’« ailleurs » n’allume un point à mi-teinte
       const l = clarte(`#${[r, v, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`)
       expect(l < 0.1 || l > 0.9, `${fichier} : rgb(${r}, ${v}, ${b})`).toBe(true)
     }
+    // Une absence ne doit pas satisfaire ce garde : sans `tRNS`, la boucle
+    // ci-dessous ne tournerait pas, et chaque pixel « vide » serait du noir
+    // opaque. On exige donc le chunk, et que l'entrée 0 — le vide — soit bien
+    // la transparente.
+    expect(png.opacites.length, `${fichier} : chunk tRNS`).toBeGreaterThan(0)
+    expect(png.opacites[0], `${fichier} : l'entrée 0 est transparente`).toBe(0)
     for (const [index, opacite] of png.opacites.entries()) {
       expect([0, 255], `${fichier} : opacité de l’entrée ${index}`).toContain(opacite)
     }
