@@ -67,6 +67,14 @@ export function yPoseA(frame: Frame): number {
 }
 
 /**
+ * Le biseau des coins de la plaque, en pixels de **cadre**. C'est le même
+ * nombre que le `--biseau: 12px` de `PanneauDeparts.vue`, mais pas la même
+ * longueur : 12 px de cadre valent `12 × échelle` px CSS (≈ 9 à l'échelle de
+ * pose). Quiconque les confronte doit convertir.
+ */
+export const BISEAU = 12
+
+/**
  * Les deux bras qui tiennent la plaque.
  *
  * `retrait` est la distance de chaque bras au bord de la plaque, en pixels de

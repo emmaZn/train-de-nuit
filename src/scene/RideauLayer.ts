@@ -17,16 +17,10 @@ import { STAGE } from './layout'
 import type { Frame } from './layout'
 import { GRAIN_ECRAN } from './poses'
 import { ligneCellules } from './QuaiLayer'
-import { BRAS, RIDEAU, pointsBiseau, yPoseA, yRangeA } from './rideau'
+import { BISEAU, BRAS, RIDEAU, pointsBiseau, yPoseA, yRangeA } from './rideau'
 
 const GRIS = 0xededed
 const NOIR = 0x0b0b0c
-
-/**
- * Le biseau des coins, en pixels de cadre. C'est le `--biseau` de
- * `PanneauDeparts.vue` : le texte que la plaque porte se coupe au même coin.
- */
-export const BISEAU = 12
 
 /**
  * Durée et courbes : des réglages d'œil (spec §7), à reprendre en regardant la
@@ -145,7 +139,9 @@ export class Rideau {
   private tracer(): void {
     const g = this.g
     g.clear()
-    const c = GRAIN_ECRAN / this.parCadre
+    // Le même plancher que le quai et les câbles : sous 1, le trait serait plus fin
+    // que celui du décor, juste à côté, sur les écrans denses.
+    const c = Math.max(1, GRAIN_ECRAN / this.parCadre)
     const { x, largeur, hauteur } = RIDEAU
     const sommets = pointsBiseau(x, 0, largeur, hauteur, BISEAU)
 

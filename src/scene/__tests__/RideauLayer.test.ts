@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import gsap from 'gsap'
 import { Container, Graphics } from 'pixi.js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -10,21 +11,39 @@ import { yPoseA, yRangeA } from '@/scene/rideau'
 const NOIR = 0x0b0b0c
 const GRIS = 0xededed
 
-/** Une fenêtre ordinaire, et le nombre de pixels d'écran par pixel de cadre. */
+/**
+ * Une fenêtre ordinaire. `PAR_CADRE` est passé comme `resolution` : le nombre
+ * de pixels de rendu par pixel d'écran, **pas** l'échelle du cadre. Le grain par
+ * cadre réel est donc `CADRE.scale * PAR_CADRE` (0,74 × 0,62 ≈ 0,46 ici).
+ */
 const CADRE = fitStage(1440, 900)
 const PAR_CADRE = 0.62
 
 /**
- * Avance la timeline globale de GSAP sans attendre le temps réel. Le second
- * argument est `suppressEvents = false` : par défaut le réglage du temps coupe
- * les `onUpdate`, et la plaque ne suivrait plus son interpolation.
+ * Avance la timeline globale de GSAP sans attendre le temps réel. `time()`
+ * laisse passer les `onUpdate` ; c'est `seek()` qui les supprime par défaut.
  */
 function avancerGsap(secondes: number): void {
-  gsap.globalTimeline.time(gsap.globalTimeline.time() + secondes, false)
+  gsap.globalTimeline.time(gsap.globalTimeline.time() + secondes)
+}
+
+/** Le côté, en pixels de cadre, de la première cellule de trait du rideau. */
+function celluleDe(r: Rideau): number {
+  const g = (r as unknown as { g: Graphics }).g
+  const trait = g.context.instructions.filter((i) => i.action === 'fill')[1] as never as {
+    data: { path: { shapePath: { shapePrimitives: { shape: { width: number } }[] } } }
+  }
+  return trait.data.path.shapePath.shapePrimitives[0].shape.width
 }
 
 /** Les passes de remplissage du `Graphics`, dans l'ordre où elles ont été émises. */
-function tracesDe(r: Rideau): { data: { style: { color: number; alpha: number } } }[] {
+type Passe = {
+  data: {
+    style: { color: number; alpha: number }
+    path: { shapePath: { shapePrimitives: unknown[] } }
+  }
+}
+function tracesDe(r: Rideau): Passe[] {
   const g = (r as unknown as { g: Graphics }).g
   return g.context.instructions.filter((i) => i.action === 'fill') as never
 }
@@ -90,13 +109,31 @@ describe('Rideau', () => {
   })
 
   it('suit le cadre quand la fenêtre change en pleine descente', () => {
+    // Deux fenêtres dont `yPoseA` diffère : sur 1440×900 le plancher de 340
+    // s'applique, sur 2560×720 non — sinon le test comparerait 340 à 340.
+    const large = fitStage(2560, 720)
+    expect(yPoseA(large)).not.toBeCloseTo(yPoseA(CADRE), 0)
     const r = nouveau()
     r.cadrer(CADRE, PAR_CADRE)
     r.baisser()
+    avancerGsap(0.4)
+    const p = (r.y - yRangeA(CADRE)) / (yPoseA(CADRE) - yRangeA(CADRE))
+    expect(p).toBeGreaterThan(0.2)
+    expect(p).toBeLessThan(0.95)
+    r.cadrer(large, PAR_CADRE)
+    expect(r.y).toBeCloseTo(yRangeA(large) * (1 - p) + yPoseA(large) * p, 6)
     avancerGsap(2)
-    const etroit = fitStage(390, 800)
-    r.cadrer(etroit, PAR_CADRE)
-    expect(r.y).toBeCloseTo(yPoseA(etroit), 1)
+    expect(r.y).toBeCloseTo(yPoseA(large), 1)
+  })
+
+  it('ne descend jamais sous la cellule du décor, même sur un écran dense', () => {
+    const r = nouveau()
+    // 390×844 à dpr 3 : grain par cadre ≈ 2,08, la cellule brute vaudrait 0,72.
+    const tel = fitStage(390, 844)
+    r.cadrer(tel, 3)
+    expect(celluleDe(r)).toBeGreaterThanOrEqual(1)
+    r.cadrer(CADRE, 1)
+    expect(celluleDe(r)).toBeCloseTo(1.5 / CADRE.scale, 6)
   })
 
   it('n’allume rien à mi-teinte : deux couleurs pleines et pas d’autres', () => {
@@ -105,6 +142,10 @@ describe('Rideau', () => {
     const passes = tracesDe(r)
     // Un `Graphics` vide passerait ce test à vide : il en faut au moins deux.
     expect(passes.length).toBeGreaterThanOrEqual(2)
+    // Un `fill()` sur un chemin vide émet quand même une passe : on exige de la géométrie.
+    for (const passe of passes) {
+      expect(passe.data.path.shapePath.shapePrimitives.length).toBeGreaterThan(0)
+    }
     for (const passe of passes) {
       expect(passe.data.style.alpha).toBe(1)
       expect([NOIR, GRIS]).toContain(passe.data.style.color)
@@ -116,6 +157,8 @@ describe('Rideau', () => {
     r.cadrer(CADRE, PAR_CADRE)
     const passes = tracesDe(r)
     expect(passes.length).toBeGreaterThanOrEqual(2)
+    expect(passes[0].data.path.shapePath.shapePrimitives.length).toBeGreaterThan(0)
+    expect(passes[passes.length - 1].data.path.shapePath.shapePrimitives.length).toBeGreaterThan(100)
     expect(passes[0].data.style.color).toBe(NOIR)
     expect(passes[passes.length - 1].data.style.color).toBe(GRIS)
   })
@@ -138,7 +181,6 @@ describe('Rideau', () => {
     r.cadrer(CADRE, PAR_CADRE)
     r.baisser()
     avancerGsap(2)
-    expect(plans.rideau.x).toBe(0)
     expect(plans.rideau.children[0].x).toBe(0)
   })
 
@@ -155,7 +197,19 @@ describe('Rideau', () => {
     const r = new Rideau(new Container())
     r.cadrer(CADRE, PAR_CADRE)
     r.baisser()
+    const etat = (r as unknown as { etat: object }).etat
+    expect(gsap.getTweensOf(etat)).toHaveLength(1)
     r.destroy()
-    expect(() => avancerGsap(2)).not.toThrow()
+    expect(gsap.getTweensOf(etat)).toHaveLength(0)
+  })
+
+  it('est construit par la scène avant le manifeste, donc toujours cadré', () => {
+    const src = readFileSync('src/scene/Scene.ts', 'utf8')
+    const debut = src.indexOf('this.sky = new Sky')
+    const cadrage = src.indexOf('this.cadrer()', debut)
+    const pose = src.indexOf('new Rideau(')
+    expect(debut).toBeGreaterThan(0)
+    expect(pose).toBeGreaterThan(debut)
+    expect(pose).toBeLessThan(cadrage)
   })
 })

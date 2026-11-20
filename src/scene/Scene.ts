@@ -392,6 +392,9 @@ export class Scene {
     // change pas de repère.
     this.sky = new Sky(this.plans.ciel)
     this.stars = new Stars(this.plans.ciel, { reducedMotion: this.reducedMotion })
+    // Il n'attend pas le manifeste : construit ici, il est cadré par le
+    // `cadrer()` qui suit, et sa position n'est jamais indéfinie.
+    this.rideau = new Rideau(this.plans.rideau, this.reducedMotion)
     this.app.stage.addChild(this.monde, this.dissous)
 
     this.refletSprite.scale.y = -1
@@ -432,7 +435,6 @@ export class Scene {
     this.plans.plateauFond.addChild(planQuai)
     this.quai = new Quai(planQuai, this.plans.lumieres, this.reducedMotion)
     void this.quai.charger()
-    this.rideau = new Rideau(this.plans.rideau, this.reducedMotion)
     // Le plateau lui-même ne porte pas de teinte (voir `Nuit`) : chaque plan
     // qui s'assombrit s'inscrit en naissant, par `planSombre`.
     this.train = monterLeTrain(this.plans, manifest)
