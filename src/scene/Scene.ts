@@ -624,6 +624,11 @@ export class Scene {
    */
   basculerRideau(): void {
     if (!this.rideau) return
+    // La règle, en son seul endroit — l'horloge et le bouton du DOM passent tous
+    // deux ici : le rideau ne se baisse qu'à l'arrêt, et se relève toujours. Le
+    // tableau des départs appartient à l'arrêt ; la gare s'en va avec son horloge,
+    // et une plaque baissée en route resterait vide, sans moyen de la relever.
+    if (!this.rideau.baisse && this.enRoute) return
     // Il l'a trouvé, par quelque chemin que ce soit : le battement n'a plus à le dire.
     this.rideauTrouve = true
     this.quai?.apaiser()

@@ -155,6 +155,15 @@ describe('Rideau', () => {
     }
   })
 
+  it('retrace quand le pixel de raster change, même si `parCadre` reste le même', () => {
+    // Même produit échelle × densité (un changement de moniteur, un zoom) :
+    // le pixel de raster, lui, passe de 2 à 4 pixels de cadre.
+    const r = nouveau()
+    r.cadrer({ ...CADRE, scale: 0.5 }, 2)
+    r.cadrer({ ...CADRE, scale: 0.25 }, 4)
+    expect(celluleDe(r) * 0.25).toBeGreaterThanOrEqual(1 - 1e-9)
+  })
+
   it('n’allume rien à mi-teinte : deux couleurs pleines et pas d’autres', () => {
     const r = nouveau()
     r.cadrer(CADRE, PAR_CADRE)

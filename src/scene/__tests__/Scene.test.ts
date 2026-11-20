@@ -450,21 +450,44 @@ describe('le rideau, commandé par l’horloge', () => {
     })
 
     it('relève le rideau quand le train repart, où qu’il soit', async () => {
-      const { scene } = await sceneDeTest()
+      const { scene, emis } = await sceneDeTest()
       scene.setGare('ailleurs')
       scene.setVoyage(false, 0)
       scene.basculerRideau()
       expect(scene.rideauBaisse).toBe(true)
+      emis.length = 0
       scene.setVoyage(true, 1)
       expect(scene.rideauBaisse).toBe(false)
+      expect(emis).toHaveLength(1)
+      expect(emis[0][1]).toBe(false)
     })
 
     it('ne relève pas un rideau qu’on n’a pas baissé, et ne l’émet pas', async () => {
       const { scene, emis } = await sceneDeTest()
-      scene.setVoyage(true, 1)
+      // Un vrai front : à quai, puis le départ, rideau haut.
+      scene.setVoyage(false, 0)
       emis.length = 0
       scene.setVoyage(true, 1)
       expect(emis).toHaveLength(0)
+    })
+
+    it('ne se baisse qu’à l’arrêt : ni par l’horloge, ni par le bouton, quand le train roule', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      scene.basculerRideau()
+      scene.setVoyage(true, 1)
+      expect(scene.rideauBaisse).toBe(false)
+      // L'île est encore là un moment, avec son horloge.
+      const { x, y } = centre()
+      scene.clicPx(x, y)
+      expect(scene.rideauBaisse).toBe(false)
+      scene.basculerRideau()
+      expect(scene.rideauBaisse).toBe(false)
+      // À l'arrêt suivant, il se baisse de nouveau.
+      scene.setVoyage(false, 0)
+      scene.basculerRideau()
+      expect(scene.rideauBaisse).toBe(true)
     })
 
     it('s’interrompt quand le train repart', async () => {

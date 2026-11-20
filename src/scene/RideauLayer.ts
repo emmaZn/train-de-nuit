@@ -48,6 +48,7 @@ export class Rideau {
 
   private cadre: Frame | null = null
   private parCadre = 0
+  private echelleTracee = 0
 
   private readonly reducedMotion: boolean
 
@@ -90,8 +91,11 @@ export class Rideau {
   cadrer(frame: Frame, resolution: number): void {
     this.cadre = frame
     const parCadre = frame.scale * resolution
-    if (parCadre !== this.parCadre) {
+    // `scale` est dans la clé : le plancher du raster en dépend seul, et deux
+    // couples (échelle, densité) de même produit n'ont pas le même pixel de raster.
+    if (parCadre !== this.parCadre || frame.scale !== this.echelleTracee) {
       this.parCadre = parCadre
+      this.echelleTracee = frame.scale
       this.tracer()
     }
     this.poser()
