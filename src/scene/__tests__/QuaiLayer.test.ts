@@ -3,8 +3,7 @@ import { Container, Graphics } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { loadTexture } from '@/scene/assets'
-import { HALO_HORLOGE, Quai, anglesHorloge } from '@/scene/QuaiLayer'
-import { fabriquerPiece } from '@/scene/poses'
+import { HALO_HORLOGE, Quai, anglesHorloge, pointsBiseau } from '@/scene/QuaiLayer'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
 import { HORLOGE, HORLOGE_IMAGE, PIECES } from '@/scene/quai'
@@ -31,25 +30,6 @@ vi.mock('@/scene/assets', async (importOriginal) => {
   const neuve = () => new Texture({ source: new TextureSource({ width: 4, height: 4 }) })
   return { ...vrai, loadTexture: vi.fn(async () => neuve()) }
 })
-
-/**
- * Un contexte 2D crédible, et une toile de taille plausible : `refaireTextures`
- * sort tout de suite sans contexte, et `Texture.from` veut des dimensions.
- */
-function avecContexte2D(): () => void {
-  const original = HTMLCanvasElement.prototype.getContext
-  HTMLCanvasElement.prototype.getContext = (() => ({})) as unknown as typeof original
-  return () => {
-    HTMLCanvasElement.prototype.getContext = original
-  }
-}
-
-function toile(): HTMLCanvasElement {
-  const c = document.createElement('canvas')
-  c.width = 32
-  c.height = 32
-  return c
-}
 
 /** Le quai monté là où la scène le monte : décor éteint au fond, lumières à part. */
 function poser() {
@@ -170,19 +150,90 @@ describe('les plans du quai dans le décor', () => {
   })
 })
 
-describe('les pieds du panneau', () => {
-  /** Le cadre est une lumière : ses pieds se dessinent avec lui, allumés. */
-  it('descendent jusqu’au rail, dans le cadre allumé', () => {
+describe('pointsBiseau', () => {
+  it('coupe les quatre coins et garde les extrêmes du rectangle', () => {
+    const p = pointsBiseau(0, 0, 100, 60, 10)
+    expect(p).toHaveLength(16)
+    expect(p.slice(0, 4)).toEqual([10, 0, 90, 0])
+    const xs = p.filter((_, i) => i % 2 === 0)
+    const ys = p.filter((_, i) => i % 2 === 1)
+    expect(Math.min(...xs)).toBe(0)
+    expect(Math.max(...xs)).toBe(100)
+    expect(Math.min(...ys)).toBe(0)
+    expect(Math.max(...ys)).toBe(60)
+    // Aucun sommet dans un coin : c'est ce que « biseauté » veut dire.
+    for (const coin of [[0, 0], [100, 0], [100, 60], [0, 60]]) {
+      for (let i = 0; i < 16; i += 2) {
+        expect([p[i], p[i + 1]]).not.toEqual(coin)
+      }
+    }
+  })
+
+  it('rend le rectangle quand le biseau est nul', () => {
+    const p = pointsBiseau(0, 0, 100, 60, 0)
+    expect(new Set(p.filter((_, i) => i % 2 === 0))).toEqual(new Set([0, 100]))
+    expect(new Set(p.filter((_, i) => i % 2 === 1))).toEqual(new Set([0, 60]))
+  })
+})
+
+type PassePixi = {
+  action: string
+  data: {
+    style: { color: number, alpha: number }
+    path: { bounds: { minX: number, minY: number, maxX: number, maxY: number } }
+  }
+}
+
+describe('le cadre du panneau', () => {
+  /** La correction pour laquelle la tâche existe : les fenêtres du mur passaient à travers le texte. */
+  it('pose un fond opaque, avant tout trait, à la couleur du fond du projet', () => {
+    const { quai } = poser()
+    const cadre = quai.allume.children[0] as Graphics
+    const passes = cadre.context.instructions as unknown as PassePixi[]
+    const premiere = passes[0]
+    expect(premiere.action).toBe('fill')
+    expect(premiere.data.style.color).toBe(0x0b0b0c)
+    expect(premiere.data.style.alpha).toBe(1)
+    const p = PIECES.panneau
+    const b = premiere.data.path.bounds
+    expect(b.minX).toBeLessThanOrEqual(p.x)
+    expect(b.minY).toBeLessThanOrEqual(p.y)
+    expect(b.maxX).toBeGreaterThanOrEqual(p.x + p.largeur)
+    expect(b.maxY).toBeGreaterThanOrEqual(p.y + p.hauteur)
+  })
+
+  /** « Blanc ou absent » : deux couleurs pleines, et rien d'autre ne peut entrer. */
+  it('n’allume rien à mi-teinte, et jamais le blanc des sources', () => {
+    const { quai } = poser()
+    const cadre = quai.allume.children[0] as Graphics
+    for (const passe of cadre.context.instructions as unknown as PassePixi[]) {
+      expect(passe.action).toBe('fill')
+      expect(passe.data.style.alpha).toBe(1)
+      expect([0x0b0b0c, 0xededed]).toContain(passe.data.style.color)
+    }
+  })
+
+  /**
+   * Le panneau est une plaque sur un mur : ni jambes jusqu'au rail, ni consoles
+   * dessous. Son tracé ne sort pas de son cadre, à une cellule près.
+   */
+  it('ne déborde pas de son cadre : ni pieds, ni consoles', () => {
+    const { quai } = poser()
+    const cadre = quai.allume.children[0] as Graphics
+    const p = PIECES.panneau
+    const b = cadre.getLocalBounds()
+    expect(b.maxY).toBeLessThanOrEqual(p.y + p.hauteur + 4)
+    expect(b.maxY).toBeLessThan(HORIZON - 1)
+    expect(b.minX).toBeGreaterThanOrEqual(p.x - 4)
+    expect(b.maxX).toBeLessThanOrEqual(p.x + p.largeur + 4)
+  })
+
+  /** Le cadre est une lumière : il se dessine allumé, hors de la teinte de nuit. */
+  it('est tout entier dans la racine allumée', () => {
     const { plans, quai } = poser()
     const cadre = quai.allume.children[0] as Graphics
     appliquerNuit(plans, 1)
     expect(clarte(cadre)).toBe(1)
-    const p = PIECES.panneau
-    const b = cadre.getLocalBounds()
-    expect(b.maxY).toBeGreaterThanOrEqual(HORIZON - 1)
-    expect(b.maxY).toBeLessThanOrEqual(HORIZON + 8)
-    expect(b.minX).toBeGreaterThanOrEqual(p.x - 8)
-    expect(b.maxX).toBeLessThanOrEqual(p.x + p.largeur + 8)
   })
 })
 
@@ -216,8 +267,11 @@ describe('l’horloge allumée', () => {
 
   /**
    * Le piège du double dessin, pour la troisième fois sur cette branche : le
-   * dessin de la propriétaire **portait** une horloge, aiguilles figées, et
-   * deux horloges superposées ne sont pas une horloge.
+   * premier dessin de la propriétaire **portait** une horloge, aiguilles
+   * figées, et deux horloges superposées ne sont pas une horloge. Le second
+   * n'en porte pas — mais c'est nous qui choisissons alors la place du
+   * cadran (`HORLOGE_IMAGE`), et ce garde devient celui de ce choix : le
+   * pignon doit y être plein, et rien n'y être déjà tracé.
    *
    * L'ancien garde lisait le SVG et y interdisait le mot `circle`. Le dessin
    * est devenu une image : le garde lit donc les pixels. Deux choses s'y
@@ -303,41 +357,24 @@ describe('le quai qui défile', () => {
     expect(quai.horsChamp(5000)).toBe(true)
   })
 
-  /**
-   * Le piège que le commentaire de `Birds.refaireTextures` signale : une pièce
-   * qui échoue à la **recuisson** garde son ancienne texture, et détruire la
-   * fournée d'avant en bloc laisserait son sprite sur une texture morte — ce
-   * qui fait tomber tout le rendu Pixi.
+  /*
+   * Il y avait ici deux tests que le retrait du banc et de la valise a privés
+   * de sujet, le 20 novembre 2026 :
+   *
+   * - « une pièce qui échoue à la recuisson garde sa texture, vivante », qui
+   *   faisait échouer la valise à la seconde cuisson et vérifiait qu'elle
+   *   gardait une texture vivante ;
+   * - « une pièce manquante n'arrête pas la couche », sur une valise absente.
+   *
+   * Les deux pièces qui restent (`batiment`, `reverbere`) viennent d'une image
+   * et ne passent pas par `fabriquerPiece` : le chemin de cuisson des SVG
+   * existe toujours dans `QuaiLayer`, mais plus aucun test ne le traverse.
+   *
+   * Sont partis avec eux les deux outils qu'ils étaient seuls à employer,
+   * `avecContexte2D` et `toile`, et le mock de `fabriquerPiece` n'a plus de
+   * lecteur. Tout cela revient quand le banc et la valise reviennent ;
+   * `git show` en garde le texte.
    */
-  it('une pièce qui échoue à la recuisson garde sa texture, vivante', async () => {
-    const rendre2D = avecContexte2D()
-    const restaurer = stubFetchEnEchec('rien-du-tout')
-    const fabrique = vi.mocked(fabriquerPiece)
-    try {
-      fabrique.mockReset()
-      // Première cuisson : les quatre pièces sortent.
-      fabrique.mockImplementation(async () => toile())
-      const { quai } = poser()
-      await quai.charger()
-      const avant = quai.texture('valise')
-      expect(avant).not.toBeNull()
-
-      // Seconde cuisson : la valise échoue, les autres passent.
-      fabrique.mockImplementation(async (_svg, largeur) =>
-        largeur === PIECES.valise.largeur ? null : toile(),
-      )
-      await quai.charger()
-
-      // Elle garde la sienne, et cette texture est toujours vivante.
-      expect(quai.texture('valise')).toBe(avant)
-      expect(avant!.destroyed).toBe(false)
-      // Et une pièce qui a bien recuit a bien changé de texture.
-      expect(quai.texture('batiment')).not.toBeNull()
-    } finally {
-      restaurer()
-      rendre2D()
-    }
-  })
 
   /**
    * Le seul maillon qui peut encore fabriquer la mi-teinte interdite : le
@@ -370,22 +407,11 @@ describe('le quai qui défile', () => {
       await expect(quai.charger()).resolves.toBeUndefined()
       expect(avertir).toHaveBeenCalledTimes(1)
       expect(avertir.mock.calls[0][0]).toMatch(/\.png/)
-      expect(quai.piecesChargees).toBe(3)
+      // Deux pièces dessinées, l'une manque : il en reste une.
+      expect(quai.piecesChargees).toBe(1)
       expect(() => quai.avancer(0, 1)).not.toThrow()
     } finally {
       avertir.mockRestore()
-      restaurer()
-    }
-  })
-
-  it('une pièce manquante n’arrête pas la couche', async () => {
-    const restaurer = stubFetchEnEchec('valise')
-    try {
-      const { quai } = poser()
-      await expect(quai.charger()).resolves.toBeUndefined()
-      expect(quai.piecesChargees).toBe(3)
-      expect(() => quai.avancer(0, 1)).not.toThrow()
-    } finally {
       restaurer()
     }
   })

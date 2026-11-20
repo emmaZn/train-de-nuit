@@ -4,12 +4,13 @@ import {
   CADRES,
   DEBUT_GARE,
   FIN_GARE,
+  CORPS,
   IMAGES,
   PIECES,
-  PORTE,
   HORLOGE,
   LARGEUR_GARE,
 } from '@/scene/quai'
+import { HALO_HORLOGE } from '@/scene/QuaiLayer'
 import { lirePngIndexe } from './png'
 import { RECUL_HORS_CHAMP, solParEtape } from '@/scene/cables'
 import { HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
@@ -39,78 +40,88 @@ describe('la géométrie du quai', () => {
    * Ce test affirmait « rien ne se cache derrière le nez de la loco ». La
    * propriétaire a levé cette contrainte : la gare peut passer derrière la rame,
    * c'est voulu. On n'affirme donc plus où elle s'arrête, mais ce qui reste
-   * vrai : le mur est plus large que le reste, et banc, valise et réverbère se
-   * tiennent **devant** lui, tout entiers dans son emprise.
+   * vrai : le réverbère se tient **devant** le bâtiment, dans son emprise.
+   *
+   * Le banc et la valise y figuraient aussi : ils ne sont plus posés (`quai.ts`).
    */
-  it('le bâtiment passe derrière le banc, la valise et le réverbère', () => {
+  it('le bâtiment passe derrière le réverbère', () => {
     const b = PIECES.batiment
-    const gauche = (x: number, largeur: number) => x - largeur / 2
     const embase = CADRES.reverbere.largeur / 2
     expect(PIECES.reverbere.x - embase).toBeGreaterThan(b.x)
-    expect(gauche(PIECES.banc.x, PIECES.banc.largeur)).toBeGreaterThan(b.x)
-    expect(gauche(PIECES.valise.x, PIECES.valise.largeur)).toBeGreaterThan(b.x)
-    expect(PIECES.valise.x + PIECES.valise.largeur / 2).toBeLessThan(b.x + b.largeur)
-  })
-
-  it('le bâtiment reste dans le cadre', () => {
-    expect(PIECES.batiment.x + PIECES.batiment.largeur).toBeLessThanOrEqual(STAGE.width)
-    expect(DEBUT_GARE).toBeGreaterThanOrEqual(0)
+    expect(PIECES.reverbere.x + embase).toBeLessThan(b.x + b.largeur)
   })
 
   /**
-   * Le panneau **commence** sur le mur et **déborde** à droite, jusque vers le
-   * bord du cadre : c'est la composition de la maquette. L'ancienne borne — le
-   * panneau entièrement dans le mur — disait l'inverse ; elle est remplacée,
-   * pas retirée, parce que ce qu'elle garantissait (le panneau est accroché au
-   * bâtiment, au-dessus des rails, sous le toit) reste vrai.
+   * Le second dessin porte une marquise de **chaque** côté de son corps. On ne
+   * peut plus demander au bâtiment de tenir dans le cadre : la propriétaire a
+   * tranché que la marquise de droite en sorte, et qu'on la découvre en marche
+   * vers « ici » (20 novembre 2026). Ce qui doit tenir, c'est le **corps de
+   * gare** — et le bord gauche, par où la gare arrive.
    */
-  it('le panneau est accroché au mur du bâtiment et déborde à sa droite', () => {
+  it('le corps de gare reste dans le cadre, la marquise de droite en sort', () => {
+    expect(CORPS.x0).toBeGreaterThanOrEqual(0)
+    expect(CORPS.x1).toBeLessThanOrEqual(STAGE.width)
+    expect(DEBUT_GARE).toBeGreaterThanOrEqual(0)
+    // On n'exige **pas** que le bâtiment dépasse : elle a permis qu'il sorte,
+    // elle ne l'a pas demandé. Le ramener dans le cadre (par `DECALAGE_GARE`)
+    // ne doit pas faire tomber ce test.
+  })
+
+  /**
+   * Le panneau **commence** sur le corps de gare et **débordait** à droite,
+   * jusque vers le bord du cadre. La propriétaire l'a recentré sur le corps
+   * (20 novembre 2026) : il est maintenant tout entier dessus, sous
+   * l'horloge. Ce que la borne garantit n'a pas changé — le panneau est
+   * accroché au bâtiment, au-dessus des rails, sous le toit — et elle dit en
+   * plus qu'il est centré, ce qui est désormais une place et non un hasard.
+   */
+  it('le panneau est centré sur le corps de gare, accroché à son mur', () => {
     const p = PIECES.panneau
     const b = PIECES.batiment
-    expect(p.x).toBeGreaterThanOrEqual(b.x)
-    expect(p.x).toBeLessThan(b.x + b.largeur)
-    expect(p.x + p.largeur).toBeGreaterThan(b.x + b.largeur)
-    expect(p.y + p.hauteur).toBeLessThan(HORIZON)
+    expect(p.x).toBeGreaterThanOrEqual(CORPS.x0)
+    expect(p.x + p.largeur).toBeLessThanOrEqual(CORPS.x1)
+    expect((p.x + p.x + p.largeur) / 2).toBeCloseTo((CORPS.x0 + CORPS.x1) / 2, 6)
+    // Le panneau est posé sur le mur, au-dessus de la bordure du quai : son bas
+    // ne doit pas la croiser. Le cadre est une **lumière**, dessiné au-dessus du
+    // décor éteint — s'il descendait sur la bordure, il passerait devant elle
+    // alors qu'il est derrière, et la profondeur se verrait.
+    expect(p.y + p.hauteur).toBeLessThanOrEqual(PIECES.quai.y)
     expect(p.y).toBeGreaterThan(b.pied - b.hauteur)
   })
 
   /**
-   * La garantie pour laquelle la correction existe : le panneau avalait la
-   * porte cintrée, il n'en restait que trente pixels. Les deux doivent se voir
-   * côte à côte.
+   * L'ancien test disait « la porte est sous l'horloge » : les deux étaient
+   * relevées sur le dessin, et leur accord disait que notre horloge s'était
+   * bien posée dans le trou du dessinateur. Le second dessin n'a ni porte ni
+   * horloge : c'est nous qui choisissons la place (`HORLOGE_IMAGE`), et il n'y
+   * a plus de second repère à confronter.
+   *
+   * Ce qui reste vérifiable ici, c'est que la place choisie est bien dans le
+   * pignon : au-dessus du corps de gare, dans sa moitié haute. Que rien n'y
+   * soit dessiné se vérifie sur les pixels, dans `QuaiLayer.test.ts`.
    */
-  it('le panneau ne recouvre pas la porte du bâtiment', () => {
-    const p = PIECES.panneau
-    expect(PORTE.x1).toBeLessThanOrEqual(p.x)
+  it('l’horloge se pose dans le pignon, au-dessus du corps de gare', () => {
+    const b = PIECES.batiment
+    expect(HORLOGE.x - HORLOGE.rayon).toBeGreaterThan(CORPS.x0)
+    expect(HORLOGE.x + HORLOGE.rayon).toBeLessThan(CORPS.x1)
+    expect(HORLOGE.y + HORLOGE.rayon).toBeLessThan(b.pied - b.hauteur / 2)
+    expect(HORLOGE.y - HORLOGE.rayon).toBeGreaterThan(b.pied - b.hauteur)
   })
 
   /**
-   * L'ancien test disait « la porte et le pignon sont centrés sur le
-   * bâtiment » : c'était vrai d'un dessin qui n'était qu'un mur. Celui de la
-   * propriétaire est une gare entière, dont le tiers gauche est une marquise
-   * de quai : la porte est au milieu du **corps de gare**, pas de la pièce.
-   *
-   * Ce qui reste vrai, et qui est la vraie garantie — c'est elle qui dit que
-   * notre horloge s'est bien posée dans le trou du dessin — : la porte est
-   * exactement sous l'horloge, toutes deux au milieu du pignon.
+   * Le piège que le second dessin a ouvert, et la raison d'être de
+   * `BORD_DROIT_CORPS`. Son pignon est au **milieu** de l'image, là où celui
+   * du premier était aux deux tiers : ancrer la gare sur le bord droit de son
+   * image amenait le cadran exactement sur le mât du réverbère, à 1256 contre
+   * 1195–1265. Deux lumières l'une dans l'autre, et personne pour le dire.
    */
-  it('la porte est sous l’horloge, au milieu du pignon', () => {
-    // Deux pixels de cadre : on relève l'une et l'autre à la main sur le
-    // dessin, et l'œil ne voit pas la différence sur un mur de 1316 de large.
-    expect(Math.abs((PORTE.x0 + PORTE.x1) / 2 - HORLOGE.x)).toBeLessThan(2)
-    // Et le pignon est dans le corps de gare, pas sur la marquise.
-    expect(HORLOGE.x).toBeGreaterThan(PIECES.batiment.x + PIECES.batiment.largeur / 2)
-  })
-
-  it('le banc ne cache pas la porte', () => {
-    expect(PIECES.banc.x + PIECES.banc.largeur / 2).toBeLessThanOrEqual(PORTE.x0)
-  })
-
-  /** L'emprise ne bouge pas avec les pieds : ils sont sous le panneau, dans sa largeur. */
-  it('les pieds du panneau arrivent au rail, dans la largeur du panneau', () => {
-    const p = PIECES.panneau
-    expect(p.y + p.hauteur).toBeLessThan(HORIZON)
-    expect(FIN_GARE).toBe(p.x + p.largeur)
+  it('l’horloge ne tombe pas sur le réverbère', () => {
+    const embase = CADRES.reverbere.largeur / 2
+    // Le halo porte plus loin que le cadran : on garde cette marge-là, et pas
+    // le seul disque.
+    expect(HORLOGE.x - HORLOGE.rayon * HALO_HORLOGE.rayon).toBeGreaterThan(
+      PIECES.reverbere.x + embase,
+    )
   })
 
   /**
@@ -168,9 +179,17 @@ describe('la géométrie du quai', () => {
     expect(parLImage).toBeCloseTo(parLeCadre, 6)
   })
 
-  /** L'emprise sert au test du hors-champ : le panneau déborde, il en fait partie. */
-  it('l’emprise de la gare couvre le panneau, qui dépasse le bâtiment', () => {
-    expect(FIN_GARE).toBeGreaterThanOrEqual(PIECES.panneau.x + PIECES.panneau.largeur)
+  /**
+   * L'emprise sert au test du hors-champ. C'était le panneau qui la finissait
+   * à droite ; c'est maintenant la marquise, qui sort du cadre — si l'emprise
+   * ne la comptait pas, la gare serait réputée partie alors qu'on en voit
+   * encore le toit, et la suivante entrerait par-dessus.
+   */
+  it('l’emprise de la gare couvre tout, marquise de droite comprise', () => {
+    const b = PIECES.batiment
+    expect(FIN_GARE).toBe(b.x + b.largeur)
+    expect(FIN_GARE).toBeGreaterThan(PIECES.panneau.x + PIECES.panneau.largeur)
+    expect(DEBUT_GARE).toBe(b.x)
     expect(DEBUT_GARE).toBeLessThanOrEqual(PIECES.reverbere.x)
     expect(FIN_GARE - DEBUT_GARE).toBeCloseTo(LARGEUR_GARE, 6)
   })

@@ -53,7 +53,7 @@ onBeforeUnmount(() => window.clearInterval(minuterie))
 
 const lignes = computed<Depart[]>(() => [
   ...departsReels(maintenant.value),
-  ...departsEteints(maintenant.value, graine.value, 3),
+  ...departsEteints(maintenant.value, graine.value, 2),
 ])
 const heure = computed(() => formaterHeure(maintenant.value))
 
@@ -114,7 +114,18 @@ const place = computed(() => {
   position: fixed;
   transform-origin: 0 0;
   box-sizing: border-box;
-  padding: 14px 16px;
+  /* Le retrait latéral, déclaré une seule fois : le bandeau d'en-tête
+     l'annule pour aller d'un bord intérieur à l'autre du cadre. */
+  --creux: 16px;
+  /* Le budget de place du panneau, en pixels de cadre. Le cadre fait 180 px
+     de haut (`PIECES.panneau`) et doit tenir un bandeau et cinq lignes : c'est
+     **ici** que la mise en page se décide, et `PanneauDeparts.test.ts` fait
+     l'addition pour que personne n'ajoute une sixième ligne en silence.
+     `--entete` compte l'écart qui sépare le bandeau des départs. */
+  --entete: 40px;
+  --ligne: 22px;
+  --marge: 14px;
+  padding: var(--marge) var(--creux);
   font-family: var(--police-mono);
   font-weight: 300;
   font-size: 13px;
@@ -123,13 +134,37 @@ const place = computed(() => {
   pointer-events: none;
 }
 
+/* L'en-tête est un **bandeau plein** : le fond prend la couleur du texte et le
+   texte celle du fond. C'est le tour que fait déjà le cadran de l'horloge, dont
+   les aiguilles sont creusées dans le blanc — « blanc ou absent » appliqué à
+   l'envers, pas levé. Les deux couleurs viennent des variables, jamais d'un
+   littéral : l'œil fait tourner trois couleurs de nuit.
+
+   C'est lui, et non plus un filet tracé au canvas, qui sépare l'en-tête des
+   départs. Sa hauteur est le **réglage de luminosité du panneau** : il est la
+   chose la plus claire de la gare après la lanterne. */
 .entete {
   display: flex;
   justify-content: space-between;
-  margin: 0 0 14px;
+  margin-top: calc(-1 * var(--marge));
+  margin-right: calc(-1 * var(--creux));
+  /* Le bandeau et l'écart qui le sépare des départs tiennent ensemble dans
+     `--entete` : une demi-ligne de blanc dessous, et rien d'arbitraire. */
+  box-sizing: border-box;
+  height: calc(var(--entete) - var(--ligne) / 2);
+  margin-bottom: calc(var(--ligne) / 2);
+  margin-left: calc(-1 * var(--creux));
+  align-items: center;
+  padding-top: 0;
+  padding-right: var(--creux);
+  padding-bottom: 0;
+  padding-left: var(--creux);
+  background: var(--texte);
+  color: var(--fond);
+  /* Plein, pas à mi-teinte : l'opacité `--moyen` d'avant en ferait un gris. */
+  opacity: 1;
   font-size: 11px;
   letter-spacing: 0.08em;
-  opacity: var(--moyen);
 }
 
 .lignes {
@@ -141,11 +176,43 @@ const place = computed(() => {
 .ligne {
   display: grid;
   grid-template-columns: 3.4em 1fr auto;
+  align-items: center;
   gap: 10px;
-  padding: 3px 6px;
+  /* La hauteur vient du budget, pas d'un rembourrage : c'est elle que le garde
+     de débordement multiplie par huit. */
+  box-sizing: border-box;
+  height: var(--ligne);
+  padding: 0 6px;
   margin: 0 -6px;
   color: inherit;
   text-decoration: none;
+}
+
+/* Les points de conduite entre la destination et le quai, comme sur un
+   indicateur imprimé : la destination, des points, puis le statut calé à
+   droite.
+
+   Ce sont des points **dessinés** et non une chaîne de caractères. Un
+   `content: '......'` serait lu à voix haute par un lecteur d'écran, sur
+   chacune des cinq lignes, entre la destination et son statut — et trois de ces
+   lignes sont les seuls liens de la page. `currentColor` les fait suivre
+   l'inversion au survol sans règle de plus. */
+.ligne > span:nth-child(2) {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.ligne > span:nth-child(2)::after {
+  content: '';
+  flex: 1;
+  height: 3px;
+  margin: 2px 0 0 0.7em;
+  opacity: var(--faible);
+  background-image: radial-gradient(circle, currentColor 0.9px, transparent 1.1px);
+  background-size: 6px 3px;
+  background-repeat: repeat-x;
+  background-position: left center;
 }
 
 .reel {

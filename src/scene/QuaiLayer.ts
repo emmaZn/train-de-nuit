@@ -6,9 +6,8 @@
  * précédent de `cables.ts` / `CableLayer.ts` (CONCEPT.md §9).
  *
  * **Deux racines, une seule île.** La règle des lumières (spec §6.3) dit que ce
- * qui s'éteint, c'est tout ce qui n'est pas une lumière. Le banc, la valise, le
- * bâtiment et la bordure s'éteignent : ils vivent dans un plan que la nuit
- * teinte. Le réverbère, le cadre du panneau et l'horloge sont des lumières : ils
+ * qui s'éteint, c'est tout ce qui n'est pas une lumière. Le bâtiment et la
+ * bordure s'éteignent : ils vivent dans un plan que la nuit teinte. Le réverbère, le cadre du panneau et l'horloge sont des lumières : ils
  * vivent dans une branche qu'aucune teinte n'atteint — ni elle, ni aucun de ses
  * ancêtres. Mais c'est un seul objet posé sur un seul sol, alors
  * `avancer()` pose la **même abscisse** sur les deux racines : elles défilent
@@ -20,16 +19,16 @@
  * de passer en partie derrière la rame (`DECALAGE_GARE`).
  *
  * Profondeur : le bâtiment est ajouté en premier à la racine éteinte, donc
- * **derrière** le banc, la valise et la bordure ; la racine allumée est au-dessus
- * de l'éteinte, donc le réverbère est devant le mur. Le bâtiment passe derrière
- * eux tous, ce qu'on a voulu.
+ * **derrière** la bordure ; la racine allumée est au-dessus de l'éteinte, donc
+ * le réverbère est devant le mur. Le bâtiment passe derrière eux tous, ce
+ * qu'on a voulu.
  *
  * Les réglages marqués « provisoire » attendent la séance de réglage avec
  * Emmanuelle (spec §7) : taille et place des pièces, densité du grain. Ils sont
  * posés à vue, pas validés.
  */
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
-import { HORIZON, STAGE } from './layout'
+import { STAGE } from './layout'
 import type { Frame } from './layout'
 import { CADRES, DEBUT_GARE, FIN_GARE, HORLOGE, PIECES } from './quai'
 import { loadTexture } from './assets'
@@ -42,8 +41,18 @@ const BLANC = 0xffffff
 /** Le noir du projet, celui que le shader de recoloration rend à la couleur du fond. */
 const NOIR = 0x0b0b0c
 
-/** Les pièces qui viennent d'un dessin. La bordure et le cadre se tracent ici. */
-const PIECES_DESSINEES = ['reverbere', 'banc', 'valise', 'batiment'] as const
+/**
+ * Les pièces qui viennent d'un dessin. La bordure et le cadre se tracent ici.
+ *
+ * Le banc et la valise en sont sortis le 20 novembre 2026, avec la porte du
+ * dessin sur laquelle ils étaient calés (voir `quai.ts`). Les deux pièces qui
+ * restent viennent toutes deux d'une **image** : la cuisson des SVG
+ * (`fabriquerPiece`, `svgs`, `textures`, la recuisson au recadrage) ne sert
+ * donc plus personne tant qu'elles ne reviennent pas. On la garde entière —
+ * c'est elle qu'il faudrait réécrire sinon — mais plus aucun test ne la
+ * traverse : c'est le prix de ce retrait, et il est volontaire.
+ */
+const PIECES_DESSINEES = ['reverbere', 'batiment'] as const
 export type PieceDessinee = (typeof PIECES_DESSINEES)[number]
 
 /**
@@ -74,13 +83,20 @@ function vientDUneImage(piece: PieceDessinee): piece is PieceImage {
  * Ce qui reste allumé. Les sources arrêtées par Emmanuelle sont le réverbère et
  * son faisceau, les vitres du train, le cadre du panneau des départs, et
  * l'horloge — celle-ci tracée en code (`horloge`), pas dessinée : le cadran
- * du dessin est effacé à la fabrication de l'image (`preparer_ailleurs.py`),
- * qui ne lui laisse qu'un trou.
+ * second dessin n'en porte pas, et le premier avait le sien effacé à la
+ * fabrication de l'image (`preparer_ailleurs.py`).
  */
 const ALLUMEES: readonly PieceDessinee[] = ['reverbere']
 
-/** Le filet extérieur du panneau, et son cadre intérieur. PROVISOIRE (§7). */
-const PANNEAU_FILET = 8
+/**
+ * De combien les quatre coins du panneau sont coupés, en pixels de cadre.
+ *
+ * Le panneau avait deux filets concentriques et des angles droits. Il n'en a
+ * plus qu'un, biseauté : c'est le cartouche émaillé des gares, et c'est de la
+ * suppression du second filet que vient son allègement — le trait, lui, ne peut
+ * pas descendre sous une cellule de grain. PROVISOIRE (§7).
+ */
+const PANNEAU_BISEAU = 12
 
 /**
  * Le cadran de l'horloge, en fractions de son rayon (celui du disque = 1).
@@ -96,8 +112,8 @@ const GRADUATION = { de: 29 / 36, a: 34 / 36 } as const
  * des dégradés, donc des mi-teintes : c'est l'entorse à « blanc ou absent »
  * (CONCEPT §12.2) que la propriétaire avait déjà assumée pour le halo des
  * vitres du train (`Vitres.HALO_ALPHA`), et qu'elle étend ici. Elle s'arrête
- * aux sources : le mur, le banc, la valise, la bordure, le massif et la rame
- * restent blancs ou absents.
+ * aux sources : le mur, la bordure, le massif et la rame restent blancs ou
+ * absents.
  *
  * Techniquement ce ne sont pas des dégradés de Pixi mais des **nappes** de
  * blanc translucide qui se recouvrent : un `FillGradient` se construit sur un
@@ -144,15 +160,6 @@ const LUEUR = { rayon: 150, nappes: 60, alpha: 0.022 } as const
 export const HALO_HORLOGE = { rayon: 2.4, nappes: 48, alpha: 0.023 } as const
 
 /**
- * Les deux pieds du panneau : écartement du bord du cadre, et largeur de chaque
- * pied (deux traits de cellules). Ils descendent jusqu'à `HORIZON`. PROVISOIRE (§7).
- */
-const PANNEAU_PIED = { retrait: 40, largeur: 14 } as const
-
-/** La hauteur de l'en-tête `PROCHAINS DÉPARTS`, sous laquelle court un filet. PROVISOIRE (§7). */
-const PANNEAU_ENTETE = 56
-
-/**
  * Les angles des deux aiguilles, en degrés. **0° = midi, sens horaire.**
  *
  * L'horloge du bâtiment est à la vraie heure. C'est, avec l'heure du panneau,
@@ -166,27 +173,28 @@ export function anglesHorloge(maintenant: Date): { heures: number; minutes: numb
   return { heures: h * 30 + m * 0.5, minutes: m * 6 }
 }
 
-/** Où se pose une pièce, en pixels de cadre, à l'arrêt. */
+/**
+ * Où se pose une pièce, en pixels de cadre, à l'arrêt.
+ *
+ * Il y avait une troisième branche, celle des pièces posées par leur centre et
+ * leur largeur — le banc et la valise. Elle est tombée avec eux (`quai.ts`) :
+ * TypeScript la voit désormais inatteignable et refuse de compiler. Elle
+ * revient avec eux.
+ */
 function boite(piece: PieceDessinee): {
   x: number
   y: number
   largeur: number
   hauteur: number
 } {
-  const cadre = CADRES[piece]
-  const ratio = cadre.hauteur / cadre.largeur
   if (piece === 'batiment') {
     const p = PIECES.batiment
     return { x: p.x, y: p.pied - p.hauteur, largeur: p.largeur, hauteur: p.hauteur }
   }
-  if (piece === 'reverbere') {
-    const p = PIECES.reverbere
-    const largeur = p.hauteur / ratio
-    return { x: p.x - largeur / 2, y: p.pied - p.hauteur, largeur, hauteur: p.hauteur }
-  }
-  const p = PIECES[piece]
-  const hauteur = p.largeur * ratio
-  return { x: p.x - p.largeur / 2, y: p.pied - hauteur, largeur: p.largeur, hauteur }
+  const p = PIECES.reverbere
+  const cadre = CADRES.reverbere
+  const largeur = p.hauteur / (cadre.hauteur / cadre.largeur)
+  return { x: p.x - largeur / 2, y: p.pied - p.hauteur, largeur, hauteur: p.hauteur }
 }
 
 /**
@@ -209,22 +217,37 @@ function ligneCellules(
   }
 }
 
-function rectCellules(
-  g: Graphics,
+/**
+ * Les huit sommets d'un rectangle à coins coupés, à plat : `[x0, y0, x1, y1, …]`,
+ * dans le sens horaire en partant du sommet haut-gauche du biseau.
+ *
+ * Un biseau nul rend les quatre coins du rectangle, dédoublés : la forme reste
+ * juste, et c'est ce qui permet de régler `PANNEAU_BISEAU` jusqu'à zéro sans
+ * que le tracé change de nature.
+ */
+export function pointsBiseau(
   x: number,
   y: number,
   largeur: number,
   hauteur: number,
-  cellule: number,
-): void {
-  ligneCellules(g, x, y, x + largeur, y, cellule)
-  ligneCellules(g, x + largeur, y, x + largeur, y + hauteur, cellule)
-  ligneCellules(g, x + largeur, y + hauteur, x, y + hauteur, cellule)
-  ligneCellules(g, x, y + hauteur, x, y, cellule)
+  biseau: number,
+): number[] {
+  const b = Math.max(0, Math.min(biseau, largeur / 2, hauteur / 2))
+  const [d, bas] = [x + largeur, y + hauteur]
+  return [
+    x + b, y,
+    d - b, y,
+    d, y + b,
+    d, bas - b,
+    d - b, bas,
+    x + b, bas,
+    x, bas - b,
+    x, y + b,
+  ]
 }
 
 export class Quai {
-  /** Ce qui s'éteint : banc, valise, bâtiment, bordure. */
+  /** Ce qui s'éteint : le bâtiment et la bordure. */
   private readonly racineEteinte = new Container()
   /** Ce qui reste allumé : le réverbère, le faisceau, le cadre du panneau, l'horloge. */
   private readonly racineAllumee = new Container()
@@ -333,7 +356,7 @@ export class Quai {
 
   /**
    * Va chercher les dessins. Une pièce qui manque est sautée, jamais fatale :
-   * la scène garde son quai et perd son banc, elle ne s'arrête pas — précédent
+   * la scène garde son quai et perd son réverbère, elle ne s'arrête pas — précédent
    * `Birds.charger`.
    */
   async charger(): Promise<void> {
@@ -472,31 +495,33 @@ export class Quai {
   }
 
   /**
-   * Le cadre du panneau, et ses deux pieds : double trait — un filet extérieur, un cadre
-   * intérieur — et un filet sous l'en-tête. **Son intérieur n'est pas rempli** :
-   * la nuit se voit au travers, et le texte du panneau est du DOM posé
-   * par-dessus (spec §6.6).
+   * Le cadre du panneau : un fond opaque et un seul filet à coins coupés.
+   *
+   * Rien dessous. Il a eu deux pieds qui descendaient jusqu'au rail, puis deux
+   * consoles en quart de cercle ; la propriétaire a retiré les deux (20 novembre
+   * 2026) — pas de courbes, et le panneau est une plaque sur un mur. Plus de filet sous l'en-tête : c'est le bandeau plein de
+   * `PanneauDeparts.vue` qui sépare, et il est en CSS parce qu'il cadre du
+   * texte dont il doit suivre la boîte au pixel près.
+   *
+   * **Son intérieur est rempli**, au noir du projet que le filtre de
+   * recoloration rend à la couleur du fond — le même procédé que le corps du
+   * train, qui éteint ce qu'il traverse. Il ne l'était pas : la nuit se voyait
+   * au travers, et depuis que le panneau est au milieu du mur, les trois
+   * fenêtres cintrées du corps de gare passaient à travers son texte. Le fond
+   * se pose **avant** tout trait, sinon il les recouvrirait.
+   *
+   * Le texte, lui, reste du DOM posé par-dessus (spec §6.6).
    */
   private tracerCadrePanneau(): void {
     const g = this.cadrePanneau
     g.clear()
     const p = PIECES.panneau
     const c = this.cellule
-    rectCellules(g, p.x, p.y, p.largeur, p.hauteur, c)
-    rectCellules(
-      g,
-      p.x + PANNEAU_FILET,
-      p.y + PANNEAU_FILET,
-      p.largeur - 2 * PANNEAU_FILET,
-      p.hauteur - 2 * PANNEAU_FILET,
-      c,
-    )
-    const filet = p.y + PANNEAU_ENTETE
-    ligneCellules(g, p.x + PANNEAU_FILET, filet, p.x + p.largeur - PANNEAU_FILET, filet, c)
-    // Les pieds : même `Graphics`, donc même racine allumée que le cadre qu'ils
-    // portent. Un pied éteint sous un cadre allumé casserait la jonction.
-    for (const x0 of [p.x + PANNEAU_PIED.retrait, p.x + p.largeur - PANNEAU_PIED.retrait - PANNEAU_PIED.largeur]) {
-      rectCellules(g, x0, p.y + p.hauteur, PANNEAU_PIED.largeur, HORIZON - (p.y + p.hauteur), c)
+    const sommets = pointsBiseau(p.x, p.y, p.largeur, p.hauteur, PANNEAU_BISEAU)
+    g.poly(sommets).fill({ color: NOIR })
+    for (let i = 0; i < sommets.length; i += 2) {
+      const j = (i + 2) % sommets.length
+      ligneCellules(g, sommets[i], sommets[i + 1], sommets[j], sommets[j + 1], c)
     }
     g.fill({ color: GRIS })
   }

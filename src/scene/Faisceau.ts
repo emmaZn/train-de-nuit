@@ -10,8 +10,8 @@
  * Le cône est donc **un dégradé**, donc des mi-teintes. C'est l'entorse à
  * « blanc ou absent » (CONCEPT §12.2), étendue au réglage 3 des vitres du
  * train (`Vitres.HALO_ALPHA`) **aux trois sources de la gare** : la lueur de
- * la lanterne, ce cône, et le halo de l'horloge. Elle s'arrête là : le mur, le
- * banc, la valise, la bordure, le massif et le train restent blancs ou absents.
+ * la lanterne, ce cône, et le halo de l'horloge. Elle s'arrête là : le mur, la
+ * bordure, le massif et le train restent blancs ou absents.
  *
  * Il est peint en nappes de blanc translucide qui se recouvrent — pas un
  * dégradé de Pixi : un `FillGradient` se construit sur un canvas 2D, que jsdom

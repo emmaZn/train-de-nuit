@@ -51,10 +51,17 @@ describe('PanneauDeparts', () => {
     expect(monter('enRoute').wrapper.find('.panneau').exists()).toBe(false)
   })
 
-  it('affiche six lignes à quai, dont trois liens', () => {
+  it('affiche cinq lignes à quai, dont trois liens', () => {
     const { wrapper } = monter()
-    expect(wrapper.findAll('.ligne')).toHaveLength(6)
+    expect(wrapper.findAll('.ligne')).toHaveLength(5)
     expect(wrapper.findAll('a')).toHaveLength(3)
+  })
+
+  it('ne répète pas une destination éteinte', () => {
+    const { wrapper } = monter()
+    const mots = wrapper.findAll('.eteint').map((l) => l.text())
+    expect(mots).toHaveLength(2)
+    expect(new Set(mots).size).toBe(mots.length)
   })
 
   it('met les trois liens avant les lignes éteintes', () => {
@@ -167,5 +174,84 @@ describe('PanneauDeparts', () => {
     await nextTick()
     // Sous le Transition factice des tests, le retrait est immédiat.
     expect(wrapper.find('.panneau').exists()).toBe(false)
+  })
+
+  /*
+   * Les deux gardes qui suivent lisent le **source** et non la boîte rendue :
+   * `@vue/test-utils` sous jsdom n'injecte pas les styles `scoped` du SFC, et
+   * jsdom ne met de toute façon rien en page. `getComputedStyle` rendrait vide,
+   * et un test qui l'interroge passerait quoi qu'on écrive.
+   */
+  const source = () => readFileSync('src/components/PanneauDeparts.vue', 'utf8')
+  const regle = (nom: string) => {
+    const texte = source()
+    const i = texte.indexOf(`${nom} {`)
+    return texte.slice(i, texte.indexOf('}', i))
+  }
+  /**
+   * Cinq lignes dans la hauteur du cadre, et pas de vide sous la dernière.
+   * jsdom ne met rien en page, donc on ne peut pas le mesurer — le panneau
+   * **déclare** son budget en trois propriétés et le test fait l'addition.
+   * C'est le budget qui décide de la mise en page, pas l'inverse : resserrer
+   * une ligne sans toucher au budget ne trompe pas ce garde.
+   *
+   * Il n'y a qu'**une** marge dans l'addition, celle du bas : celle du haut est
+   * annulée par la marge négative du bandeau, qui affleure le bord du cadre.
+   * L'addition en comptait deux, et surestimait le contenu de quatorze pixels —
+   * c'est ce qui laissait le cadre traîner sous la dernière ligne sans que rien
+   * ne le dise.
+   */
+  it('tient dans la hauteur du cadre, sans vide sous la dernière ligne', () => {
+    const px = (prop: string) =>
+      Number(new RegExp(`${prop}:\\s*([\\d.]+)px`).exec(source())?.[1])
+    const contenu = px('--entete') + 5 * px('--ligne') + px('--marge')
+    expect(contenu).toBeLessThanOrEqual(PIECES.panneau.hauteur)
+    expect(PIECES.panneau.hauteur - contenu).toBeLessThanOrEqual(4)
+  })
+
+  /**
+   * Les points de conduite entre la destination et le quai, comme sur un
+   * indicateur imprimé. Ce sont des points **dessinés** et non une chaîne de
+   * caractères : un `content: '......'` serait lu à voix haute par un lecteur
+   * d'écran, sur chacune des cinq lignes, entre la destination et son statut.
+   */
+  it('conduit la destination au quai par des points dessinés, pas écrits', () => {
+    const regleApres = source().slice(
+      source().indexOf('.ligne > span:nth-child(2)::after'),
+      source().indexOf('}', source().indexOf('.ligne > span:nth-child(2)::after')),
+    )
+    expect(regleApres).toContain("content: ''")
+    expect(regleApres).toMatch(/radial-gradient/)
+  })
+
+  it('ne met aucun point dans le texte lu des lignes', () => {
+    const { wrapper } = monter()
+    for (const ligne of wrapper.findAll('.ligne')) {
+      expect(ligne.text()).not.toMatch(/\.\./)
+    }
+  })
+
+  /** Le filet pointillé a été retiré : plus rien ne coupe la liste en deux. */
+  it('ne coupe plus la liste par un filet', () => {
+    expect(source()).not.toMatch(/dotted/)
+  })
+
+  it('creuse son en-tête dans un bandeau plein, aux couleurs du thème', () => {
+    const entete = regle('.entete')
+    expect(entete).toContain('background: var(--texte)')
+    expect(entete).toContain('color: var(--fond)')
+    // L'œil fait tourner trois couleurs de nuit : rien de figé ne doit traîner.
+    expect(entete).not.toMatch(/#[0-9a-fA-F]{3,8}/)
+  })
+
+  it('le bandeau va d’un bord intérieur à l’autre, malgré la marge du panneau', () => {
+    // Le retrait latéral est déclaré **une fois**, et le bandeau l'annule avec
+    // la même variable : deux nombres qui s'accordent aujourd'hui pourraient
+    // diverger demain sans que rien ne le dise.
+    expect(regle('.panneau')).toMatch(/--creux:\s*[\d.]+px/)
+    const entete = regle('.entete')
+    expect(entete).toContain('margin-left: calc(-1 * var(--creux))')
+    expect(entete).toContain('margin-right: calc(-1 * var(--creux))')
+    expect(entete).toContain('padding-left: var(--creux)')
   })
 })
