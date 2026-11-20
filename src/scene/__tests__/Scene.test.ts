@@ -285,7 +285,7 @@ describe('le rideau, commandé par l’horloge', () => {
       expect(cliquer).not.toHaveBeenCalled()
     })
 
-    it('ne laisse pas non plus tomber un oiseau qu’on ne voit pas sous le rideau', async () => {
+    it('laisse l’oiseau répondre sous la plaque : il est dessiné devant elle', async () => {
       const { scene, interne } = await sceneDeTest()
       const cliquer = vi.fn(() => true)
       interne.oiseaux = { cliquer }
@@ -294,14 +294,9 @@ describe('le rideau, commandé par l’horloge', () => {
       scene.basculerRideau()
       avancerGsap(2)
       const dedans = enPixelsEcran(RIDEAU.x + 40, yPoseA(CADRE) + 40)
-      expect(scene.clicPx(dedans.x, dedans.y)).toBe(false)
-      expect(cliquer).not.toHaveBeenCalled()
-      // Le même clic, plaque rangée : l'oiseau, lui, répond. Sans cette moitié
-      // le test passerait aussi sur un gag toujours fermé.
-      scene.basculerRideau()
-      avancerGsap(2)
       expect(scene.clicPx(dedans.x, dedans.y)).toBe(true)
       expect(cliquer).toHaveBeenCalledTimes(1)
+      expect(scene.rideauBaisse).toBe(true)
     })
   })
 
@@ -452,6 +447,24 @@ describe('le rideau, commandé par l’horloge', () => {
       scene.setVoyage(true, 2)
       scene.setGare('ailleurs')
       expect(scene.horlogeBat).toBe(false)
+    })
+
+    it('relève le rideau quand le train repart, où qu’il soit', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      scene.basculerRideau()
+      expect(scene.rideauBaisse).toBe(true)
+      scene.setVoyage(true, 1)
+      expect(scene.rideauBaisse).toBe(false)
+    })
+
+    it('ne relève pas un rideau qu’on n’a pas baissé, et ne l’émet pas', async () => {
+      const { scene, emis } = await sceneDeTest()
+      scene.setVoyage(true, 1)
+      emis.length = 0
+      scene.setVoyage(true, 1)
+      expect(emis).toHaveLength(0)
     })
 
     it('s’interrompt quand le train repart', async () => {

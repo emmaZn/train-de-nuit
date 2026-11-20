@@ -215,7 +215,7 @@ const ECLAT_SURVOL = 0.7
 export class Quai {
   /** Ce qui s'éteint : le bâtiment et la bordure. */
   private readonly racineEteinte = new Container()
-  /** Ce qui reste allumé : le réverbère, le faisceau, l'horloge. */
+  /** Ce qui reste allumé : le réverbère, le faisceau, l'horloge et son halo de battement. */
   private readonly racineAllumee = new Container()
 
   private readonly bordure = new Graphics()

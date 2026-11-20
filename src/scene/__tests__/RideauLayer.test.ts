@@ -136,6 +136,25 @@ describe('Rideau', () => {
     expect(celluleDe(r)).toBeCloseTo(1.5 / CADRE.scale, 6)
   })
 
+  /**
+   * Le décor est rastérisé à **un texel par pixel CSS** (le filtre de
+   * recoloration n'a pas de `resolution`), quelle que soit la densité de
+   * l'écran : un pixel de raster vaut `1 / frame.scale` pixels de cadre. Une
+   * cellule plus fine ne s'allume que si un centre de pixel y tombe, et le filet
+   * va et vient avec la largeur de la fenêtre. Le plancher se garde donc en
+   * pixels de **raster**, pas de cadre.
+   */
+  it('garde sa cellule à un pixel de raster au moins, sur toute fenêtre et toute densité', () => {
+    for (const [l, h] of [[1511, 771], [1512, 771], [1440, 900], [390, 844], [2560, 1440]]) {
+      for (const dpr of [1, 2, 3]) {
+        const cadre = fitStage(l, h)
+        const r = nouveau()
+        r.cadrer(cadre, dpr)
+        expect(celluleDe(r) * cadre.scale, `${l}×${h} dpr ${dpr}`).toBeGreaterThanOrEqual(1 - 1e-9)
+      }
+    }
+  })
+
   it('n’allume rien à mi-teinte : deux couleurs pleines et pas d’autres', () => {
     const r = nouveau()
     r.cadrer(CADRE, PAR_CADRE)

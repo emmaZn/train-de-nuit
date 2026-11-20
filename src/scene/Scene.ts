@@ -601,16 +601,16 @@ export class Scene {
    * commande le rideau, ou un oiseau — : l'appelant sait alors qu'il ne doit
    * pas aussi ouvrir la bulle d'une étoile.
    *
-   * L'horloge passe avant les oiseaux, et un point sous la plaque ne touche
-   * rien : on ne clique pas ce que la plaque cache. La plaque est devant
-   * l'horloge, comme elle l'est devant le ciel.
+   * L'horloge passe avant les oiseaux. Un point sous la plaque ne prend **pas**
+   * l'horloge : la plaque est devant elle, comme devant le ciel. Les oiseaux,
+   * eux, sont dans `plateau`, dessinés devant la plaque : on les voit par-dessus
+   * et ils répondent — leurs fils passent en pleine boîte de la plaque posée.
    */
   clicPx(px: number, py: number): boolean {
     const f = this.frameCourante
     if (!f) return false
     const cadre = versCadre(px, py, f)
-    if (this.sousLeRideau(cadre.x, cadre.y)) return false
-    if (this.quai?.horlogeTouchee(cadre.x, cadre.y)) {
+    if (!this.sousLeRideau(cadre.x, cadre.y) && this.quai?.horlogeTouchee(cadre.x, cadre.y)) {
       this.basculerRideau()
       return true
     }
@@ -681,8 +681,9 @@ export class Scene {
   private armerLeBattement(): void {
     const arrete = !this.enRoute && this.gare === 'ailleurs'
     if (!arrete) {
-      // Le train repart : l'île s'en va avec son horloge, et les pulsations
-      // qui restaient n'ont plus rien à montrer.
+      // Plus d'arrêt devant l'horloge — le train repart, ou s'arrête ailleurs :
+      // dans les deux cas elle n'est plus à l'écran, et les pulsations qui
+      // restaient n'ont plus rien à montrer.
       if (this.arretDevantHorloge) this.quai?.apaiser()
       this.arretDevantHorloge = false
       return
@@ -810,6 +811,13 @@ export class Scene {
    */
   setVoyage(enRoute: boolean, etapesRestantes: number, cible: Gare | null = null): void {
     if (enRoute && !this.enRoute) {
+      // Le rideau remonte quand la rame s'ébranle : le texte ne vit qu'à « ailleurs »
+      // à quai, et une plaque vide qui suivrait le train partout couvrirait le
+      // ciel et le survol des étoiles, sans moyen de la relever.
+      if (this.rideau?.baisse) {
+        this.rideau.relever()
+        this.emettreRideau()
+      }
       this.phase = 0
       this.profil = { demarrage: true, freinage: etapesRestantes <= 1 }
     }
@@ -1014,8 +1022,9 @@ export class Scene {
     }
     // Le faisceau respire de lui-même, posé ou non : il est caché avec l'île.
     this.quai?.animer(dt)
-    // À la fin, une fois la plaque posée par ce que GSAP a fait depuis l'image
-    // d'avant : ce qu'on émet est ce que le rendu va dessiner.
+    // Ce que GSAP a fait de la plaque depuis l'image d'avant. Si son rappel passe
+    // après celui de Pixi, le texte a au pire une image de retard sur le rendu :
+    // l'ordre des deux n'est garanti par rien ici.
     this.emettreRideau()
     // La fumée dérive avec la vitesse, pas avec l'horloge.
     this.fumee?.update(dt, this.train?.vitesse ?? 0)

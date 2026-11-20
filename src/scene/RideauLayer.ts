@@ -139,9 +139,17 @@ export class Rideau {
   private tracer(): void {
     const g = this.g
     g.clear()
-    // Le même plancher que le quai et les câbles : sous 1, le trait serait plus fin
-    // que celui du décor, juste à côté, sur les écrans denses.
-    const c = Math.max(1, GRAIN_ECRAN / this.parCadre)
+    // Trois planchers, en pixels de cadre. Les deux premiers sont ceux du quai et
+    // des câbles : pas sous un pixel de cadre, pas sous le grain du décor.
+    // Le troisième est celui du **raster** : le filtre de recoloration n'a pas de
+    // `resolution`, il rastérise tout `decor` à un texel par pixel CSS, sans
+    // anticrénelage, et un pixel de raster vaut `1 / frame.scale` pixels de
+    // cadre — quelle que soit la densité de l'écran, que `parCadre` embarque.
+    // Une cellule plus fine s'éteint dès qu'aucun centre de pixel ne tombe dedans,
+    // et le filet va et vient avec la largeur de la fenêtre (0,75 px de raster
+    // à 1512 px de large, dpr 2 : un bras et un bord de plaque disparus).
+    const pixelRaster = 1 / (this.cadre?.scale ?? 1)
+    const c = Math.max(1, pixelRaster, GRAIN_ECRAN / this.parCadre)
     const { x, largeur, hauteur } = RIDEAU
     const sommets = pointsBiseau(x, 0, largeur, hauteur, BISEAU)
 
