@@ -1,20 +1,56 @@
 import { describe, expect, it } from 'vitest'
 
-import { HAUTEUR_FRISE, HORIZON } from '@/scene/layout'
+import { HAUTEUR_FRISE, HORIZON, cadrageScene } from '@/scene/layout'
+import type { Frame } from '@/scene/layout'
 import { HORLOGE } from '@/scene/quai'
-import { BRAS, RIDEAU, Y_RANGE, horlogeTouchee, pointsBiseau } from '@/scene/rideau'
+import {
+  BRAS,
+  DEGAGEMENT_ECRAN,
+  RIDEAU,
+  horlogeTouchee,
+  pointsBiseau,
+  yPoseA,
+  yRangeA,
+} from '@/scene/rideau'
 
 describe('la géométrie du rideau', () => {
-  it('range le rideau hors de la fenêtre, quelle que soit sa taille', () => {
-    // Le haut de la scène n'est pas rogné : il est **descendu** de 9 à 60 px
-    // selon l'écran (`cadrageScene`). Rangé, le filet du bas du rideau doit être
-    // au-dessus de ce bord-là, pas du bord de la scène.
-    expect(Y_RANGE + RIDEAU.hauteur).toBeLessThanOrEqual(-60)
+  /**
+   * Les fenêtres où les deux propriétés ont été trouvées en défaut : téléphones
+   * (le décalage de `cadrageScene` y est de 60 px **d'écran**), et fenêtres
+   * larges et basses (le cadre y est rogné en haut, jusque sous la frise).
+   */
+  const FENETRES: ReadonlyArray<readonly [number, number]> = [
+    [320, 568], [390, 844], [600, 960], [768, 1024],
+    [1440, 900], [1920, 600], [2560, 720], [3440, 800],
+  ]
+
+  // Le test compare en **pixels d'écran** : la frise et le bord de la fenêtre y
+  // sont posés, et le rideau dans le cadre. Un seul nombre de cadre ne peut pas
+  // dire « au-dessus de la fenêtre » : le rapport dépend de l'échelle.
+  const ecranY = (frame: Frame, y: number) => frame.offsetY + y * frame.scale
+
+  it.each(FENETRES)('range le rideau hors de la fenêtre à %i×%i', (w, h) => {
+    const { frame } = cadrageScene(w, h)
+    const bas = ecranY(frame, yRangeA(frame) + RIDEAU.hauteur)
+    expect(bas).toBeLessThanOrEqual(-DEGAGEMENT_ECRAN + 1e-6)
   })
 
-  it('pose la plaque sous la frise et au-dessus de la gare', () => {
-    expect(RIDEAU.yPose).toBeGreaterThan(HAUTEUR_FRISE)
+  it.each(FENETRES)('pose la plaque sous la frise, bandeau compris, à %i×%i', (w, h) => {
+    const { frame } = cadrageScene(w, h)
+    expect(ecranY(frame, yPoseA(frame))).toBeGreaterThanOrEqual(
+      HAUTEUR_FRISE + DEGAGEMENT_ECRAN - 1e-6,
+    )
+    // On ne monte jamais plus haut que la cible : `yPoseA` ne fait que borner vers le bas.
+    expect(yPoseA(frame)).toBeGreaterThanOrEqual(RIDEAU.yPose)
+  })
+
+  it('garde la plaque posée au-dessus de la gare', () => {
+    // En pixels de cadre, le sol de la gare et la plaque partagent un repère.
     expect(RIDEAU.yPose + RIDEAU.hauteur).toBeLessThan(HORIZON)
+    for (const [w, h] of FENETRES) {
+      const { frame } = cadrageScene(w, h)
+      expect(yPoseA(frame) + RIDEAU.hauteur, `${w}×${h}`).toBeLessThan(HORIZON)
+    }
   })
 
   it('pose deux bras symétriques, dans la largeur de la plaque', () => {

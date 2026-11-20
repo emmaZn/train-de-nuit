@@ -8,10 +8,10 @@ import {
   CORPS_IMAGE,
   IMAGES,
   PIECES,
+  HALO_HORLOGE,
   HORLOGE,
   LARGEUR_GARE,
 } from '@/scene/quai'
-import { HALO_HORLOGE } from '@/scene/QuaiLayer'
 import { lirePngIndexe } from './png'
 import { RECUL_HORS_CHAMP, solParEtape } from '@/scene/cables'
 import { HORIZON, STAGE } from '@/scene/layout'

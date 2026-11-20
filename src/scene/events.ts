@@ -20,8 +20,9 @@ export type SceneEvents = {
   fond: (hex: string) => void
   /**
    * Le cadre de la scène, à chaque recadrage (redimensionnement compris). Ce
-   * qui est en DOM mais posé *dans* la scène — le texte du panneau — en tire sa
-   * place : `offset + position × scale`.
+   * qui est en DOM mais posé *dans* la scène en tire sa place : `offset +
+   * position × scale`. **Personne ne le consomme plus pour l'instant** : le texte
+   * du panneau le faisait, et il attend la position du rideau (tâche 4 du plan).
    */
   frame: (frame: Frame) => void
   starHover: (trace: Trace | null, x: number, y: number) => void

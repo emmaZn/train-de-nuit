@@ -3,10 +3,10 @@ import { Container } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { loadTexture } from '@/scene/assets'
-import { HALO_HORLOGE, Quai, anglesHorloge } from '@/scene/QuaiLayer'
+import { Quai, anglesHorloge } from '@/scene/QuaiLayer'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
-import { HORLOGE, HORLOGE_IMAGE } from '@/scene/quai'
+import { HALO_HORLOGE, HORLOGE, HORLOGE_IMAGE } from '@/scene/quai'
 import { lirePngIndexe } from './png'
 import { DUREE_ETAPE, STAGE } from '@/scene/layout'
 

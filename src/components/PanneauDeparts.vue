@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /**
- * Le texte du panneau des prochains départs, posé sur son cadre.
+ * Le texte du panneau des prochains départs, qui se posera sur le rideau.
  *
- * Le cadre est du décor, dans le canvas ; le texte est du DOM parce que c'est
- * du texte, et que trois de ses lignes sont des liens (focus clavier,
+ * Le rideau est du décor, dans le canvas (`rideau.ts`) ; le texte est du DOM
+ * parce que c'est du texte, et que trois de ses lignes sont des liens (focus clavier,
  * sélection, lecteur d'écran, mailto: — gratuits).
  *
  * Il vit hors des routes, comme `RepliquesOiseaux.vue` : l'URL change à l'instant
@@ -11,8 +11,8 @@
  * visibilité vient du magasin : à quai à « ailleurs ». Au départ il s'efface
  * **sur place**, sans suivre le cadre image par image (spec §6.6).
  *
- * Place : **aucune, provisoirement.** Le cadre n'est plus une pièce du quai
- * (`PIECES.panneau` est parti) mais un rideau suspendu à la scène (`rideau.ts`),
+ * Place : **aucune, provisoirement.** Il n'y a plus de cadre sur le mur
+ * (`PIECES.panneau` est parti) : le panneau est un rideau suspendu à la scène,
  * et le texte n'a plus d'où tirer sa position tant que la scène ne l'émet pas.
  * `place` est donc nul et le composant ne s'affiche pas : c'est voulu, et la
  * tâche 4 du plan du rideau lui rend une position, émise par la scène. On n'en

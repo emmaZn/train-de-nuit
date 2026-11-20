@@ -42,10 +42,12 @@ function lien(wrapper: ReturnType<typeof monter>['wrapper'], mot: string) {
 }
 
 describe('PanneauDeparts', () => {
+  // À VIDE : le composant est caché (`place` nul), donc ce test ne garde plus rien. À réparer à la tâche 4.
   it('n’affiche rien quand on n’est pas à « ailleurs »', () => {
     expect(monter('ici').wrapper.find('.panneau').exists()).toBe(false)
   })
 
+  // À VIDE : le composant est caché (`place` nul), donc ce test ne garde plus rien. À réparer à la tâche 4.
   it('n’affiche rien quand le train traverse « ailleurs » sans s’arrêter', () => {
     expect(monter('enRoute').wrapper.find('.panneau').exists()).toBe(false)
   })
@@ -67,6 +69,7 @@ describe('PanneauDeparts', () => {
     expect(new Set(mots).size).toBe(mots.length)
   })
 
+  // À VIDE : la liste des lignes est vide tant que le composant est caché, donc ce test ne garde plus rien. À réparer à la tâche 4.
   it('met les trois liens avant les lignes éteintes', () => {
     const lignes = monter().wrapper.findAll('.ligne')
     expect(lignes.slice(0, 3).every((l) => l.element.tagName === 'A')).toBe(true)
@@ -98,6 +101,7 @@ describe('PanneauDeparts', () => {
     expect(lien(wrapper, 'CV').attributes('href')).toBe('/ailleurs/cv')
   })
 
+  // À VIDE : la liste des lignes est vide tant que le composant est caché, donc ce test ne garde plus rien. À réparer à la tâche 4.
   it('LINKEDIN et ÉCRIRE restent des <a>, eux : ils sortent du site', () => {
     const { wrapper } = monter()
     const routes = wrapper.findAllComponents(RouterLink).map((l) => l.text())
@@ -130,6 +134,7 @@ describe('PanneauDeparts', () => {
     }
   })
 
+  // À VIDE : la liste des lignes est vide tant que le composant est caché, donc ce test ne garde plus rien. À réparer à la tâche 4.
   it('l’adresse n’apparaît pas en clair dans le texte rendu', () => {
     const { wrapper } = monter()
     expect(wrapper.text()).not.toMatch(ADRESSE)
@@ -162,10 +167,14 @@ describe('PanneauDeparts', () => {
   // À réécrire sur le rideau : la place du texte suit le cadre de la scène : `offset + position × scale`, avec la position que la scène émettra (tâche 4).
   it.todo('le texte reste dans son cadre après un redimensionnement')
 
+  // À VIDE : le composant est caché quoi qu'il arrive, donc ce test ne garde plus rien.
+  // Il ne reviendra PAS tout seul : le composant n'injecte plus `FRAME_KEY`, le cadre
+  // `null` ne le distingue plus de rien. À réécrire à la tâche 4, sur la position émise.
   it('n’affiche rien tant que le cadre de la scène n’est pas connu', () => {
     expect(monter('ailleurs', null).wrapper.find('.panneau').exists()).toBe(false)
   })
 
+  // À VIDE : le composant est caché (`place` nul), donc ce test ne garde plus rien. À réparer à la tâche 4.
   it('s’efface quand le train repart', async () => {
     const { wrapper, voyage } = monter()
     voyage.partirVers('ici')
@@ -218,6 +227,7 @@ describe('PanneauDeparts', () => {
     expect(regleApres).toMatch(/radial-gradient/)
   })
 
+  // À VIDE : la liste des lignes est vide tant que le composant est caché, donc ce test ne garde plus rien. À réparer à la tâche 4.
   it('ne met aucun point dans le texte lu des lignes', () => {
     const { wrapper } = monter()
     for (const ligne of wrapper.findAll('.ligne')) {

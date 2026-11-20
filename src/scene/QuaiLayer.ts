@@ -30,7 +30,7 @@
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
 import { STAGE } from './layout'
 import type { Frame } from './layout'
-import { CADRES, DEBUT_GARE, FIN_GARE, HORLOGE, PIECES } from './quai'
+import { CADRES, DEBUT_GARE, FIN_GARE, HALO_HORLOGE, HORLOGE, PIECES } from './quai'
 import { loadTexture } from './assets'
 import { GRAIN_ECRAN, fabriquerPiece } from './poses'
 import { Faisceau } from './Faisceau'
@@ -138,15 +138,6 @@ const LANTERNE = { hautY: 110, basY: 165, hautDemi: 31, basDemi: 14, cx: 40 } as
  * de la lampe. PROVISOIRE (§7).
  */
 const LUEUR = { rayon: 150, nappes: 60, alpha: 0.022 } as const
-
-/**
- * Le halo de l'horloge : rayon en fractions du rayon du cadran, et opacité
- * d'une nappe. Il remplace les deux cercles de points de l'ancien dessin, qui
- * se lisaient comme un anneau et non comme un halo. **Le réglage de la
- * luminosité de l'horloge, c'est `alpha`** ; `nappes`, comme pour `LUEUR`,
- * n'est que la finesse du dégradé. PROVISOIRE (§7).
- */
-export const HALO_HORLOGE = { rayon: 2.4, nappes: 48, alpha: 0.023 } as const
 
 /**
  * Les angles des deux aiguilles, en degrés. **0° = midi, sens horaire.**

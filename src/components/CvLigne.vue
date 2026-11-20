@@ -32,8 +32,10 @@ function surTouche(e: KeyboardEvent) {
 /**
  * Qui avait le focus avant que le CV ne le prenne — le lien « CV · QUAI 2 » du
  * panneau, qui reste monté pendant tout ce temps (`gare === 'ailleurs' &&
- * !enRoute` tient toujours). Sans cette mémoire, fermer le CV lâchait le focus
- * sur `<body>` : on se retrouvait en haut de l'ordre de tabulation, et il
+ * !enRoute` tient toujours). Le panneau est caché depuis que son cadre est un
+ * rideau (tâche 4 du plan du rideau le lui rend) : ce lien n'existe plus d'ici là,
+ * mais la mémoire du focus vaut pour tout lien qui l'avait. Sans cette
+ * mémoire, fermer le CV lâchait le focus sur `<body>` : on se retrouvait en haut de l'ordre de tabulation, et il
  * fallait retraverser la frise, la gare, les répliques d'oiseaux et la liste
  * d'étoiles pour revenir au panneau.
  */

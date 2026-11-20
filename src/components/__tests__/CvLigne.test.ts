@@ -30,9 +30,10 @@ async function monter(depart: string, chemin?: string) {
 }
 
 /**
- * Le cadre de la scène, que `PanneauDeparts` exige pour se poser : nul par
- * défaut — le panneau ne s'affiche donc pas — et renseigné par le seul test
- * qui a besoin de son lien « CV ».
+ * Le cadre de la scène, que `PanneauDeparts` exigeait pour se poser : nul par
+ * défaut, et renseigné par le seul test qui avait besoin de son lien « CV ».
+ * Le composant n'injecte plus ce cadre et ne s'affiche plus (tâche 4 du plan du
+ * rideau) : ce test est en `skip`, et ce faux ne sert à rien jusque-là.
  */
 const faux = vi.hoisted(() => ({ frame: null as unknown }))
 

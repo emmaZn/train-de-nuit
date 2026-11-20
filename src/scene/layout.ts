@@ -74,9 +74,11 @@ export const ECHELLE_MONTAGNES = 2.2
  * continue hors champ.
  *
  * **0,56 et non 0,5** depuis le 20 novembre 2026 : la propriétaire a demandé
- * que la rame avance vers la droite, pour que réverbère, train et gare
+ * que la rame avance vers la droite, pour que réverbère, train, gare et panneau
  * tiennent à peu près dans la même zone. Le nez passe de 1160 à 1299, et vient
- * se ranger juste à gauche du réverbère, lui aussi décalé.
+ * se ranger juste à gauche du réverbère, lui aussi décalé. (Le panneau a quitté
+ * le mur depuis : c'est un rideau de la scène, voir `rideau.ts`. La raison du
+ * 0,56 est datée, elle n'a pas été rejugée sans lui.)
  */
 export const TETE_LOCO = 0.56
 

@@ -2,48 +2,75 @@
  * La géométrie du rideau des départs.
  *
  * Pendant de `quai.ts` pour le panneau : des nombres et des fonctions pures,
- * rien ne dessine. Le panneau n'est plus une plaque posée sur le mur de la
- * gare ; c'est un **rideau suspendu à deux bras**, qui descend du haut de
- * l'écran et se range au-dessus. Il appartient donc à la **scène**, pas à la
- * gare : `DECALAGE_GARE` ne le déplace pas, et la gare qui défile ne l'emporte
- * pas.
+ * rien ne dessine — et rien ici n'importe le moteur de rendu. Le panneau n'est
+ * plus une plaque posée sur le mur de la gare ; c'est un **rideau suspendu à
+ * deux bras**, qui descend du haut de l'écran et se range au-dessus. Il
+ * appartient donc à la **scène**, pas à la gare : `DECALAGE_GARE` ne le déplace
+ * pas, et la gare qui défile ne l'emporte pas.
  *
- * Tout est en pixels de scène (`STAGE`), à une exception : `horlogeTouchee`
- * prend des pixels de cadre, comme `HORLOGE`. Le cadre de la frise, lui, est
- * posé sur la **fenêtre** (`ANCRE_FRISE`, en pixels d'écran) : rideau et frise
- * ne partagent aucun repère, et rien ici ne prétend les comparer. Que les bras
- * évitent les libellés de la frise se règle à l'œil, par `BRAS.retrait`.
+ * Tout est en pixels de cadre, comme `quai.ts`. La frise et le bord de la
+ * fenêtre, eux, sont en pixels d'**écran** (`ANCRE_FRISE`, `HAUTEUR_FRISE`) : ce
+ * sont deux repères, reliés par l'échelle du cadre (`Frame`), et aucun nombre de
+ * cadre ne peut dire « sous la frise » ni « hors de la fenêtre » — le rapport
+ * change avec la fenêtre. C'est pourquoi la pose et le rangement sont des
+ * **fonctions du cadre** (`yPoseA`, `yRangeA`) et non des constantes.
+ * Que les bras évitent les libellés de la frise, en revanche, se règle à l'œil,
+ * par `BRAS.retrait`.
  */
-import { HORLOGE } from './quai'
-import { HALO_HORLOGE } from './QuaiLayer'
+import { HAUTEUR_FRISE } from './layout'
+import type { Frame } from './layout'
+import { HALO_HORLOGE, HORLOGE } from './quai'
 
 /**
- * La plaque, une fois **posée** : `yPose` est son bord haut, en pixels de scène.
+ * La plaque, une fois **posée** : `yPose` est le bord haut **visé**, en pixels
+ * de cadre. `yPoseA` le borne vers le bas quand la fenêtre est trop basse pour
+ * que la plaque dégage la frise.
  *
- * Elle reste sous la frise (`HAUTEUR_FRISE`) et au-dessus du sol de la gare
- * (`HORIZON`) — `rideau.test.ts` le garde. `largeur` et `hauteur` sont celles du
- * texte qu'elle porte : la tâche qui le pose en dérive sa place, il n'y a pas de
- * second jeu de nombres.
+ * Elle reste au-dessus du sol de la gare (`HORIZON`) — `rideau.test.ts` le
+ * garde. `largeur` et `hauteur` sont celles du texte qu'elle porte : la tâche
+ * qui le pose en dérive sa place, il n'y a pas de second jeu de nombres.
  */
 export const RIDEAU = { x: 551, largeur: 1127, hauteur: 329, yPose: 340 } as const
 
 /**
- * Le `y` du rideau **rangé** : assez haut pour que son filet du bas soit hors
- * de la fenêtre, à toutes les tailles.
- *
- * Le haut de la scène n'est pas rogné, il est **descendu** de 9 à 60 px selon
- * l'écran (`cadrageScene`) : le bord à dépasser est donc celui de la fenêtre, à
- * 60 px sous le haut de la scène au pire, et non le haut de la scène lui-même.
- * Il faut `Y_RANGE + RIDEAU.hauteur <= -60`, soit `Y_RANGE <= -389` ; −400 laisse
- * onze pixels de jeu, pour que le filet n'affleure jamais.
+ * Ce qu'on laisse de franc, en pixels d'**écran**, entre le rideau et la frise
+ * (posé) ou le bord de la fenêtre (rangé) : pour que le filet ne l'affleure
+ * jamais, quelle que soit l'échelle.
  */
-export const Y_RANGE = -400
+export const DEGAGEMENT_ECRAN = 8
+
+/**
+ * Le `y` du rideau **rangé**, en pixels de cadre : son bas est au-dessus du
+ * bord haut de la fenêtre, à `DEGAGEMENT_ECRAN` près.
+ *
+ * `frame` est celui de `cadrageScene`, dont `offsetY` porte déjà le décalage
+ * (9 à 60 px d'écran selon l'écran) : le haut de la scène n'est pas rogné, il
+ * est **descendu**. Franchir 60 px d'écran demande `60 / scale` pixels de cadre,
+ * et c'est ce que le calcul fait — une constante de cadre ne le pouvait pas.
+ */
+export function yRangeA(frame: Frame): number {
+  return (-DEGAGEMENT_ECRAN - frame.offsetY) / frame.scale - RIDEAU.hauteur
+}
+
+/**
+ * Le `y` du rideau **posé**, en pixels de cadre : `RIDEAU.yPose`, descendu s'il
+ * le faut pour que son haut dégage la frise de `DEGAGEMENT_ECRAN`.
+ *
+ * Sur une fenêtre large et basse le cadre est rogné en haut, et 340 px de cadre
+ * tombent sous la frise : le bandeau « PROCHAINS DÉPARTS » passerait derrière la
+ * navigation, ce que les bras devaient justement éviter. Il ne monte jamais plus
+ * haut que la cible.
+ */
+export function yPoseA(frame: Frame): number {
+  const dessousFrise = (HAUTEUR_FRISE + DEGAGEMENT_ECRAN - frame.offsetY) / frame.scale
+  return Math.max(RIDEAU.yPose, dessousFrise)
+}
 
 /**
  * Les deux bras qui tiennent la plaque.
  *
  * `retrait` est la distance de chaque bras au bord de la plaque, en pixels de
- * scène : les bras sont symétriques. `cellules` est leur largeur en **cellules
+ * cadre : les bras sont symétriques. `cellules` est leur largeur en **cellules
  * de grain** et non en pixels — le trait ne descend pas sous la cellule, et un
  * bras d'un pixel d'écran serait plus fin que le grain du décor.
  *
@@ -88,6 +115,11 @@ export function pointsBiseau(
  * large, bien en deçà des 44 px d'écran qu'un doigt exige une fois la scène
  * réduite. Le halo, à `HALO_HORLOGE.rayon` fois le rayon du cadran, les
  * dépasse. La bordure du disque en fait partie.
+ *
+ * **Elle suppose la gare à quai.** Elle compare à `HORLOGE.x`, l'abscisse à
+ * l'arrêt ; or `Quai.avancer` pose `racineAllumee.x = distance` et l'horloge
+ * défile avec la gare. Hors de l'arrêt, c'est à l'appelant de retrancher ce
+ * décalage de `x` avant de la lui passer.
  */
 export function horlogeTouchee(x: number, y: number): boolean {
   const rayon = HORLOGE.rayon * HALO_HORLOGE.rayon

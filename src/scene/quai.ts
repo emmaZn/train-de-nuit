@@ -213,6 +213,15 @@ export const HORLOGE = {
 } as const
 
 /**
+ * Le halo de l'horloge : rayon en fractions du rayon du cadran, et opacité
+ * d'une nappe. Il remplace les deux cercles de points de l'ancien dessin, qui
+ * se lisaient comme un anneau et non comme un halo. **Le réglage de la
+ * luminosité de l'horloge, c'est `alpha`** ; `nappes`, comme pour la lueur du
+ * réverbère (`LUEUR`, dans `QuaiLayer.ts`), n'est que la finesse du dégradé. PROVISOIRE (§7).
+ */
+export const HALO_HORLOGE = { rayon: 2.4, nappes: 48, alpha: 0.023 } as const
+
+/**
  * Demi-largeur de l'embase du réverbère, pour que la gare ait un bord gauche :
  * la largeur de son cadre, à l'échelle où il est posé (`hauteur / hauteur`).
  */
