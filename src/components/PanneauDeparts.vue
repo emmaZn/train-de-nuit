@@ -11,21 +11,21 @@
  * visibilité vient du magasin : à quai à « ailleurs ». Au départ il s'efface
  * **sur place**, sans suivre le cadre image par image (spec §6.6).
  *
- * Place : `PIECES.panneau` dans le repère de scène, passé par le `Frame`
- * (`offset + position × scale`). Rien n'est recopié : déplacer la pièce déplace
- * le texte. Le texte rétrécit avec le cadre ; sur petit écran il deviendra
- * illisible — la porte reste ouverte (taille plancher, ou panneau détaché de
- * son cadre sous `SEUIL_MOBILE`, étape 5), elle n'est pas réglée ici.
+ * Place : **aucune, provisoirement.** Le cadre n'est plus une pièce du quai
+ * (`PIECES.panneau` est parti) mais un rideau suspendu à la scène (`rideau.ts`),
+ * et le texte n'a plus d'où tirer sa position tant que la scène ne l'émet pas.
+ * `place` est donc nul et le composant ne s'affiche pas : c'est voulu, et la
+ * tâche 4 du plan du rideau lui rend une position, émise par la scène. On n'en
+ * invente pas une ici. Le texte rétrécit avec le cadre ; sur petit écran il
+ * deviendra illisible — la porte reste ouverte (taille plancher, ou panneau
+ * détaché de son cadre sous `SEUIL_MOBILE`, étape 5), elle n'est pas réglée ici.
  */
-import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'
-import { FRAME_KEY } from '@/composables/useScene'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { CV, LINKEDIN, adresseMail } from '@/contenu/liens'
-import { PIECES } from '@/scene/quai'
 import { departsEteints, departsReels, formaterHeure } from '@/scene/horaires'
 import type { Depart } from '@/scene/horaires'
 import { useVoyage } from '@/stores/voyage'
 
-const frame = inject(FRAME_KEY, ref(null))
 const voyage = useVoyage()
 
 const visible = computed(() => voyage.gare === 'ailleurs' && !voyage.enRoute)
@@ -61,18 +61,8 @@ const heure = computed(() => formaterHeure(maintenant.value))
 const mail = `mailto:${adresseMail()}`
 const HREF = { linkedin: LINKEDIN, cv: CV, ecrire: mail } as const
 
-const place = computed(() => {
-  const f = frame.value
-  if (!f) return null
-  const { x, y, largeur, hauteur } = PIECES.panneau
-  return {
-    left: `${f.offsetX + x * f.scale}px`,
-    top: `${f.offsetY + y * f.scale}px`,
-    width: `${largeur}px`,
-    height: `${hauteur}px`,
-    transform: `scale(${f.scale})`,
-  }
-})
+// Provisoire : voir l'en-tête. La tâche 4 en fait la position émise par la scène.
+const place = computed<Record<string, string> | null>(() => null)
 </script>
 
 <template>

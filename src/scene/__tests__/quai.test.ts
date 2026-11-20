@@ -14,7 +14,7 @@ import {
 import { HALO_HORLOGE } from '@/scene/QuaiLayer'
 import { lirePngIndexe } from './png'
 import { RECUL_HORS_CHAMP, solParEtape } from '@/scene/cables'
-import { HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
+import { HORIZON, STAGE } from '@/scene/layout'
 
 describe('la géométrie du quai', () => {
   it('la gare sort du champ avant que la suivante entre', () => {
@@ -28,13 +28,16 @@ describe('la géométrie du quai', () => {
     }
   })
 
-  it('le panneau est entièrement dans le cadre à l’arrêt', () => {
-    expect(PIECES.panneau.x).toBeGreaterThanOrEqual(0)
-    expect(PIECES.panneau.x + PIECES.panneau.largeur).toBeLessThanOrEqual(STAGE.width)
-  })
-
-  it('le panneau ne recouvre pas la rame à l’arrêt', () => {
-    expect(PIECES.panneau.x).toBeGreaterThan(TETE_LOCO * STAGE.width)
+  /**
+   * Le panneau des départs a quitté le mur : c'est un rideau suspendu, que
+   * `rideau.ts` pose sur la scène et non sur la gare. La gare n'a donc plus
+   * d'autre emprise que celle de son bâtiment (et du réverbère, qui est dedans).
+   */
+  it('la gare ne porte plus le panneau : son emprise est celle du bâtiment', () => {
+    expect('panneau' in PIECES).toBe(false)
+    const b = PIECES.batiment
+    expect(FIN_GARE).toBe(b.x + b.largeur)
+    expect(DEBUT_GARE).toBe(b.x)
   })
 
   /**
@@ -66,28 +69,6 @@ describe('la géométrie du quai', () => {
     // On n'exige **pas** que le bâtiment dépasse : elle a permis qu'il sorte,
     // elle ne l'a pas demandé. Le ramener dans le cadre (par `DECALAGE_GARE`)
     // ne doit pas faire tomber ce test.
-  })
-
-  /**
-   * Le panneau **commence** sur le corps de gare et **débordait** à droite,
-   * jusque vers le bord du cadre. La propriétaire l'a recentré sur le corps
-   * (20 novembre 2026) : il est maintenant tout entier dessus, sous
-   * l'horloge. Ce que la borne garantit n'a pas changé — le panneau est
-   * accroché au bâtiment, au-dessus des rails, sous le toit — et elle dit en
-   * plus qu'il est centré, ce qui est désormais une place et non un hasard.
-   */
-  it('le panneau est centré sur le corps de gare, accroché à son mur', () => {
-    const p = PIECES.panneau
-    const b = PIECES.batiment
-    expect(p.x).toBeGreaterThanOrEqual(CORPS.x0)
-    expect(p.x + p.largeur).toBeLessThanOrEqual(CORPS.x1)
-    expect((p.x + p.x + p.largeur) / 2).toBeCloseTo((CORPS.x0 + CORPS.x1) / 2, 6)
-    // Le panneau est posé sur le mur, au-dessus de la bordure du quai : son bas
-    // ne doit pas la croiser. Le cadre est une **lumière**, dessiné au-dessus du
-    // décor éteint — s'il descendait sur la bordure, il passerait devant elle
-    // alors qu'il est derrière, et la profondeur se verrait.
-    expect(p.y + p.hauteur).toBeLessThanOrEqual(PIECES.quai.y)
-    expect(p.y).toBeGreaterThan(b.pied - b.hauteur)
   })
 
   /**
@@ -161,12 +142,12 @@ describe('la géométrie du quai', () => {
 
   /**
    * `CORPS_IMAGE` est relevé **à la main** sur le dessin, et il porte tout :
-   * la place du panneau et celle de l'horloge en dérivent. C'était la seule
+   * la place de l'horloge en dérive. C'était la seule
    * cote de ce fichier que rien ne refaisait — `IMAGES` est confronté à
    * l'en-tête du PNG, `HORLOGE_IMAGE` à ses pixels, `CADRES` à son rapport.
    *
    * Un dessin v3, ou un simple regrainage qui déplace la silhouette, laisserait
-   * la suite **entièrement verte** en décentrant le panneau et en ramenant le
+   * la suite **entièrement verte** en décalant le bâtiment et en ramenant le
    * cadran vers le mât du réverbère — exactement le piège que la docstring de
    * `BORD_DROIT_CORPS` raconte avoir attrapé une fois. Ce test refait la
    * mesure : les colonnes dont le dessin occupe plus de 45 % de la hauteur, et
@@ -213,15 +194,14 @@ describe('la géométrie du quai', () => {
   })
 
   /**
-   * L'emprise sert au test du hors-champ. C'était le panneau qui la finissait
-   * à droite ; c'est maintenant la marquise, qui sort du cadre — si l'emprise
-   * ne la comptait pas, la gare serait réputée partie alors qu'on en voit
-   * encore le toit, et la suivante entrerait par-dessus.
+   * L'emprise sert au test du hors-champ. C'est la marquise de droite qui la
+   * finit, et elle sort du cadre — si l'emprise ne la comptait pas, la gare
+   * serait réputée partie alors qu'on en voit encore le toit, et la suivante
+   * entrerait par-dessus.
    */
   it('l’emprise de la gare couvre tout, marquise de droite comprise', () => {
     const b = PIECES.batiment
     expect(FIN_GARE).toBe(b.x + b.largeur)
-    expect(FIN_GARE).toBeGreaterThan(PIECES.panneau.x + PIECES.panneau.largeur)
     expect(DEBUT_GARE).toBe(b.x)
     expect(DEBUT_GARE).toBeLessThanOrEqual(PIECES.reverbere.x)
     expect(FIN_GARE - DEBUT_GARE).toBeCloseTo(LARGEUR_GARE, 6)

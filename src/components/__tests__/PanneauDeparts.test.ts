@@ -11,8 +11,6 @@ import { fitStage } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
 import { createAppRouter } from '@/router'
 import { CV } from '@/contenu/liens'
-import { PANNEAU_BISEAU } from '@/scene/QuaiLayer'
-import { PIECES } from '@/scene/quai'
 import { useVoyage } from '@/stores/voyage'
 
 const ADRESSE = /[\w.]+@[\w.]+\.\w+/
@@ -52,13 +50,17 @@ describe('PanneauDeparts', () => {
     expect(monter('enRoute').wrapper.find('.panneau').exists()).toBe(false)
   })
 
-  it('affiche cinq lignes à quai, dont trois liens', () => {
+  // Tâche 4 du plan du rideau : le composant n'a plus de `place` (voir l'en-tête de
+  // `PanneauDeparts.vue`), donc il ne s'affiche pas. À rétablir quand la scène lui rend une position.
+  it.skip('affiche cinq lignes à quai, dont trois liens', () => {
     const { wrapper } = monter()
     expect(wrapper.findAll('.ligne')).toHaveLength(5)
     expect(wrapper.findAll('a')).toHaveLength(3)
   })
 
-  it('ne répète pas une destination éteinte', () => {
+  // Tâche 4 du plan du rideau : le composant n'a plus de `place` (voir l'en-tête de
+  // `PanneauDeparts.vue`), donc il ne s'affiche pas. À rétablir quand la scène lui rend une position.
+  it.skip('ne répète pas une destination éteinte', () => {
     const { wrapper } = monter()
     const mots = wrapper.findAll('.eteint').map((l) => l.text())
     expect(mots).toHaveLength(2)
@@ -71,7 +73,9 @@ describe('PanneauDeparts', () => {
     expect(lignes.slice(3).every((l) => l.element.tagName !== 'A')).toBe(true)
   })
 
-  it('LINKEDIN s’ouvre dans un nouvel onglet', () => {
+  // Tâche 4 du plan du rideau : le composant n'a plus de `place` (voir l'en-tête de
+  // `PanneauDeparts.vue`), donc il ne s'affiche pas. À rétablir quand la scène lui rend une position.
+  it.skip('LINKEDIN s’ouvre dans un nouvel onglet', () => {
     const a = lien(monter().wrapper, 'LINKEDIN')
     expect(a.attributes('target')).toBe('_blank')
     expect(a.attributes('rel')).toContain('noopener')
@@ -83,7 +87,9 @@ describe('PanneauDeparts', () => {
    * zéro, train rendu à « ici », fond remis au défaut. C'est le composant qui
    * doit être un `RouterLink`, pas seulement l'adresse qui doit être la bonne.
    */
-  it('CV est un RouterLink vers /ailleurs/cv, pas un <a> nu', () => {
+  // Tâche 4 du plan du rideau : le composant n'a plus de `place` (voir l'en-tête de
+  // `PanneauDeparts.vue`), donc il ne s'affiche pas. À rétablir quand la scène lui rend une position.
+  it.skip('CV est un RouterLink vers /ailleurs/cv, pas un <a> nu', () => {
     const { wrapper } = monter()
     const liens = wrapper.findAllComponents(RouterLink)
     const cv = liens.find((l) => l.text().includes('CV'))
@@ -111,7 +117,9 @@ describe('PanneauDeparts', () => {
     expect(bloc.slice(0, bloc.indexOf('}'))).toMatch(/pointer-events:\s*none/)
   })
 
-  it('ÉCRIRE porte un href mailto dès le montage, pas au clic', () => {
+  // Tâche 4 du plan du rideau : le composant n'a plus de `place` (voir l'en-tête de
+  // `PanneauDeparts.vue`), donc il ne s'affiche pas. À rétablir quand la scène lui rend une position.
+  it.skip('ÉCRIRE porte un href mailto dès le montage, pas au clic', () => {
     expect(lien(monter().wrapper, 'ÉCRIRE').attributes('href')).toMatch(/^mailto:/)
   })
 
@@ -130,7 +138,9 @@ describe('PanneauDeparts', () => {
     expect(html).not.toMatch(ADRESSE)
   })
 
-  it('les trois liens prennent le focus clavier, dans l’ordre du DOM', () => {
+  // Tâche 4 du plan du rideau : le composant n'a plus de `place` (voir l'en-tête de
+  // `PanneauDeparts.vue`), donc il ne s'affiche pas. À rétablir quand la scène lui rend une position.
+  it.skip('les trois liens prennent le focus clavier, dans l’ordre du DOM', () => {
     const { wrapper } = monter()
     const liens = wrapper.findAll('a')
     for (const a of liens) {
@@ -148,22 +158,9 @@ describe('PanneauDeparts', () => {
     ])
   })
 
-  it('le texte reste dans son cadre après un redimensionnement', async () => {
-    const { wrapper, cadre } = monter()
-    const place = () => {
-      const s = (wrapper.find('.panneau').element as HTMLElement).style
-      return { left: parseFloat(s.left), top: parseFloat(s.top), transform: s.transform }
-    }
-    const f1 = cadre.value as Frame
-    expect(place().left).toBeCloseTo(f1.offsetX + PIECES.panneau.x * f1.scale)
-    expect(place().top).toBeCloseTo(f1.offsetY + PIECES.panneau.y * f1.scale)
-    const f2 = fitStage(800, 1000)
-    cadre.value = f2
-    await nextTick()
-    expect(place().left).toBeCloseTo(f2.offsetX + PIECES.panneau.x * f2.scale)
-    expect(place().top).toBeCloseTo(f2.offsetY + PIECES.panneau.y * f2.scale)
-    expect(place().transform).toContain(String(f2.scale))
-  })
+  // Tâche 4 : ce test lisait `PIECES.panneau` / `PANNEAU_BISEAU`, partis avec la plaque.
+  // À réécrire sur le rideau : la place du texte suit le cadre de la scène : `offset + position × scale`, avec la position que la scène émettra (tâche 4).
+  it.todo('le texte reste dans son cadre après un redimensionnement')
 
   it('n’affiche rien tant que le cadre de la scène n’est pas connu', () => {
     expect(monter('ailleurs', null).wrapper.find('.panneau').exists()).toBe(false)
@@ -202,13 +199,9 @@ describe('PanneauDeparts', () => {
    * c'est ce qui laissait le cadre traîner sous la dernière ligne sans que rien
    * ne le dise.
    */
-  it('tient dans la hauteur du cadre, sans vide sous la dernière ligne', () => {
-    const px = (prop: string) =>
-      Number(new RegExp(`${prop}:\\s*([\\d.]+)px`).exec(source())?.[1])
-    const contenu = px('--entete') + 5 * px('--ligne') + px('--marge')
-    expect(contenu).toBeLessThanOrEqual(PIECES.panneau.hauteur)
-    expect(PIECES.panneau.hauteur - contenu).toBeLessThanOrEqual(4)
-  })
+  // Tâche 4 : ce test lisait `PIECES.panneau` / `PANNEAU_BISEAU`, partis avec la plaque.
+  // À réécrire sur le rideau : l'addition `--entete + 5 × --ligne + --marge` contre la hauteur du rideau (`RIDEAU.hauteur`), qui n'est plus celle de la plaque de 166 px (tâches 4 et 5).
+  it.todo('tient dans la hauteur du cadre, sans vide sous la dernière ligne')
 
   /**
    * Les points de conduite entre la destination et le quai, comme sur un
@@ -244,13 +237,9 @@ describe('PanneauDeparts', () => {
    * deux triangles de douze pixels **hors du panneau, sur le mur**, et le haut
    * du cadre se lit à coins carrés. Les deux coins qu'on regarde en premier.
    */
-  it('coupe son bandeau au même biseau que le cadre', () => {
-    const px = (prop: string) =>
-      Number(new RegExp(`${prop}:\\s*([\\d.]+)px`).exec(source())?.[1])
-    expect(px('--biseau')).toBe(PANNEAU_BISEAU)
-    expect(regle('.entete')).toContain('clip-path: polygon(')
-    expect(regle('.entete')).toContain('var(--biseau)')
-  })
+  // Tâche 4 : ce test lisait `PIECES.panneau` / `PANNEAU_BISEAU`, partis avec la plaque.
+  // À réécrire sur le rideau : le bandeau se coupe au biseau du cadre — le biseau du rideau viendra avec sa couche (tâche 2) ; `PANNEAU_BISEAU` est parti de `QuaiLayer.ts`.
+  it.todo('coupe son bandeau au même biseau que le cadre')
 
   /**
    * Les points de conduite doivent être **pleins ou absents**, comme tout le

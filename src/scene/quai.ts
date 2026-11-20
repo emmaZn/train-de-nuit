@@ -3,8 +3,9 @@
  *
  * Pendant de `cables.ts` : des nombres et des fonctions pures, rien ne dessine.
  * La composition vient du §5.4 de la spec (maquette du 15 novembre) : loco à
- * gauche, réverbère vers le centre, bâtiment à droite, panneau en bas à droite
- * par-dessus le mur. Le bâtiment n'est plus un mur mais la gare entière
+ * gauche, réverbère vers le centre, bâtiment à droite. Le panneau des départs
+ * n'y figure plus : ce n'est plus une plaque posée sur le mur mais un rideau
+ * suspendu à la scène (`rideau.ts`), qui ne suit pas la gare. Le bâtiment n'est plus un mur mais la gare entière
  * dessinée par la propriétaire, ses **deux** marquises de quai comprises :
  * celle de gauche part vers la gauche et passe au-dessus du réverbère, qui se
  * tient devant elle ; celle de droite sort du cadre, et ne se découvre qu'en
@@ -23,8 +24,8 @@
  * Le faisceau du réverbère déborde sur le massif : il se construit à partir de
  * `x`, `pied` et `hauteur`.
  *
- * Convention : `x` est le centre de la pièce, sauf pour le bâtiment et le
- * panneau, où c'est le bord gauche. `pied` est le `y` du sol de la pièce.
+ * Convention : `x` est le centre de la pièce, sauf pour le bâtiment, où c'est
+ * le bord gauche. `pied` est le `y` du sol de la pièce.
  */
 import { HORIZON } from './layout'
 
@@ -70,8 +71,8 @@ export const IMAGES = {
 /**
  * De combien toute la gare est décalée vers la gauche, en pixels de cadre.
  *
- * **Le seul nombre à changer** pour la déplacer : réverbère, bâtiment, panneau
- * et bordure (celle-ci suit `DEBUT_GARE` / `FIN_GARE`) en dérivent tous, du
+ * **Le seul nombre à changer** pour la déplacer : réverbère, bâtiment et
+ * bordure (celle-ci suit `DEBUT_GARE` / `FIN_GARE`) en dérivent tous, du
  * même déplacement, donc la composition interne ne bouge pas.
  * Les abscisses de `PIECES` sont écrites à la place d'origine (gare entière à
  * droite du nez de la loco), moins ce décalage.
@@ -131,19 +132,6 @@ const ECHELLE_BATIMENT = LARGEUR_BATIMENT / IMAGES.batiment.largeur
  */
 export const CORPS_IMAGE = { x0: 638, x1: 1484 } as const
 
-/** Le milieu du corps de gare avant décalage : le panneau s'y centre. */
-const MILIEU_CORPS_NU = (CORPS_IMAGE.x1 - CORPS_IMAGE.x0) / 2
-
-/**
- * La largeur du panneau, en pixels de cadre — écrite une fois, parce que son
- * abscisse s'en déduit : il est centré sur le corps de gare.
- *
- * 340 au départ, puis 440 (20 novembre 2026) : la propriétaire l'a voulu plus
- * large, en même temps qu'il perdait trois lignes et 70 px de hauteur. Le corps
- * de gare en fait 726 ; le panneau en occupe les trois cinquièmes.
- */
-const LARGEUR_PANNEAU = 440
-
 /**
  * Le bord droit du **corps de gare** avant décalage : fixe, c'est lui qui
  * ancre la gare.
@@ -174,33 +162,10 @@ export const PIECES = {
     largeur: LARGEUR_BATIMENT,
     hauteur: 500,
   },
-  // **Au milieu du corps de gare**, posé sur son mur et rien d'autre : ni les
-  // deux pieds qui descendaient jusqu'au rail, ni les consoles qui les avaient
-  // remplacés — la propriétaire a retiré les deux (`tracerCadrePanneau`).
-  // Il était en bas à droite, débordant du mur : elle l'a recentré le
-  // 20 novembre 2026, sous l'horloge, quand la gare v2 a mis une marquise de
-  // chaque côté du corps. Son abscisse se calcule depuis le même ancrage que le
-  // bâtiment, pour qu'un prochain dessin le retrouve centré sans qu'on y
-  // revienne.
-  panneau: {
-    x: BORD_DROIT_CORPS - MILIEU_CORPS_NU * ECHELLE_BATIMENT - LARGEUR_PANNEAU / 2 - DECALAGE_GARE,
-    // 700 et non 640 : la propriétaire l'a descendu, pied plus bas sur le mur.
-    // Il s'arrête à 866, soit trente et un pixels au-dessus de la bordure du quai
-    // (`PIECES.quai.y`), qu'il ne doit pas croiser — `quai.test.ts` le garde.
-    y: 700,
-    largeur: LARGEUR_PANNEAU,
-    // 166, et ce nombre n'est pas libre : c'est exactement ce que le contenu
-    // demande — le bandeau, cinq lignes, et la marge du bas. Celle du haut n'y
-    // est pas : le bandeau l'annule et affleure le bord. 250 au départ, puis 180
-    // quand les huit lignes sont tombées à cinq, puis 166 quand la propriétaire
-    // a vu que le cadre traînait sous la dernière ligne. `PanneauDeparts.test.ts`
-    // refait l'addition et refuse plus de quatre pixels de jeu.
-    hauteur: 166,
-  },
   quai: { y: HORIZON - 24, epaisseur: 24 },
 } as const
 
-/** Le corps de gare, en pixels de cadre : ce que le panneau et l'horloge visent. */
+/** Le corps de gare, en pixels de cadre : ce que vise l'horloge. */
 export const CORPS = {
   x0: PIECES.batiment.x + CORPS_IMAGE.x0 * ECHELLE_BATIMENT,
   x1: PIECES.batiment.x + CORPS_IMAGE.x1 * ECHELLE_BATIMENT,
@@ -254,14 +219,13 @@ export const HORLOGE = {
 const DEMI_EMBASE =
   (CADRES.reverbere.largeur / 2) * (PIECES.reverbere.hauteur / CADRES.reverbere.hauteur)
 
-const bords = [PIECES.reverbere.x - DEMI_EMBASE, PIECES.batiment.x, PIECES.panneau.x]
+const bords = [PIECES.reverbere.x - DEMI_EMBASE, PIECES.batiment.x]
 const fins = [
   PIECES.reverbere.x + DEMI_EMBASE,
   // La marquise de droite dépasse le cadre : l'emprise la compte quand même,
   // sans quoi la gare serait réputée sortie du champ alors qu'elle rentre
   // encore par la gauche.
   PIECES.batiment.x + PIECES.batiment.largeur,
-  PIECES.panneau.x + PIECES.panneau.largeur,
 ]
 
 /** Le bord gauche de la gare, en pixels de cadre, à l'arrêt. */

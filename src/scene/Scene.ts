@@ -416,7 +416,7 @@ export class Scene {
     const planCables = new Container()
     this.plans.plateauFond.addChild(planCables)
     // Le quai d'« ailleurs » : son décor éteint au fond du plateau, ses
-    // lumières — le réverbère, le cadre du panneau — dans `lumieres`, donc
+    // lumières — le réverbère et l'horloge — dans `lumieres`, donc
     // devant le voile du pied et derrière la rame.
     const planQuai = new Container()
     this.plans.plateauFond.addChild(planQuai)

@@ -1,14 +1,14 @@
 import { readFileSync } from 'node:fs'
-import { Container, Graphics } from 'pixi.js'
+import { Container } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { loadTexture } from '@/scene/assets'
-import { HALO_HORLOGE, Quai, anglesHorloge, pointsBiseau } from '@/scene/QuaiLayer'
+import { HALO_HORLOGE, Quai, anglesHorloge } from '@/scene/QuaiLayer'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
-import { HORLOGE, HORLOGE_IMAGE, PIECES } from '@/scene/quai'
+import { HORLOGE, HORLOGE_IMAGE } from '@/scene/quai'
 import { lirePngIndexe } from './png'
-import { DUREE_ETAPE, HORIZON, STAGE } from '@/scene/layout'
+import { DUREE_ETAPE, STAGE } from '@/scene/layout'
 
 vi.mock('@/scene/poses', async (importOriginal) => {
   const vrai = await importOriginal<typeof import('@/scene/poses')>()
@@ -150,96 +150,9 @@ describe('les plans du quai dans le décor', () => {
   })
 })
 
-describe('pointsBiseau', () => {
-  it('coupe les quatre coins et garde les extrêmes du rectangle', () => {
-    const p = pointsBiseau(0, 0, 100, 60, 10)
-    expect(p).toHaveLength(16)
-    expect(p.slice(0, 4)).toEqual([10, 0, 90, 0])
-    const xs = p.filter((_, i) => i % 2 === 0)
-    const ys = p.filter((_, i) => i % 2 === 1)
-    expect(Math.min(...xs)).toBe(0)
-    expect(Math.max(...xs)).toBe(100)
-    expect(Math.min(...ys)).toBe(0)
-    expect(Math.max(...ys)).toBe(60)
-    // Aucun sommet dans un coin : c'est ce que « biseauté » veut dire.
-    for (const coin of [[0, 0], [100, 0], [100, 60], [0, 60]]) {
-      for (let i = 0; i < 16; i += 2) {
-        expect([p[i], p[i + 1]]).not.toEqual(coin)
-      }
-    }
-  })
-
-  it('rend le rectangle quand le biseau est nul', () => {
-    const p = pointsBiseau(0, 0, 100, 60, 0)
-    expect(new Set(p.filter((_, i) => i % 2 === 0))).toEqual(new Set([0, 100]))
-    expect(new Set(p.filter((_, i) => i % 2 === 1))).toEqual(new Set([0, 60]))
-  })
-})
-
-type PassePixi = {
-  action: string
-  data: {
-    style: { color: number, alpha: number }
-    path: { bounds: { minX: number, minY: number, maxX: number, maxY: number } }
-  }
-}
-
-describe('le cadre du panneau', () => {
-  /** La correction pour laquelle la tâche existe : les fenêtres du mur passaient à travers le texte. */
-  it('pose un fond opaque, avant tout trait, à la couleur du fond du projet', () => {
-    const { quai } = poser()
-    const cadre = quai.allume.children[0] as Graphics
-    const passes = cadre.context.instructions as unknown as PassePixi[]
-    const premiere = passes[0]
-    expect(premiere.action).toBe('fill')
-    expect(premiere.data.style.color).toBe(0x0b0b0c)
-    expect(premiere.data.style.alpha).toBe(1)
-    const p = PIECES.panneau
-    const b = premiere.data.path.bounds
-    expect(b.minX).toBeLessThanOrEqual(p.x)
-    expect(b.minY).toBeLessThanOrEqual(p.y)
-    expect(b.maxX).toBeGreaterThanOrEqual(p.x + p.largeur)
-    expect(b.maxY).toBeGreaterThanOrEqual(p.y + p.hauteur)
-  })
-
-  /** « Blanc ou absent » : deux couleurs pleines, et rien d'autre ne peut entrer. */
-  it('n’allume rien à mi-teinte, et jamais le blanc des sources', () => {
-    const { quai } = poser()
-    const cadre = quai.allume.children[0] as Graphics
-    for (const passe of cadre.context.instructions as unknown as PassePixi[]) {
-      expect(passe.action).toBe('fill')
-      expect(passe.data.style.alpha).toBe(1)
-      expect([0x0b0b0c, 0xededed]).toContain(passe.data.style.color)
-    }
-  })
-
-  /**
-   * Le panneau est une plaque sur un mur : ni jambes jusqu'au rail, ni consoles
-   * dessous. Son tracé ne sort pas de son cadre, à une cellule près.
-   */
-  it('ne déborde pas de son cadre : ni pieds, ni consoles', () => {
-    const { quai } = poser()
-    const cadre = quai.allume.children[0] as Graphics
-    const p = PIECES.panneau
-    const b = cadre.getLocalBounds()
-    expect(b.maxY).toBeLessThanOrEqual(p.y + p.hauteur + 4)
-    expect(b.maxY).toBeLessThan(HORIZON - 1)
-    expect(b.minX).toBeGreaterThanOrEqual(p.x - 4)
-    expect(b.maxX).toBeLessThanOrEqual(p.x + p.largeur + 4)
-  })
-
-  /** Le cadre est une lumière : il se dessine allumé, hors de la teinte de nuit. */
-  it('est tout entier dans la racine allumée', () => {
-    const { plans, quai } = poser()
-    const cadre = quai.allume.children[0] as Graphics
-    appliquerNuit(plans, 1)
-    expect(clarte(cadre)).toBe(1)
-  })
-})
-
 describe('l’horloge allumée', () => {
   /**
-   * L'horloge est une des quatre lumières de la gare : cadran, halo et
+   * L'horloge est une des trois lumières de la gare : cadran, halo et
    * aiguilles sont dans la racine allumée, d'un seul tenant. Allumer les
    * aiguilles sur un cadran éteint serait laid.
    */

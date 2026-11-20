@@ -186,7 +186,9 @@ describe('CvLigne', () => {
    * lui-même : au moment où le focus est rendu, le lien ne doit plus avoir
    * d'ancêtre inerte.
    */
-  it('rend le focus au lien du panneau, et hors de toute zone inerte', async () => {
+  // Tâche 4 du plan du rideau : le panneau n'a plus de `place`, donc pas de lien CV
+  // à focaliser. À rétablir quand la scène rend sa position au texte.
+  it.skip('rend le focus au lien du panneau, et hors de toute zone inerte', async () => {
     faux.frame = fitStage(1440, 900)
     const vraiFocus = HTMLElement.prototype.focus
     try {
