@@ -172,6 +172,7 @@ describe('l’assombrissement par teinte', () => {
       'ciel',
       'plateau-fond',
       'lumieres',
+      'rideau',
       'plateau',
     ])
   })

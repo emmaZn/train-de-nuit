@@ -13,6 +13,7 @@ import { loadManifest } from './assets'
 import { Birds } from './Birds'
 import { Cables } from './CableLayer'
 import { Quai } from './QuaiLayer'
+import { Rideau } from './RideauLayer'
 import { ancreSuivante, legsDeLIle, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
@@ -110,6 +111,7 @@ export type Plans = {
   ciel: Container
   plateauFond: Container
   lumieres: Container
+  rideau: Container
   plateau: Container
   nuit: Nuit
 }
@@ -145,13 +147,15 @@ export function plansDuDecor(decor: Container): Plans {
   const ciel = plan('ciel')
   const plateauFond = plan('plateau-fond')
   const lumieres = plan('lumieres')
+  const rideau = plan('rideau')
   const plateau = plan('plateau')
-  decor.addChild(massif, ciel, plateauFond, lumieres, plateau)
+  decor.addChild(massif, ciel, plateauFond, lumieres, rideau, plateau)
   return {
     massif,
     ciel,
     plateauFond,
     lumieres,
+    rideau,
     plateau,
     // Le plateau n'est pas là : ses porteurs s'inscrivent dans `peupler`,
     // un par un (`planSombre`), parce que les vitres sont au milieu.
@@ -284,6 +288,12 @@ export class Scene {
   private oiseaux: Birds | null = null
   /** Le quai d'« ailleurs » : la seconde île. */
   private quai: Quai | null = null
+  /**
+   * Le rideau des départs : à la scène, pas à la gare. Son plan est dans `decor`
+   * (pour le filtre de recoloration) et hors du plan du quai — rien ne doit
+   * jamais lui poser d'abscisse, sans quoi il voyagerait avec l'île.
+   */
+  private rideau: Rideau | null = null
   private frameCourante: Frame | null = null
 
   /** Où le train est, ou d'où il part : le gag n'existe qu'à « plus loin ». */
@@ -422,6 +432,7 @@ export class Scene {
     this.plans.plateauFond.addChild(planQuai)
     this.quai = new Quai(planQuai, this.plans.lumieres, this.reducedMotion)
     void this.quai.charger()
+    this.rideau = new Rideau(this.plans.rideau, this.reducedMotion)
     // Le plateau lui-même ne porte pas de teinte (voir `Nuit`) : chaque plan
     // qui s'assombrit s'inscrit en naissant, par `planSombre`.
     this.train = monterLeTrain(this.plans, manifest)
@@ -529,6 +540,7 @@ export class Scene {
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
     this.cables?.cadrer(frame, this.app.renderer.resolution)
     this.quai?.cadrer(frame, this.app.renderer.resolution, width < SEUIL_MOBILE)
+    this.rideau?.cadrer(frame, this.app.renderer.resolution)
     this.oiseaux?.cadrer(frame, this.app.renderer.resolution, width)
     this.vitres?.cadrer(frame, this.app.renderer.resolution)
     this.fumee?.cadrer(frame, this.app.renderer.resolution)
@@ -938,6 +950,7 @@ export class Scene {
     this.oiseaux?.destroy()
     this.cables?.destroy()
     this.quai?.destroy()
+    this.rideau?.destroy()
     this.fumee?.destroy()
     this.vitres?.destroy()
     this.terre?.destroy()

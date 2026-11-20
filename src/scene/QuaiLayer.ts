@@ -182,7 +182,7 @@ function boite(piece: PieceDessinee): {
  * mi-teintes (CONCEPT §2). C'est le `ligne()` de `CableLayer`, en repère de
  * cadre.
  */
-function ligneCellules(
+export function ligneCellules(
   g: Graphics,
   x0: number,
   y0: number,
