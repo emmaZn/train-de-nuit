@@ -1,34 +1,67 @@
 <script setup lang="ts">
 /**
- * Le texte du panneau des prochains départs, qui se posera sur le rideau.
+ * Le texte du panneau des prochains départs, posé sur le rideau.
  *
  * Le rideau est du décor, dans le canvas (`rideau.ts`) ; le texte est du DOM
  * parce que c'est du texte, et que trois de ses lignes sont des liens (focus clavier,
  * sélection, lecteur d'écran, mailto: — gratuits).
  *
  * Il vit hors des routes, comme `RepliquesOiseaux.vue` : l'URL change à l'instant
- * du clic, et dans une gare il serait détruit avant d'avoir pu s'effacer. Sa
- * visibilité vient du magasin : à quai à « ailleurs ». Au départ il s'efface
- * **sur place**, sans suivre le cadre image par image (spec §6.6).
+ * du clic, et dans une gare il serait détruit avant d'avoir pu s'effacer.
  *
- * Place : **aucune, provisoirement.** Il n'y a plus de cadre sur le mur
- * (`PIECES.panneau` est parti) : le panneau est un rideau suspendu à la scène,
- * et le texte n'a plus d'où tirer sa position tant que la scène ne l'émet pas.
- * `place` est donc nul et le composant ne s'affiche pas : c'est voulu, et la
- * tâche 4 du plan du rideau lui rend une position, émise par la scène. On n'en
- * invente pas une ici. Le texte rétrécit avec le cadre ; sur petit écran il
- * deviendra illisible — la porte reste ouverte (taille plancher, ou panneau
- * détaché de son cadre sous `SEUIL_MOBILE`, étape 5), elle n'est pas réglée ici.
+ * Place : celle que la scène **émet**. Le texte ne calcule pas où est la plaque,
+ * il la suit : `top` vient du `y` courant de la ref `RIDEAU_KEY` (animé, pas
+ * posé), `left` du `RIDEAU.x`, le tout converti par le cadre. Ni cadre ni
+ * position émise, pas de texte : rien n'est inventé en attendant la scène.
+ *
+ * Durée de vie : le texte existe tant que la plaque est **en vue**, pas tant
+ * que le train est à quai. Le visiteur part rideau baissé, la scène le relève
+ * d'elle-même, et le texte doit remonter avec elle — il n'est retiré qu'une
+ * fois la plaque sortie de la fenêtre. Il est sinon absent, et ses liens avec
+ * lui : un rideau rangé ne laisse aucun lien focalisable hors de l'écran.
+ * Pendant la remontée (`remonte`) les liens ne reçoivent plus le pointeur.
+ *
+ * Le texte rétrécit avec le cadre ; sur petit écran il devient illisible — le
+ * rendu détaché de la scène est celui de la tâche 7 du plan du rideau.
  */
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'
+import { FRAME_KEY, RIDEAU_KEY } from '@/composables/useScene'
 import { CV, LINKEDIN, adresseMail } from '@/contenu/liens'
 import { departsEteints, departsReels, formaterHeure } from '@/scene/horaires'
 import type { Depart } from '@/scene/horaires'
+import { RIDEAU } from '@/scene/rideau'
 import { useVoyage } from '@/stores/voyage'
 
+const frame = inject(FRAME_KEY, ref(null))
+const rideau = inject(RIDEAU_KEY, ref(null))
 const voyage = useVoyage()
 
-const visible = computed(() => voyage.gare === 'ailleurs' && !voyage.enRoute)
+// Le haut de la plaque, en pixels d'écran. C'est lui, et lui seul, que `place`
+// et la visibilité lisent : ce qu'on place et ce qu'on décide de montrer ne
+// peuvent pas se contredire.
+const hautEcran = computed(() => {
+  const f = frame.value
+  const r = rideau.value
+  return f && r ? f.offsetY + r.y * f.scale : null
+})
+
+// Le bas de la plaque est au-dessus du bord de la fenêtre : rien n'en reste à voir.
+const horsDeLaFenetre = computed(() => {
+  const f = frame.value
+  return hautEcran.value === null || !f || hautEcran.value + RIDEAU.hauteur * f.scale <= 0
+})
+
+const visible = computed(
+  () =>
+    voyage.gare === 'ailleurs' &&
+    hautEcran.value !== null &&
+    // `baisse` est l'état visé : il est vrai dès le geste, plaque encore rangée.
+    (rideau.value!.baisse || !horsDeLaFenetre.value),
+)
+
+// La plaque s'en va : le visiteur l'a relevée, ou le train s'ébranle et la scène
+// la relève. `enRoute` couvre l'instant où le magasin a changé et pas encore la scène.
+const remonte = computed(() => !rideau.value?.baisse || voyage.enRoute)
 
 // Une graine par arrivée : les lignes éteintes ne bougent pas pendant l'arrêt,
 // pour ne pas distraire de la lecture des trois liens.
@@ -61,13 +94,23 @@ const heure = computed(() => formaterHeure(maintenant.value))
 const mail = `mailto:${adresseMail()}`
 const HREF = { linkedin: LINKEDIN, cv: CV, ecrire: mail } as const
 
-// Provisoire : voir l'en-tête. La tâche 4 en fait la position émise par la scène.
-const place = computed<Record<string, string> | null>(() => null)
+// Taille de cadre, mise à l'échelle par `transform` : le texte n'est jamais
+// mesuré en pixels d'écran, et `--biseau` ci-dessous reste en pixels de cadre.
+const place = computed<Record<string, string>>(() => {
+  const f = frame.value!
+  return {
+    left: `${f.offsetX + RIDEAU.x * f.scale}px`,
+    top: `${hautEcran.value}px`,
+    width: `${RIDEAU.largeur}px`,
+    height: `${RIDEAU.hauteur}px`,
+    transform: `scale(${f.scale})`,
+  }
+})
 </script>
 
 <template>
   <Transition name="dissoudre">
-    <div v-if="visible && place" class="panneau" :style="place" role="region" aria-label="Prochains départs">
+    <div v-if="visible" class="panneau" :class="{ remonte }" :style="place" role="region" aria-label="Prochains départs">
       <p class="entete">
         <span>PROCHAINS DÉPARTS</span>
         <span class="heure">{{ heure }}</span>
@@ -106,23 +149,27 @@ const place = computed<Record<string, string> | null>(() => null)
   box-sizing: border-box;
   /* Le retrait latéral, déclaré une seule fois : le bandeau d'en-tête
      l'annule pour aller d'un bord intérieur à l'autre du cadre. */
-  --creux: 16px;
-  /* La coupe des coins du cadre, en pixels de cadre : le bandeau d'en-tête s'y
-     coupe aussi, sinon il peint deux triangles **hors du panneau**, sur le mur.
-     `PanneauDeparts.test.ts` confronte ce nombre au `PANNEAU_BISEAU` du canvas. */
+  --creux: 32px;
+  /* La coupe des coins de la plaque. Le panneau est mis à l'échelle par
+     `transform`, donc ce nombre est en pixels de **cadre** comme le `BISEAU` du
+     canvas — mais à l'écran, les deux valent `12 × échelle`. Le bandeau
+     d'en-tête s'y coupe aussi, sinon il peint deux triangles **hors de la
+     plaque**. `PanneauDeparts.test.ts` les confronte en pixels d'écran. */
   --biseau: 12px;
-  /* Le budget de place du panneau, en pixels de cadre. Le cadre fait 166 px
-     de haut (`PIECES.panneau`) et doit tenir un bandeau et cinq lignes : c'est
+  /* Le budget de place du panneau, en pixels de cadre. La plaque fait
+     `RIDEAU.hauteur` (329 px) et doit tenir un bandeau et cinq lignes : c'est
      **ici** que la mise en page se décide, et `PanneauDeparts.test.ts` fait
      l'addition pour que personne n'ajoute une sixième ligne en silence.
-     `--entete` compte l'écart qui sépare le bandeau des départs. */
-  --entete: 40px;
-  --ligne: 22px;
-  --marge: 14px;
+     `--entete` compte l'écart qui sépare le bandeau des départs. Le corps du
+     texte est le double de celui de la plaque de 440 px : à cette taille ce
+     n'est pas le nombre de lignes qui grandit (spec, non-buts). */
+  --entete: 80px;
+  --ligne: 44px;
+  --marge: 29px;
   padding: var(--marge) var(--creux);
   font-family: var(--police-mono);
   font-weight: 300;
-  font-size: 13px;
+  font-size: 26px;
   color: var(--texte);
   /* Le texte ne bloque rien : seuls les liens reçoivent le pointeur. */
   pointer-events: none;
@@ -169,7 +216,7 @@ const place = computed<Record<string, string> | null>(() => null)
   );
   /* Plein, pas à mi-teinte : l'opacité `--moyen` d'avant en ferait un gris. */
   opacity: 1;
-  font-size: 11px;
+  font-size: 22px;
   letter-spacing: 0.08em;
 }
 
@@ -183,13 +230,13 @@ const place = computed<Record<string, string> | null>(() => null)
   display: grid;
   grid-template-columns: 3.4em 1fr auto;
   align-items: center;
-  gap: 10px;
+  gap: 20px;
   /* La hauteur vient du budget, pas d'un rembourrage : c'est elle que le garde
      de débordement multiplie par cinq. */
   box-sizing: border-box;
   height: var(--ligne);
-  padding: 0 6px;
-  margin: 0 -6px;
+  padding: 0 12px;
+  margin: 0 -12px;
   color: inherit;
   text-decoration: none;
 }
@@ -212,14 +259,14 @@ const place = computed<Record<string, string> | null>(() => null)
 .ligne > span:nth-child(2)::after {
   content: '';
   flex: 1;
-  height: 3px;
-  margin: 2px 0 0 0.7em;
+  height: 6px;
+  margin: 4px 0 0 0.7em;
   opacity: var(--faible);
   /* Butées franches : deux arrêts écartés feraient de chaque point un petit
      dégradé, c'est-à-dire la mi-teinte que la décision 12.2 refuse — et écrite
      à la main, pas laissée à l'anticrénelage. Plein ou absent, comme le reste. */
-  background-image: radial-gradient(circle, currentColor 1px, transparent 1px);
-  background-size: 6px 3px;
+  background-image: radial-gradient(circle, currentColor 2px, transparent 2px);
+  background-size: 12px 6px;
   background-repeat: repeat-x;
   background-position: left center;
 }
@@ -249,10 +296,13 @@ const place = computed<Record<string, string> | null>(() => null)
   transition: opacity 0.5s ease;
 }
 
-/* Au départ, le panneau s'efface sur place pendant une demi-seconde. Cliquer
-   `CV` à ce moment poussait `/ailleurs/cv`, dont l'`afterEach` appelle
+/* Au retrait, le panneau s'efface sur place pendant une demi-seconde. Cliquer
+   `CV` pendant un fondu poussait `/ailleurs/cv`, dont l'`afterEach` appelle
    `partirVers('ailleurs')` sur un train déjà en marche : il le **redirigeait**,
-   et l'envoyait faire tout le tour de la boucle. */
+   et l'envoyait faire tout le tour de la boucle. Depuis le rideau, ce fondu
+   se joue plaque sortie de la fenêtre, donc hors d'atteinte : la règle reste,
+   parce que le jour où le retrait se fera plaque en vue le bug reviendrait
+   sans bruit. `.remonte .reel` couvre la remontée elle-même. */
 .dissoudre-leave-active .reel {
   pointer-events: none;
 }
@@ -260,6 +310,13 @@ const place = computed<Record<string, string> | null>(() => null)
 .dissoudre-enter-from,
 .dissoudre-leave-to {
   opacity: 0;
+}
+
+/* Pendant la remontée, la plaque s'en va avec ses liens : la même coupe que le
+   fondu ci-dessus, sur toute la durée où la plaque est encore en vue. Plus
+   spécifique que `.reel`, qui rend le pointeur aux liens. */
+.remonte .reel {
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

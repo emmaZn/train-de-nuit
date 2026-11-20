@@ -12,6 +12,7 @@ import GareAilleurs from '@/components/gares/GareAilleurs.vue'
 import { HORS_DE_LA_VOIE, PARCOURS } from '@/contenu/cv'
 import { brancherVoyage, createAppRouter } from '@/router'
 import { fitStage } from '@/scene/layout'
+import { yPoseA } from '@/scene/rideau'
 import { useVoyage } from '@/stores/voyage'
 
 async function monter(depart: string, chemin?: string) {
@@ -30,17 +31,16 @@ async function monter(depart: string, chemin?: string) {
 }
 
 /**
- * Le cadre de la scène, que `PanneauDeparts` exigeait pour se poser : nul par
- * défaut, et renseigné par le seul test qui avait besoin de son lien « CV ».
- * Le composant n'injecte plus ce cadre et ne s'affiche plus (tâche 4 du plan du
- * rideau) : ce test est en `skip`, et ce faux ne sert à rien jusque-là.
+ * Ce que la scène dit à `PanneauDeparts` pour qu'il se pose : le cadre et la
+ * position du rideau. Nuls par défaut — le texte ne s'affiche pas —, et
+ * renseignés par le seul test qui a besoin de son lien « CV ».
  */
-const faux = vi.hoisted(() => ({ frame: null as unknown }))
+const faux = vi.hoisted(() => ({ frame: null as unknown, rideau: null as unknown }))
 
 vi.mock('@/composables/useScene', async (importOriginal) => {
   const { ref } = await import('vue')
   const reel = await importOriginal<typeof import('@/composables/useScene')>()
-  return { ...reel, useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(faux.frame), changerFond: () => {} }) }
+  return { ...reel, useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(faux.frame), rideau: ref(faux.rideau), changerFond: () => {} }) }
 })
 
 async function monterApp(chemin: string) {
@@ -187,10 +187,9 @@ describe('CvLigne', () => {
    * lui-même : au moment où le focus est rendu, le lien ne doit plus avoir
    * d'ancêtre inerte.
    */
-  // Tâche 4 du plan du rideau : le panneau n'a plus de `place`, donc pas de lien CV
-  // à focaliser. À rétablir quand la scène rend sa position au texte.
-  it.skip('rend le focus au lien du panneau, et hors de toute zone inerte', async () => {
+  it('rend le focus au lien du panneau, et hors de toute zone inerte', async () => {
     faux.frame = fitStage(1440, 900)
+    faux.rideau = { y: yPoseA(faux.frame as ReturnType<typeof fitStage>), baisse: true }
     const vraiFocus = HTMLElement.prototype.focus
     try {
       const { wrapper, router } = await monterApp('/ailleurs')
@@ -218,6 +217,7 @@ describe('CvLigne', () => {
     } finally {
       HTMLElement.prototype.focus = vraiFocus
       faux.frame = null
+      faux.rideau = null
     }
   })
 
