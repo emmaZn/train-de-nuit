@@ -11,6 +11,7 @@ import { fitStage } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
 import { createAppRouter } from '@/router'
 import { CV } from '@/contenu/liens'
+import { PANNEAU_BISEAU } from '@/scene/QuaiLayer'
 import { PIECES } from '@/scene/quai'
 import { useVoyage } from '@/stores/voyage'
 
@@ -234,6 +235,37 @@ describe('PanneauDeparts', () => {
   /** Le filet pointillé a été retiré : plus rien ne coupe la liste en deux. */
   it('ne coupe plus la liste par un filet', () => {
     expect(source()).not.toMatch(/dotted/)
+  })
+
+  /**
+   * Le bandeau annule les retraits du panneau pour affleurer ses bords — mais
+   * le fond opaque est un **octogone** : à sa première ligne il ne va que de
+   * `PANNEAU_BISEAU` à `largeur − PANNEAU_BISEAU`. Sans coupe, le bandeau peint
+   * deux triangles de douze pixels **hors du panneau, sur le mur**, et le haut
+   * du cadre se lit à coins carrés. Les deux coins qu'on regarde en premier.
+   */
+  it('coupe son bandeau au même biseau que le cadre', () => {
+    const px = (prop: string) =>
+      Number(new RegExp(`${prop}:\\s*([\\d.]+)px`).exec(source())?.[1])
+    expect(px('--biseau')).toBe(PANNEAU_BISEAU)
+    expect(regle('.entete')).toContain('clip-path: polygon(')
+    expect(regle('.entete')).toContain('var(--biseau)')
+  })
+
+  /**
+   * Les points de conduite doivent être **pleins ou absents**, comme tout le
+   * reste du décor : deux butées écartées de 0,2 px feraient de chaque point un
+   * petit dégradé, c'est-à-dire la mi-teinte que la décision 12.2 refuse — et
+   * cette fois écrite à la main, pas laissée à l'anticrénelage.
+   */
+  it('dessine ses points à butées franches, sans rampe', () => {
+    const apres = source().slice(
+      source().indexOf('.ligne > span:nth-child(2)::after'),
+      source().indexOf('}', source().indexOf('.ligne > span:nth-child(2)::after')),
+    )
+    const butees = /radial-gradient\(circle, currentColor ([\d.]+)px, transparent ([\d.]+)px\)/.exec(apres)
+    expect(butees, 'les deux butées du dégradé').not.toBeNull()
+    expect(Number(butees![1])).toBe(Number(butees![2]))
   })
 
   it('creuse son en-tête dans un bandeau plein, aux couleurs du thème', () => {

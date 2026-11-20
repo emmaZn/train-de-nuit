@@ -5,6 +5,7 @@ import {
   DEBUT_GARE,
   FIN_GARE,
   CORPS,
+  CORPS_IMAGE,
   IMAGES,
   PIECES,
   HORLOGE,
@@ -156,6 +157,38 @@ describe('la géométrie du quai', () => {
         4,
       )
     }
+  })
+
+  /**
+   * `CORPS_IMAGE` est relevé **à la main** sur le dessin, et il porte tout :
+   * la place du panneau et celle de l'horloge en dérivent. C'était la seule
+   * cote de ce fichier que rien ne refaisait — `IMAGES` est confronté à
+   * l'en-tête du PNG, `HORLOGE_IMAGE` à ses pixels, `CADRES` à son rapport.
+   *
+   * Un dessin v3, ou un simple regrainage qui déplace la silhouette, laisserait
+   * la suite **entièrement verte** en décentrant le panneau et en ramenant le
+   * cadran vers le mât du réverbère — exactement le piège que la docstring de
+   * `BORD_DROIT_CORPS` raconte avoir attrapé une fois. Ce test refait la
+   * mesure : les colonnes dont le dessin occupe plus de 45 % de la hauteur, et
+   * la plus longue plage contiguë qu'elles forment.
+   */
+  it('le corps de gare est bien là où le dessin le met', () => {
+    const png = lirePngIndexe(readFileSync('public/assets/ailleurs/batiment.png'))
+    const hautes: number[] = []
+    for (let c = 0; c < png.largeur; c += 1) {
+      let dessin = 0
+      for (let l = 0; l < png.hauteur; l += 1) if (png.index[l * png.largeur + c] !== 0) dessin += 1
+      if (dessin > 0.45 * png.hauteur) hautes.push(c)
+    }
+    expect(hautes.length, 'aucune colonne pleine : le dessin a changé de nature').toBeGreaterThan(0)
+    let [debut, fin, meilleur] = [hautes[0], hautes[0], [hautes[0], hautes[0]]]
+    for (const c of hautes.slice(1)) {
+      if (c === fin + 1) fin = c
+      else [debut, fin] = [c, c]
+      if (fin - debut >= meilleur[1] - meilleur[0]) meilleur = [debut, fin]
+    }
+    // `x0` et `x1` sont la première et la **dernière** colonne du corps, bornes comprises.
+    expect([meilleur[0], meilleur[1]]).toEqual([CORPS_IMAGE.x0, CORPS_IMAGE.x1])
   })
 
   it('le bâtiment occupe son cadre sans l’étirer', () => {

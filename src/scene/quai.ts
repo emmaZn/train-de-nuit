@@ -121,10 +121,13 @@ const ECHELLE_BATIMENT = LARGEUR_BATIMENT / IMAGES.batiment.largeur
 /**
  * Le corps de gare dans son dessin, en pixels de l'image — **relevé sur le
  * PNG servi** (les colonnes dont le dessin occupe plus de 45 % de la hauteur :
- * le corps, pas les marquises), à tenir à jour avec lui.
+ * le corps, pas les marquises). `x0` et `x1` sont la première et la dernière
+ * de ces colonnes, bornes comprises.
  *
  * C'est lui, et non le bord de l'image, qui ancre la gare : voir
- * `BORD_DROIT_CORPS`.
+ * `BORD_DROIT_CORPS`. **Ne pas le tenir à jour à la main** : `quai.test.ts`
+ * refait la mesure sur le PNG servi à chaque exécution, et tombe si le dessin
+ * change de silhouette sans que ce nombre suive.
  */
 export const CORPS_IMAGE = { x0: 638, x1: 1484 } as const
 
@@ -161,7 +164,10 @@ export const PIECES = {
   // 490 = 560 × 0,875 : réduit de 12,5 % (réglage 4). `hauteur` est la hauteur
   // **posée** ; le dessin reste mesuré dans `CADRES.reverbere`, et lanterne,
   // lueur et sommet du faisceau en suivent l'échelle (`hauteur / CADRES…`).
-  reverbere: { x: 1290 - DECALAGE_GARE, pied: HORIZON, hauteur: 490 },
+  // 1390 et non 1290 (20 novembre 2026) : la propriétaire l'a décalé vers la
+  // droite avec la rame, pour resserrer le groupe. Posé à 1330, il se tient
+  // entre le nez de la loco (1299) et le bord gauche du corps de gare (1364).
+  reverbere: { x: 1390 - DECALAGE_GARE, pied: HORIZON, hauteur: 490 },
   batiment: {
     x: BORD_DROIT_CORPS - CORPS_IMAGE.x1 * ECHELLE_BATIMENT - DECALAGE_GARE,
     pied: HORIZON,
@@ -179,7 +185,7 @@ export const PIECES = {
   panneau: {
     x: BORD_DROIT_CORPS - MILIEU_CORPS_NU * ECHELLE_BATIMENT - LARGEUR_PANNEAU / 2 - DECALAGE_GARE,
     // 700 et non 640 : la propriétaire l'a descendu, pied plus bas sur le mur.
-    // Il s'arrête à 880, soit dix-sept pixels au-dessus de la bordure du quai
+    // Il s'arrête à 866, soit trente et un pixels au-dessus de la bordure du quai
     // (`PIECES.quai.y`), qu'il ne doit pas croiser — `quai.test.ts` le garde.
     y: 700,
     largeur: LARGEUR_PANNEAU,

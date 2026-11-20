@@ -72,8 +72,13 @@ export const ECHELLE_MONTAGNES = 2.2
  * wagon — la rame s'allonge vers l'arrière, jamais vers l'avant. En
  * contrepartie, elle déborde du cadre à gauche, et c'est voulu : le train
  * continue hors champ.
+ *
+ * **0,56 et non 0,5** depuis le 20 novembre 2026 : la propriétaire a demandé
+ * que la rame avance vers la droite, pour que réverbère, train, gare et panneau
+ * tiennent à peu près dans la même zone. Le nez passe de 1160 à 1299, et vient
+ * se ranger juste à gauche du réverbère, lui aussi décalé.
  */
-export const TETE_LOCO = 0.5
+export const TETE_LOCO = 0.56
 
 /**
  * Hauteur du voile qui éteint le pied du massif, en pixels de cadre, mesurée

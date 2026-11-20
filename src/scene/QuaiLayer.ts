@@ -96,7 +96,7 @@ const ALLUMEES: readonly PieceDessinee[] = ['reverbere']
  * suppression du second filet que vient son allègement — le trait, lui, ne peut
  * pas descendre sous une cellule de grain. PROVISOIRE (§7).
  */
-const PANNEAU_BISEAU = 12
+export const PANNEAU_BISEAU = 12
 
 /**
  * Le cadran de l'horloge, en fractions de son rayon (celui du disque = 1).

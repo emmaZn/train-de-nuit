@@ -117,7 +117,11 @@ const place = computed(() => {
   /* Le retrait latéral, déclaré une seule fois : le bandeau d'en-tête
      l'annule pour aller d'un bord intérieur à l'autre du cadre. */
   --creux: 16px;
-  /* Le budget de place du panneau, en pixels de cadre. Le cadre fait 180 px
+  /* La coupe des coins du cadre, en pixels de cadre : le bandeau d'en-tête s'y
+     coupe aussi, sinon il peint deux triangles **hors du panneau**, sur le mur.
+     `PanneauDeparts.test.ts` confronte ce nombre au `PANNEAU_BISEAU` du canvas. */
+  --biseau: 12px;
+  /* Le budget de place du panneau, en pixels de cadre. Le cadre fait 166 px
      de haut (`PIECES.panneau`) et doit tenir un bandeau et cinq lignes : c'est
      **ici** que la mise en page se décide, et `PanneauDeparts.test.ts` fait
      l'addition pour que personne n'ajoute une sixième ligne en silence.
@@ -161,6 +165,18 @@ const place = computed(() => {
   padding-left: var(--creux);
   background: var(--texte);
   color: var(--fond);
+  /* Les deux coins du haut suivent le biseau du cadre ; ceux du bas sont
+     droits, le bandeau ne les touche pas. Sans cette coupe, le bandeau peint
+     deux triangles de douze pixels **hors du panneau**, sur le mur — le fond
+     opaque, lui, est un octogone. */
+  clip-path: polygon(
+    var(--biseau) 0,
+    calc(100% - var(--biseau)) 0,
+    100% var(--biseau),
+    100% 100%,
+    0 100%,
+    0 var(--biseau)
+  );
   /* Plein, pas à mi-teinte : l'opacité `--moyen` d'avant en ferait un gris. */
   opacity: 1;
   font-size: 11px;
@@ -179,7 +195,7 @@ const place = computed(() => {
   align-items: center;
   gap: 10px;
   /* La hauteur vient du budget, pas d'un rembourrage : c'est elle que le garde
-     de débordement multiplie par huit. */
+     de débordement multiplie par cinq. */
   box-sizing: border-box;
   height: var(--ligne);
   padding: 0 6px;
@@ -209,7 +225,10 @@ const place = computed(() => {
   height: 3px;
   margin: 2px 0 0 0.7em;
   opacity: var(--faible);
-  background-image: radial-gradient(circle, currentColor 0.9px, transparent 1.1px);
+  /* Butées franches : deux arrêts écartés feraient de chaque point un petit
+     dégradé, c'est-à-dire la mi-teinte que la décision 12.2 refuse — et écrite
+     à la main, pas laissée à l'anticrénelage. Plein ou absent, comme le reste. */
+  background-image: radial-gradient(circle, currentColor 1px, transparent 1px);
   background-size: 6px 3px;
   background-repeat: repeat-x;
   background-position: left center;

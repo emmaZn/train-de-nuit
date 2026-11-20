@@ -24,8 +24,18 @@ import type { Secousse } from './cables'
 /** Trois poteaux : deux travées, à peine une largeur de cadre. */
 export const POTEAUX = 3
 
-/** Où se pose le premier poteau porteur de fils, à l'arrêt. */
-export const POSITION_A_QUAI = 60
+/**
+ * Où se pose le premier poteau porteur de fils, à l'arrêt.
+ *
+ * **180 et non 60** depuis que la rame avance (20 novembre 2026, `TETE_LOCO`
+ * passé de 0,5 à 0,56). Ce nombre n'est pas libre : il suit le nez de la loco.
+ * Deux gardes le tiennent — les fils doivent être dans le champ libre à sa
+ * droite, et la deuxième travée entière aussi —, et à 60 la seconde tombait de
+ * trois pixels. Il faut `POSITION_A_QUAI + TRAVEE ≥ TETE_LOCO × STAGE.width`,
+ * soit au moins 176 ; 180 laisse quatre pixels. Avancer encore la rame redemande
+ * de l'avancer, lui aussi.
+ */
+export const POSITION_A_QUAI = 180
 
 /**
  * Combien de poteaux seuls, sans fils, de chaque côté de l'île.
