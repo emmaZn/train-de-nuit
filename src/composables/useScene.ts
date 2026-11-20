@@ -22,6 +22,15 @@ export const SCENE_KEY: InjectionKey<Ref<Scene | null>> = Symbol('scene')
 export const FRAME_KEY: InjectionKey<Ref<Frame | null>> = Symbol('frame')
 
 /**
+ * Où est le rideau des départs, tel que la scène l'a dit : `y` est le bord haut
+ * de la plaque en pixels de cadre (le repère de `FRAME_KEY`), `baisse` l'état
+ * visé. `null` tant que la scène n'a rien émis — jamais un `y` qui ne soit pas
+ * un nombre : elle ne dit rien plutôt que cela (`SceneEvents['rideau']`).
+ */
+export type EtatRideau = { y: number; baisse: boolean }
+export const RIDEAU_KEY: InjectionKey<Ref<EtatRideau | null>> = Symbol('rideau')
+
+/**
  * The one bridge between Vue and the scene. The scene knows nothing of Vue:
  * it is told what the store holds, and it reports back through events.
  */
@@ -31,6 +40,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   const scene = shallowRef<Scene | null>(null)
   const fond = ref<string>(loadFond())
   const frame = shallowRef<Frame | null>(null)
+  const rideau = shallowRef<EtatRideau | null>(null)
   const voyage = useVoyage()
   const { cible, enRoute, etapesRestantes, gare, legs } = storeToRefs(voyage)
   const traces = useTraces()
@@ -85,6 +95,8 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     detacher.push(instance.on('arrived', () => voyage.finirEtape()))
     detacher.push(instance.on('fond', poserFond))
     detacher.push(instance.on('frame', (f) => { frame.value = f }))
+    // Un objet neuf à chaque émission : `shallowRef` ne réagit qu'à un changement de référence.
+    detacher.push(instance.on('rideau', (y, baisse) => { rideau.value = { y, baisse } }))
 
     // Registered before the first await: an unmount during `init` runs
     // `onBeforeUnmount` at once, and would find nothing to remove.
@@ -134,5 +146,5 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     scene.value = null
   })
 
-  return { scene, fond, frame, changerFond: appliquerFond }
+  return { scene, fond, frame, rideau, changerFond: appliquerFond }
 }

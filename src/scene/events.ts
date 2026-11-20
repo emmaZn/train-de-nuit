@@ -25,6 +25,17 @@ export type SceneEvents = {
    * du panneau le faisait, et il attend la position du rideau (tâche 4 du plan).
    */
   frame: (frame: Frame) => void
+  /**
+   * Où est le rideau des départs : `y` est son bord haut en pixels de cadre
+   * (comme `frame`), `baisse` l'état **visé** — il change dès le clic, bien
+   * avant que la plaque arrive.
+   *
+   * Émis à chaque image où `y` change et une fois à chaque changement d'état.
+   * **`y` est toujours un nombre fini** : le texte du DOM — les trois seuls
+   * liens du site — se pose sur ce qu'on émet ici, et un `NaN` l'enverrait
+   * nulle part. Un rideau qui n'a pas encore de cadre ne dit donc rien.
+   */
+  rideau: (y: number, baisse: boolean) => void
   starHover: (trace: Trace | null, x: number, y: number) => void
   /**
    * Un oiseau vient d'être lâché. Sans coordonnées : la réplique paraît

@@ -1,8 +1,14 @@
 import { readFileSync } from 'node:fs'
 
-import { Container } from 'pixi.js'
+import gsap from 'gsap'
+import { Application, Container } from 'pixi.js'
+import { Quai } from '@/scene/QuaiLayer'
+import { Rideau } from '@/scene/RideauLayer'
 import { Scene, plansDuDecor, poserCiel, poserMonde } from '@/scene/Scene'
-import { cadrageScene } from '@/scene/layout'
+import { cadrageScene, HORIZON } from '@/scene/layout'
+import { HORLOGE } from '@/scene/quai'
+import { RIDEAU, yPoseA } from '@/scene/rideau'
+import type { Trace } from '@/scene/types'
 
 function sceneSansRendu(reducedMotion = false) {
   // Sans init(), la scène n'a pas de contexte WebGL : c'est exactement l'état
@@ -170,5 +176,369 @@ describe('la porte du gag', () => {
     expect(scene.faireTomberUnOiseau()).toBe(true)
     expect(dits).toBe(1)
     scene.dispose()
+  })
+})
+
+describe('le rideau, commandé par l’horloge', () => {
+  const ECRAN = { width: 1440, height: 900 }
+  const CADRE = cadrageScene(ECRAN.width, ECRAN.height).frame
+
+  /** Un point du cadre, tel que le pointeur le donne : en pixels CSS. */
+  const enPixelsEcran = (x: number, y: number) => ({
+    x: CADRE.offsetX + x * CADRE.scale,
+    y: CADRE.offsetY + y * CADRE.scale,
+  })
+
+  /** Avance la timeline globale de GSAP sans attendre le temps réel. */
+  function avancerGsap(secondes: number): void {
+    gsap.globalTimeline.time(gsap.globalTimeline.time() + secondes)
+  }
+
+  type Interne = {
+    quai: Quai | null
+    stars: { hit: (px: number, py: number) => Trace | null } | null
+    rideau: Rideau | null
+    oiseaux: { cliquer: (x: number, y: number) => boolean } | null
+  }
+
+  const vivantes: Scene[] = []
+  afterEach(() => {
+    for (const s of vivantes.splice(0)) {
+      // Les doublures posées par les tests n'ont pas de `destroy`, et le
+      // Pixi de pacotille n'a pas de contexte à défaire.
+      const interne = s as unknown as Interne & { vivante: boolean }
+      interne.stars = null
+      interne.oiseaux = null
+      interne.vivante = false
+      s.dispose()
+    }
+    vi.restoreAllMocks()
+  })
+
+  /**
+   * Une scène qui a fait son `init()` pour de bon — le rideau naît là, dans le
+   * même ordre que dans le navigateur —, sans carte graphique : Pixi est
+   * remplacé par ce que la scène lui demande, et l'horloge de rendu par une
+   * fonction qu'on appelle (`image`). Le quai, que `peupler` monte après le
+   * manifeste, est posé à la main : l'île est à l'arrêt (distance 0).
+   */
+  async function sceneDeTest(reducedMotion = false) {
+    vi.spyOn(Application.prototype, 'init').mockResolvedValue(undefined as never)
+    const scene = new Scene(document.createElement('canvas'), { reducedMotion })
+    vivantes.push(scene)
+    const app = (scene as unknown as { app: Record<string, unknown> }).app
+    Object.defineProperty(app, 'screen', { get: () => ECRAN, configurable: true })
+    app.renderer = { on() {}, resolution: 1, background: { color: 0 }, render() {} }
+    const images: Array<(t: { deltaMS: number }) => void> = []
+    app.ticker = { add: (f: (t: { deltaMS: number }) => void) => images.push(f) }
+    const emis: Array<[number, boolean]> = []
+    scene.on('rideau', (y, baisse) => emis.push([y, baisse]))
+    await scene.init()
+
+    const interne = scene as unknown as Interne
+    const plans = (scene as unknown as { plans: ReturnType<typeof plansDuDecor> }).plans
+    interne.quai = new Quai(new Container(), plans.lumieres, reducedMotion)
+    interne.quai.avancer(0, 0)
+    return { scene, interne, emis, image: () => images[0]({ deltaMS: 16 }) }
+  }
+
+  const trace = { id: 'a', phrase: 'une phrase', creeLe: 1, x: 0.5, y: 0.5 } as Trace
+  const centre = () => enPixelsEcran(HORLOGE.x, HORLOGE.y)
+
+  describe('le clic', () => {
+    it('baisse le rideau, un second le relève', async () => {
+      const { scene } = await sceneDeTest()
+      const { x, y } = centre()
+      expect(scene.clicPx(x, y)).toBe(true)
+      expect(scene.rideauBaisse).toBe(true)
+      expect(scene.clicPx(x, y)).toBe(true)
+      expect(scene.rideauBaisse).toBe(false)
+    })
+
+    it('à côté de l’horloge, ne prend pas le clic et ne touche à rien', async () => {
+      const { scene } = await sceneDeTest()
+      const loin = enPixelsEcran(HORLOGE.x, HORIZON - 10)
+      expect(scene.clicPx(loin.x, loin.y)).toBe(false)
+      expect(scene.rideauBaisse).toBe(false)
+    })
+
+    it('cherche l’horloge là où l’île l’a emportée, pas à sa place d’arrêt', async () => {
+      const { scene, interne } = await sceneDeTest()
+      interne.quai!.avancer(300, 0)
+      const ou = enPixelsEcran(HORLOGE.x + 300, HORLOGE.y)
+      const arret = centre()
+      expect(scene.clicPx(arret.x, arret.y)).toBe(false)
+      expect(scene.clicPx(ou.x, ou.y)).toBe(true)
+      expect(scene.rideauBaisse).toBe(true)
+    })
+
+    it('est pris par l’horloge avant les oiseaux : un clic ne fait qu’une chose', async () => {
+      const { scene, interne } = await sceneDeTest()
+      const cliquer = vi.fn(() => true)
+      interne.oiseaux = { cliquer }
+      scene.setGare('plus-loin')
+      scene.setVoyage(false, 0)
+      expect(scene.gagOuvert).toBe(true)
+      const { x, y } = centre()
+      expect(scene.clicPx(x, y)).toBe(true)
+      expect(scene.rideauBaisse).toBe(true)
+      expect(cliquer).not.toHaveBeenCalled()
+    })
+
+    it('ne laisse pas non plus tomber un oiseau qu’on ne voit pas sous le rideau', async () => {
+      const { scene, interne } = await sceneDeTest()
+      const cliquer = vi.fn(() => true)
+      interne.oiseaux = { cliquer }
+      scene.setGare('plus-loin')
+      scene.setVoyage(false, 0)
+      scene.basculerRideau()
+      avancerGsap(2)
+      const dedans = enPixelsEcran(RIDEAU.x + 40, yPoseA(CADRE) + 40)
+      expect(scene.clicPx(dedans.x, dedans.y)).toBe(false)
+      expect(cliquer).not.toHaveBeenCalled()
+      // Le même clic, plaque rangée : l'oiseau, lui, répond. Sans cette moitié
+      // le test passerait aussi sur un gag toujours fermé.
+      scene.basculerRideau()
+      avancerGsap(2)
+      expect(scene.clicPx(dedans.x, dedans.y)).toBe(true)
+      expect(cliquer).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('ce que la scène émet', () => {
+    it('donne la position du rideau dès le cadrage, rangé', async () => {
+      const { emis } = await sceneDeTest()
+      expect(emis).toHaveLength(1)
+      expect(emis[0][1]).toBe(false)
+      expect(emis[0][0]).toBeLessThan(0)
+    })
+
+    it('émet la position à chaque image où le rideau bouge, jusqu’à sa pose', async () => {
+      const { scene, emis, image } = await sceneDeTest()
+      emis.length = 0
+      scene.basculerRideau()
+      for (let i = 0; i < 20; i += 1) {
+        avancerGsap(0.1)
+        image()
+      }
+      expect(emis.length).toBeGreaterThan(5)
+      expect(emis.at(-1)![0]).toBeCloseTo(yPoseA(CADRE), 1)
+      expect(emis.every(([, baisse]) => baisse)).toBe(true)
+    })
+
+    it('n’émet rien d’une image à l’autre quand le rideau ne bouge pas', async () => {
+      const { scene, emis, image } = await sceneDeTest()
+      scene.basculerRideau()
+      avancerGsap(3)
+      image()
+      const avant = emis.length
+      image()
+      image()
+      expect(emis).toHaveLength(avant)
+    })
+
+    it('émet aussitôt à chaque changement d’état, avant que la plaque ait bougé', async () => {
+      const { scene, emis } = await sceneDeTest()
+      emis.length = 0
+      scene.basculerRideau()
+      expect(emis).toHaveLength(1)
+      expect(emis[0][1]).toBe(true)
+      scene.basculerRideau()
+      expect(emis).toHaveLength(2)
+      expect(emis[1][1]).toBe(false)
+    })
+
+    it('suit un redimensionnement, sans attendre que le rideau bouge', async () => {
+      const { scene, emis } = await sceneDeTest()
+      const avant = emis.at(-1)![0]
+      ECRAN.height = 600
+      try {
+        scene.resize()
+      } finally {
+        ECRAN.height = 900
+      }
+      expect(emis.length).toBeGreaterThan(1)
+      expect(emis.at(-1)![0]).not.toBeCloseTo(avant, 1)
+    })
+
+    it('n’émet jamais un y qui ne soit pas un nombre', async () => {
+      // La tâche suivante pose le texte du DOM — les liens du site — sur ce
+      // qu'on émet. Un rideau jamais cadré rend NaN : il ne doit pas sortir.
+      const { scene, interne, emis } = await sceneDeTest()
+      interne.rideau = new Rideau(new Container(), false)
+      emis.length = 0
+      scene.basculerRideau()
+      expect(emis).toHaveLength(0)
+      interne.rideau.destroy()
+    })
+
+    it('n’émet pas de nombre infini non plus', async () => {
+      const { scene, interne, emis } = await sceneDeTest()
+      vi.spyOn(interne.rideau!, 'y', 'get').mockReturnValue(Number.POSITIVE_INFINITY)
+      emis.length = 0
+      scene.basculerRideau()
+      expect(emis).toHaveLength(0)
+    })
+  })
+
+  describe('le survol', () => {
+    it('rend l’étoile sous le pointeur quand le rideau est rangé', async () => {
+      const { scene, interne } = await sceneDeTest()
+      interne.stars = { hit: () => trace }
+      const vues: Array<Trace | null> = []
+      scene.on('starHover', (t) => vues.push(t))
+      const dedans = enPixelsEcran(RIDEAU.x + 40, yPoseA(CADRE) + 40)
+      scene.setPointerPx(dedans.x, dedans.y)
+      expect(vues.at(-1)).toBe(trace)
+    })
+
+    /**
+     * Le rideau baissé couvre environ 40 % du ciel des visiteurs. Le pointeur ne
+     * doit pas le traverser : sans ça, survoler la plaque ouvre la bulle d'une
+     * étoile qu'on ne voit pas.
+     */
+    it('ne traverse pas le rideau baissé, mais passe à côté', async () => {
+      const { scene, interne } = await sceneDeTest()
+      interne.stars = { hit: () => trace }
+      const vues: Array<Trace | null> = []
+      scene.on('starHover', (t) => vues.push(t))
+      scene.basculerRideau()
+      avancerGsap(2)
+      const dedans = enPixelsEcran(RIDEAU.x + 40, yPoseA(CADRE) + 40)
+      scene.setPointerPx(dedans.x, dedans.y)
+      expect(vues.at(-1)).toBeNull()
+      const a_cote = enPixelsEcran(RIDEAU.x - 40, yPoseA(CADRE) + 40)
+      scene.setPointerPx(a_cote.x, a_cote.y)
+      expect(vues.at(-1)).toBe(trace)
+    })
+
+    it('éclaire l’horloge sous le pointeur, et seulement elle', async () => {
+      const { scene, interne } = await sceneDeTest()
+      const { x, y } = centre()
+      scene.setPointerPx(x, y)
+      expect(interne.quai!.eclat.alpha).toBeGreaterThan(0)
+      const loin = enPixelsEcran(HORLOGE.x, HORIZON - 10)
+      scene.setPointerPx(loin.x, loin.y)
+      expect(interne.quai!.eclat.alpha).toBe(0)
+    })
+
+    it('n’éclaire pas l’horloge qu’un rideau baissé recouvre', async () => {
+      const { scene, interne } = await sceneDeTest()
+      // L'île a défilé : l'horloge passe derrière la plaque, qui est devant elle.
+      interne.quai!.avancer(RIDEAU.x + 100 - HORLOGE.x, 0)
+      scene.basculerRideau()
+      avancerGsap(2)
+      const sous = enPixelsEcran(RIDEAU.x + 100, HORLOGE.y)
+      scene.setPointerPx(sous.x, sous.y)
+      expect(interne.quai!.eclat.alpha).toBe(0)
+      expect(scene.clicPx(sous.x, sous.y)).toBe(false)
+      expect(scene.rideauBaisse).toBe(true)
+    })
+  })
+
+  describe('le battement de l’horloge', () => {
+    it('bat quand le train s’arrête à « ailleurs », et se tait au premier clic', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      expect(scene.horlogeBat).toBe(true)
+      const { x, y } = centre()
+      scene.clicPx(x, y)
+      expect(scene.horlogeBat).toBe(false)
+    })
+
+    it('ne bat pas tant que le train roule', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setVoyage(true, 2)
+      scene.setGare('ailleurs')
+      expect(scene.horlogeBat).toBe(false)
+    })
+
+    it('s’interrompt quand le train repart', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      expect(scene.horlogeBat).toBe(true)
+      scene.setVoyage(true, 1)
+      expect(scene.horlogeBat).toBe(false)
+    })
+
+    it('ne bat pas à une gare où l’horloge n’est pas à l’écran', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setGare('plus-loin')
+      scene.setVoyage(false, 0)
+      expect(scene.horlogeBat).toBe(false)
+    })
+
+    it('bat quel que soit l’ordre où le magasin annonce la gare et l’arrêt', async () => {
+      const a = await sceneDeTest()
+      a.scene.setVoyage(false, 0)
+      a.scene.setGare('ailleurs')
+      expect(a.scene.horlogeBat).toBe(true)
+
+      const b = await sceneDeTest()
+      b.scene.setGare('ailleurs')
+      b.scene.setVoyage(false, 0)
+      expect(b.scene.horlogeBat).toBe(true)
+    })
+
+    it('ne redémarre pas quand le magasin répète le même état', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      avancerGsap(10)
+      expect(scene.horlogeBat).toBe(false)
+      scene.setVoyage(false, 0)
+      scene.setGare('ailleurs')
+      expect(scene.horlogeBat).toBe(false)
+    })
+
+    it('reprend à l’arrêt suivant tant que personne n’a trouvé l’horloge', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      avancerGsap(10)
+      scene.setVoyage(true, 1)
+      scene.setVoyage(false, 0)
+      expect(scene.horlogeBat).toBe(true)
+    })
+
+    it('ne reprend plus jamais une fois l’horloge trouvée', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      const { x, y } = centre()
+      scene.clicPx(x, y)
+      scene.setVoyage(true, 1)
+      scene.setVoyage(false, 0)
+      expect(scene.horlogeBat).toBe(false)
+    })
+
+    it('se tait aussi quand le visiteur prend le bouton du DOM', async () => {
+      // Le même geste, par un autre chemin : il a trouvé le rideau.
+      const { scene } = await sceneDeTest()
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      scene.basculerRideau()
+      expect(scene.horlogeBat).toBe(false)
+      scene.setVoyage(true, 1)
+      scene.setVoyage(false, 0)
+      expect(scene.horlogeBat).toBe(false)
+    })
+
+    it('ne bat pas sous prefers-reduced-motion', async () => {
+      const { scene } = await sceneDeTest(true)
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      expect(scene.horlogeBat).toBe(false)
+    })
+  })
+
+  it('sans WebGL, le rideau est absent et les gestes sont inoffensifs', () => {
+    const scene = sceneSansRendu()
+    expect(scene.rideauBaisse).toBe(false)
+    expect(scene.horlogeBat).toBe(false)
+    expect(() => scene.basculerRideau()).not.toThrow()
+    expect(scene.rideauBaisse).toBe(false)
   })
 })

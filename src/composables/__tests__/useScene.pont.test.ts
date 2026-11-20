@@ -42,15 +42,16 @@ function monter(charger: () => Promise<void> = async () => {}) {
   setActivePinia(createPinia())
   const traces = useTraces()
   const spy = vi.spyOn(traces, 'charger').mockImplementation(charger)
+  let rideau: ReturnType<typeof useScene>['rideau']
   const Hote = defineComponent({
     setup() {
       const canvas = ref(document.createElement('canvas'))
-      useScene(canvas)
+      rideau = useScene(canvas).rideau
       return () => h('div')
     },
   })
   const wrapper = mount(Hote)
-  return { traces, spy, wrapper }
+  return { traces, spy, wrapper, rideau: rideau! }
 }
 
 afterEach(() => {
@@ -134,4 +135,18 @@ test('dit à la scène quelle gare le train vient de quitter', async () => {
   useVoyage().gare = 'plus-loin'
   await nextTick()
   expect(scene.setGare).toHaveBeenLastCalledWith('plus-loin')
+})
+
+test('le rideau est inconnu tant que la scène n’a rien émis, puis suit ce qu’elle émet', async () => {
+  const { rideau } = monter()
+  await flushPromises()
+  expect(rideau.value).toBeNull()
+
+  const abonnement = double.instance!.on.mock.calls.find((c) => c[0] === 'rideau')
+  expect(abonnement, 'useScene doit suivre le rideau de la scène').toBeDefined()
+  const emettre = abonnement![1] as (y: number, baisse: boolean) => void
+  emettre(-120, false)
+  expect(rideau.value).toEqual({ y: -120, baisse: false })
+  emettre(340, true)
+  expect(rideau.value).toEqual({ y: 340, baisse: true })
 })

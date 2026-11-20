@@ -14,6 +14,7 @@ import { Birds } from './Birds'
 import { Cables } from './CableLayer'
 import { Quai } from './QuaiLayer'
 import { Rideau } from './RideauLayer'
+import { pointDansRideau } from './rideau'
 import { ancreSuivante, legsDeLIle, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
@@ -294,7 +295,18 @@ export class Scene {
    * jamais lui poser d'abscisse, sans quoi il voyagerait avec l'île.
    */
   private rideau: Rideau | null = null
+  /** Ce que le rideau a dit en dernier : on ne répète pas une position qui n'a pas changé. */
+  private rideauEmis: { y: number; baisse: boolean } | null = null
   private frameCourante: Frame | null = null
+
+  /**
+   * Le visiteur a-t-il trouvé le rideau ? Le battement de l'horloge n'existe que
+   * pour le lui apprendre : il se tait dès le premier geste, par l'horloge ou
+   * par le bouton du DOM, et ne revient pas.
+   */
+  private rideauTrouve = false
+  /** Le train est-il à quai devant l'horloge — pour ne battre qu'à l'**arrêt**, pas à chaque rappel. */
+  private arretDevantHorloge = false
 
   /** Où le train est, ou d'où il part : le gag n'existe qu'à « plus loin ». */
   private gare: Gare = 'ici'
@@ -543,6 +555,8 @@ export class Scene {
     this.cables?.cadrer(frame, this.app.renderer.resolution)
     this.quai?.cadrer(frame, this.app.renderer.resolution, width < SEUIL_MOBILE)
     this.rideau?.cadrer(frame, this.app.renderer.resolution)
+    // Le cadre change `y` sans que le rideau ait bougé : le texte doit le savoir.
+    this.emettreRideau()
     this.oiseaux?.cadrer(frame, this.app.renderer.resolution, width)
     this.vitres?.cadrer(frame, this.app.renderer.resolution)
     this.fumee?.cadrer(frame, this.app.renderer.resolution)
@@ -583,14 +597,100 @@ export class Scene {
   }
 
   /**
-   * Un clic, en pixels CSS. Rend `true` s'il a touché un oiseau — l'appelant
-   * sait alors qu'il ne doit pas aussi ouvrir la bulle d'une étoile.
+   * Un clic, en pixels CSS. Rend `true` s'il a pris le clic — l'horloge, qui
+   * commande le rideau, ou un oiseau — : l'appelant sait alors qu'il ne doit
+   * pas aussi ouvrir la bulle d'une étoile.
+   *
+   * L'horloge passe avant les oiseaux, et un point sous la plaque ne touche
+   * rien : on ne clique pas ce que la plaque cache. La plaque est devant
+   * l'horloge, comme elle l'est devant le ciel.
    */
   clicPx(px: number, py: number): boolean {
     const f = this.frameCourante
-    if (!f || !this.oiseaux || !this.gagOuvert) return false
+    if (!f) return false
     const cadre = versCadre(px, py, f)
+    if (this.sousLeRideau(cadre.x, cadre.y)) return false
+    if (this.quai?.horlogeTouchee(cadre.x, cadre.y)) {
+      this.basculerRideau()
+      return true
+    }
+    if (!this.oiseaux || !this.gagOuvert) return false
     return this.oiseaux.cliquer(cadre.x, cadre.y)
+  }
+
+  /**
+   * Baisse le rideau, ou le relève : le geste de l'horloge, et celui du bouton
+   * du DOM — le même, pour que le clavier n'ait pas un rideau à lui.
+   */
+  basculerRideau(): void {
+    if (!this.rideau) return
+    // Il l'a trouvé, par quelque chemin que ce soit : le battement n'a plus à le dire.
+    this.rideauTrouve = true
+    this.quai?.apaiser()
+    this.rideau.basculer()
+    // L'état change tout de suite, la plaque seulement après : le texte n'a pas
+    // à attendre la prochaine image pour savoir où il va.
+    this.emettreRideau()
+  }
+
+  /** L'état **visé** du rideau : il change dès le geste, bien avant que la plaque arrive. */
+  get rideauBaisse(): boolean {
+    return this.rideau?.baisse ?? false
+  }
+
+  /** Le battement de l'horloge est-il en cours ? */
+  get horlogeBat(): boolean {
+    return this.quai?.bat ?? false
+  }
+
+  /** Ce point, en pixels de cadre, est-il sous la plaque telle qu'elle est maintenant ? */
+  private sousLeRideau(x: number, y: number): boolean {
+    return this.rideau !== null && pointDansRideau(x, y, this.rideau.y)
+  }
+
+  /**
+   * Dit où est le rideau, s'il y a quelque chose de neuf à dire.
+   *
+   * **Jamais un `y` qui ne soit pas un nombre** — voir `SceneEvents['rideau']` :
+   * c'est ici, au seul point d'émission, que cela se garde. Aujourd'hui le
+   * rideau est cadré dans la foulée de sa construction et `y` est toujours
+   * fini ; c'est vrai par l'ordre des appels, et ça ne tient plus le jour où
+   * quelqu'un le change.
+   */
+  private emettreRideau(): void {
+    const r = this.rideau
+    if (!r) return
+    const y = r.y
+    if (!Number.isFinite(y)) return
+    const baisse = r.baisse
+    if (this.rideauEmis?.y === y && this.rideauEmis.baisse === baisse) return
+    this.rideauEmis = { y, baisse }
+    this.emitter.emit('rideau', y, baisse)
+  }
+
+  /**
+   * Le battement s'arme quand le train **vient de s'arrêter** à la gare qui a
+   * l'horloge, et seulement alors : à une autre, l'horloge est hors de l'écran
+   * et l'unique rappel serait dépensé pour rien. C'est un front, pas un état —
+   * le magasin répète ce qu'il sait à chaque changement, et deux rappels de
+   * suite ne doivent pas relancer deux pulsations.
+   *
+   * Appelée par `setGare` et par `setVoyage` : le magasin les annonce dans un
+   * ordre qu'on ne tient pas, et l'arrêt n'existe qu'une fois les deux dits.
+   */
+  private armerLeBattement(): void {
+    const arrete = !this.enRoute && this.gare === 'ailleurs'
+    if (!arrete) {
+      // Le train repart : l'île s'en va avec son horloge, et les pulsations
+      // qui restaient n'ont plus rien à montrer.
+      if (this.arretDevantHorloge) this.quai?.apaiser()
+      this.arretDevantHorloge = false
+      return
+    }
+    // Sans quai, rien à faire battre : on ne compte pas l'arrêt, le prochain pourra.
+    if (!this.quai || this.arretDevantHorloge) return
+    this.arretDevantHorloge = true
+    if (!this.rideauTrouve) this.quai.battre()
   }
 
   /**
@@ -600,6 +700,7 @@ export class Scene {
    */
   setGare(gare: Gare): void {
     this.gare = gare
+    this.armerLeBattement()
     this.prochainPlusLoin = this.legsIle + forwardSteps(gare, 'plus-loin')
     this.prochainAilleurs = this.legsQuai + forwardSteps(gare, 'ailleurs')
   }
@@ -692,7 +793,14 @@ export class Scene {
 
   /** The pointer in CSS pixels: tells which star, if any, it is over. */
   setPointerPx(px: number, py: number): void {
-    const trace = this.stars?.hit(px, py) ?? null
+    const f = this.frameCourante
+    const cadre = f ? versCadre(px, py, f) : null
+    // La plaque est devant le ciel et devant l'horloge : ce qu'elle couvre ne
+    // répond pas. Sans cela, survoler la plaque ouvre la bulle d'une étoile
+    // qu'on ne voit pas.
+    const couvert = cadre !== null && this.sousLeRideau(cadre.x, cadre.y)
+    this.quai?.eclairer(cadre !== null && !couvert && this.quai.horlogeTouchee(cadre.x, cadre.y))
+    const trace = couvert ? null : (this.stars?.hit(px, py) ?? null)
     this.emitter.emit('starHover', trace, px, py)
   }
 
@@ -708,6 +816,7 @@ export class Scene {
     this.enRoute = enRoute
     this.etapesRestantes = etapesRestantes
     this.cible = cible
+    this.armerLeBattement()
 
     // Sans rendu animé — mouvement réduit (CONCEPT.md §11) ou pas de WebGL —
     // l'étape est franchie aussitôt. Sinon `arrived` ne partirait jamais, le
@@ -905,6 +1014,9 @@ export class Scene {
     }
     // Le faisceau respire de lui-même, posé ou non : il est caché avec l'île.
     this.quai?.animer(dt)
+    // À la fin, une fois la plaque posée par ce que GSAP a fait depuis l'image
+    // d'avant : ce qu'on émet est ce que le rendu va dessiner.
+    this.emettreRideau()
     // La fumée dérive avec la vitesse, pas avec l'horloge.
     this.fumee?.update(dt, this.train?.vitesse ?? 0)
     this.rendreReflet()

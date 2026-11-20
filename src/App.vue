@@ -7,14 +7,15 @@ import NavFrise from '@/components/NavFrise.vue'
 import PanneauDeparts from '@/components/PanneauDeparts.vue'
 import RepliquesOiseaux from '@/components/RepliquesOiseaux.vue'
 import StarTooltip from '@/components/StarTooltip.vue'
-import { FRAME_KEY, SCENE_KEY, useScene } from '@/composables/useScene'
+import { FRAME_KEY, RIDEAU_KEY, SCENE_KEY, useScene } from '@/composables/useScene'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
-const { scene, fond, frame, changerFond } = useScene(canvas)
+const { scene, fond, frame, rideau, changerFond } = useScene(canvas)
 
 // La scène descend aux gares, qui lui demandent une dissolution.
 provide(SCENE_KEY, scene)
 provide(FRAME_KEY, frame)
+provide(RIDEAU_KEY, rideau)
 
 // Le CV s'écrit par-dessus la gare : tout ce qui est dessous, derrière le
 // voile, ne doit ni prendre le focus ni se laisser activer à l'aveugle.
