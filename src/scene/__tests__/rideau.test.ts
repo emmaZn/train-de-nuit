@@ -8,6 +8,7 @@ import {
   DEGAGEMENT_ECRAN,
   RIDEAU,
   horlogeTouchee,
+  pointDansRideau,
   pointsBiseau,
   yPoseA,
   yRangeA,
@@ -93,5 +94,36 @@ describe('pointsBiseau', () => {
     const p = pointsBiseau(0, 0, 100, 60, 0)
     expect(new Set(p.filter((_, i) => i % 2 === 0))).toEqual(new Set([0, 100]))
     expect(new Set(p.filter((_, i) => i % 2 === 1))).toEqual(new Set([0, 60]))
+  })
+})
+
+describe('pointDansRideau', () => {
+  const { x, largeur, hauteur } = RIDEAU
+  const y = 100
+
+  it('est dedans à l’intérieur de la plaque, quel que soit son y', () => {
+    expect(pointDansRideau(x + largeur / 2, y + hauteur / 2, y)).toBe(true)
+    // Le même point, la plaque ailleurs : la boîte suit `y`, elle ne reste pas posée.
+    expect(pointDansRideau(x + largeur / 2, y + hauteur / 2, y + 500)).toBe(false)
+  })
+
+  it('est dehors dès qu’on franchit l’un des quatre bords', () => {
+    const milieuX = x + largeur / 2
+    const milieuY = y + hauteur / 2
+    expect(pointDansRideau(x - 1, milieuY, y)).toBe(false)
+    expect(pointDansRideau(x + largeur + 1, milieuY, y)).toBe(false)
+    expect(pointDansRideau(milieuX, y - 1, y)).toBe(false)
+    expect(pointDansRideau(milieuX, y + hauteur + 1, y)).toBe(false)
+  })
+
+  it('compte les bords dans la plaque', () => {
+    expect(pointDansRideau(x, y, y)).toBe(true)
+    expect(pointDansRideau(x + largeur, y + hauteur, y)).toBe(true)
+  })
+
+  it('ne trouve rien sous une plaque dont la position n’est pas un nombre', () => {
+    // Avant le premier cadrage, `Rideau.y` vaut NaN : toute comparaison est
+    // fausse, et c'est le bon réflexe — mais il vaut mieux qu'il soit écrit.
+    expect(pointDansRideau(x + 10, y + 10, Number.NaN)).toBe(false)
   })
 })

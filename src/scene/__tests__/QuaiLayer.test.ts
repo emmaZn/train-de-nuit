@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import gsap from 'gsap'
 import { Container } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -353,5 +354,113 @@ describe('anglesHorloge', () => {
         expect(a.minutes).toBeLessThan(360)
       }
     }
+  })
+})
+
+/** Avance la timeline globale de GSAP sans attendre le temps réel (voir `RideauLayer.test.ts`). */
+function avancerGsap(secondes: number): void {
+  gsap.globalTimeline.time(gsap.globalTimeline.time() + secondes)
+}
+
+describe('l’horloge sensible', () => {
+  it('suit l’île : la zone sensible défile avec le cadran', () => {
+    const { quai } = poser()
+    quai.avancer(300, 0)
+    // Là où le cadran est dessiné, et non là où il s'arrêtera.
+    expect(quai.horlogeTouchee(HORLOGE.x + 300, HORLOGE.y)).toBe(true)
+    expect(quai.horlogeTouchee(HORLOGE.x, HORLOGE.y)).toBe(false)
+    quai.avancer(0, 0)
+    expect(quai.horlogeTouchee(HORLOGE.x, HORLOGE.y)).toBe(true)
+  })
+
+  it('ne répond pas tant que l’île n’est pas posée', () => {
+    const { quai } = poser()
+    // Posée à l'arrêt, l'horloge serait là : mais personne ne l'a encore vue.
+    expect(quai.placee).toBe(false)
+    expect(quai.horlogeTouchee(HORLOGE.x, HORLOGE.y)).toBe(false)
+  })
+})
+
+describe('le battement de l’horloge', () => {
+  /** Combien de fois l'éclat monte au-dessus de la mi-hauteur, image après image. */
+  function pulsations(quai: Quai, jusqua = 6, pas = 0.05): number {
+    let montees = 0
+    let haut = false
+    for (let t = 0; t < jusqua; t += pas) {
+      avancerGsap(pas)
+      const a = quai.eclat.alpha
+      if (a > 0.5 && !haut) montees += 1
+      haut = a > 0.5
+    }
+    return montees
+  }
+
+  it('bat exactement deux fois, puis s’arrête et s’éteint', () => {
+    const { quai } = poser()
+    quai.battre()
+    expect(quai.bat).toBe(true)
+    expect(pulsations(quai)).toBe(2)
+    expect(quai.bat).toBe(false)
+    expect(quai.eclat.alpha).toBe(0)
+  })
+
+  it('s’apaise net quand on l’en prie, sans finir ses pulsations', () => {
+    const { quai } = poser()
+    quai.battre()
+    avancerGsap(0.4)
+    expect(quai.eclat.alpha).toBeGreaterThan(0)
+    quai.apaiser()
+    expect(quai.bat).toBe(false)
+    expect(quai.eclat.alpha).toBe(0)
+    // Et rien ne le rallume : la timeline est tuée, pas seulement masquée.
+    expect(pulsations(quai)).toBe(0)
+  })
+
+  it('ne bat pas sous prefers-reduced-motion', () => {
+    const decor = new Container()
+    const plans = plansDuDecor(decor)
+    const quai = new Quai(new Container(), plans.lumieres, true)
+    quai.battre()
+    expect(quai.bat).toBe(false)
+    expect(pulsations(quai)).toBe(0)
+  })
+
+  it('rebattre en plein battement repart de zéro, il n’en double pas deux', () => {
+    const { quai } = poser()
+    quai.battre()
+    avancerGsap(0.7)
+    quai.battre()
+    expect(pulsations(quai)).toBe(2)
+  })
+})
+
+describe('l’éclat au survol', () => {
+  it('s’allume sous le pointeur et s’éteint quand il part', () => {
+    const { quai } = poser()
+    expect(quai.eclat.alpha).toBe(0)
+    quai.eclairer(true)
+    expect(quai.eclat.alpha).toBeGreaterThan(0)
+    quai.eclairer(false)
+    expect(quai.eclat.alpha).toBe(0)
+  })
+
+  it('n’éteint pas un battement en cours quand le pointeur s’en va', () => {
+    const { quai } = poser()
+    quai.battre()
+    avancerGsap(0.45)
+    const pic = quai.eclat.alpha
+    expect(pic).toBeGreaterThan(0.9)
+    // Le pointeur arrive en plein pic : l'éclat reste le plus fort des deux.
+    quai.eclairer(true)
+    expect(quai.eclat.alpha).toBeCloseTo(pic, 2)
+    quai.eclairer(false)
+    expect(quai.eclat.alpha).toBeCloseTo(pic, 2)
+  })
+
+  it('est tracé sous le cadran, pour que les aiguilles restent des creux', () => {
+    const { quai } = poser()
+    const rang = (g: object) => quai.allume.children.indexOf(g as never)
+    expect(rang(quai.eclat)).toBeGreaterThanOrEqual(0)
+    expect(rang(quai.eclat)).toBeLessThan(rang(quai.horloge))
   })
 })

@@ -27,6 +27,7 @@
  * Emmanuelle (spec §7) : taille et place des pièces, densité du grain. Ils sont
  * posés à vue, pas validés.
  */
+import gsap from 'gsap'
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
 import { STAGE } from './layout'
 import type { Frame } from './layout'
@@ -34,6 +35,7 @@ import { CADRES, DEBUT_GARE, FIN_GARE, HALO_HORLOGE, HORLOGE, PIECES } from './q
 import { loadTexture } from './assets'
 import { GRAIN_ECRAN, fabriquerPiece } from './poses'
 import { Faisceau } from './Faisceau'
+import { horlogeTouchee } from './rideau'
 
 const GRIS = 0xededed
 /** Le blanc plein des sources : plus clair que le gris du décor, c'est voulu. */
@@ -197,6 +199,19 @@ export function ligneCellules(
   }
 }
 
+/**
+ * Le battement : deux pulsations du halo de l'horloge, la montée vive et la
+ * descente lente, puis plus rien. C'est le seul rattrapage de la découverte —
+ * le rideau ne descend pas de lui-même, et rien d'autre ne signale que les
+ * trois liens existent. Deux et pas davantage : un halo qui bat sans fin se
+ * lit comme une alerte, et l'on cesse de le voir. Durées et `ECLAT_SURVOL`
+ * sont des réglages d'œil. PROVISOIRE (§7).
+ */
+const BATTEMENT = { pulsations: 2, montee: 0.45, descente: 0.9 } as const
+
+/** Ce que le pointeur allume : moins que le pic d'un battement, qui doit se distinguer. */
+const ECLAT_SURVOL = 0.7
+
 export class Quai {
   /** Ce qui s'éteint : le bâtiment et la bordure. */
   private readonly racineEteinte = new Container()
@@ -205,6 +220,12 @@ export class Quai {
 
   private readonly bordure = new Graphics()
   private readonly cadran = new Graphics()
+  /**
+   * Un second halo, sous le cadran, dont **l'opacité d'objet** porte le
+   * battement et le survol — le tracé, lui, ne change pas. C'est une source de
+   * lumière : elle a droit au dégradé, comme le halo qu'elle double.
+   */
+  private readonly halo = new Graphics()
   /** La lanterne : sa lueur et son corps blanc, tracés en code, pas dessinés. */
   private readonly lanterne = new Graphics()
   private readonly faisceau: Faisceau
@@ -234,16 +255,28 @@ export class Quai {
   /** La minute déjà tracée : les aiguilles ne se redessinent qu'au changement. */
   private minuteTracee = -1
 
+  private readonly reducedMotion: boolean
+  /** L'opacité du battement : une valeur que GSAP anime, et que `poserEclat` lit. */
+  private readonly pulsation = { a: 0 }
+  private battement: gsap.core.Timeline | null = null
+  private survole = false
+
   /**
    * `lumieres` est le groupe **non teinté**. Il vaut `parent` par défaut, ce
    * qui laisse construire un quai d'un seul tenant — c'est ce que font les
    * tests qui ne s'intéressent pas à l'assombrissement.
    */
   constructor(parent: Container, lumieres: Container = parent, reducedMotion = false) {
+    this.reducedMotion = reducedMotion
     parent.addChild(this.racineEteinte)
     lumieres.addChild(this.racineAllumee)
     this.racineEteinte.addChild(this.bordure)
-    this.racineAllumee.addChild(this.cadran)
+    // Sous le cadran : le disque blanc recouvre le halo, et les aiguilles qu'il
+    // porte restent des creux.
+    this.racineAllumee.addChild(this.halo, this.cadran)
+    this.halo.alpha = 0
+    // Une fois : le halo ne dépend pas du grain, et `redessiner` se refait au cadrage.
+    this.tracerEclat()
     // Le faisceau est dans la racine allumée : il suit l'île, et ne s'éteint pas.
     this.faisceau = new Faisceau(this.racineAllumee, reducedMotion)
     // La lanterne **après** le faisceau : c'est la source, rien ne passe
@@ -267,6 +300,11 @@ export class Quai {
     return this.cadran
   }
 
+  /** Le halo du battement et du survol, pour les tests de plan. */
+  get eclat(): Graphics {
+    return this.halo
+  }
+
   /** La racine allumée, pour les tests de plan. */
   get allume(): Container {
     return this.racineAllumee
@@ -285,6 +323,65 @@ export class Quai {
   /** La texture que porte une pièce, s'il y en a une. */
   texture(piece: PieceDessinee): Texture | null {
     return this.textures.get(piece) ?? this.images.get(piece as PieceImage) ?? null
+  }
+
+  /**
+   * Le point `(x, y)`, en pixels de cadre, est-il sur l'horloge **là où elle
+   * est dessinée** ?
+   *
+   * `horlogeTouchee` compare à la place d'arrêt, et l'horloge défile avec l'île :
+   * c'est ici qu'on retranche l'abscisse de l'île, parce que c'est ici qu'on la
+   * connaît. Tant que l'île n'est pas posée elle n'est pas visible, et ne répond
+   * à personne.
+   */
+  horlogeTouchee(x: number, y: number): boolean {
+    return this.posee && horlogeTouchee(x - this.x, y)
+  }
+
+  /** Le battement est-il en cours ? Il s'arrête de lui-même, ou quand on l'apaise. */
+  get bat(): boolean {
+    return this.battement !== null
+  }
+
+  /**
+   * Lance les deux pulsations, en repartant de zéro si elles étaient en cours.
+   * Sous `prefers-reduced-motion`, rien : un halo qui pulse est un mouvement.
+   */
+  battre(): void {
+    if (this.reducedMotion) return
+    this.apaiser()
+    const { pulsations, montee, descente } = BATTEMENT
+    const ligne = gsap.timeline({
+      onComplete: () => {
+        this.battement = null
+      },
+    })
+    for (let i = 0; i < pulsations; i += 1) {
+      ligne.to(this.pulsation, { a: 1, duration: montee, ease: 'sine.out', onUpdate: () => this.poserEclat() })
+      ligne.to(this.pulsation, { a: 0, duration: descente, ease: 'sine.inOut', onUpdate: () => this.poserEclat() })
+    }
+    this.battement = ligne
+  }
+
+  /** Coupe le battement net : la timeline est tuée, pas seulement masquée. */
+  apaiser(): void {
+    this.battement?.kill()
+    this.battement = null
+    this.pulsation.a = 0
+    this.poserEclat()
+  }
+
+  /**
+   * Le pointeur est-il sur l'horloge ? Il n'éteint jamais un battement en cours :
+   * l'éclat est le plus fort des deux.
+   */
+  eclairer(survole: boolean): void {
+    this.survole = survole
+    this.poserEclat()
+  }
+
+  private poserEclat(): void {
+    this.halo.alpha = Math.max(this.pulsation.a, this.survole ? ECLAT_SURVOL : 0)
   }
 
   /** A-t-on dit à l'île où elle était ? */
@@ -430,6 +527,20 @@ export class Quai {
     ]).fill({ color: BLANC })
   }
 
+  /**
+   * Le halo qui bat : les mêmes nappes que celui de l'horloge, tracées une fois.
+   * Ce qui varie, c'est l'opacité de l'objet — voir `halo`. Au plus fort il
+   * double la lueur, sans rien tracer de plus que ce que l'horloge trace déjà.
+   */
+  private tracerEclat(): void {
+    const g = this.halo
+    g.clear()
+    for (let i = HALO_HORLOGE.nappes; i >= 1; i -= 1) {
+      g.circle(HORLOGE.x, HORLOGE.y, (HORLOGE.rayon * HALO_HORLOGE.rayon * i) / HALO_HORLOGE.nappes)
+        .fill({ color: BLANC, alpha: HALO_HORLOGE.alpha })
+    }
+  }
+
   /** La bande du quai au-dessus des rails, soulignée d'un liseré (§5.4). */
   private tracerBordure(): void {
     const g = this.bordure
@@ -568,6 +679,8 @@ export class Quai {
 
   destroy(): void {
     this.detruite = true
+    this.battement?.kill()
+    this.battement = null
     // Jamais `sprite.texture.destroy()` : au premier passage c'est la texture
     // vide partagée de Pixi, et la détruire fait tomber tout le rendu. On ne
     // détruit que celles qu'on a fabriquées.

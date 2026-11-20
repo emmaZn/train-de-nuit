@@ -117,6 +117,23 @@ export function pointsBiseau(
 }
 
 /**
+ * Le point `(x, y)`, en pixels de cadre, est-il sous la plaque, dont le bord
+ * haut est à `yRideau` ? Les bras n'en font pas partie : un trait d'une cellule
+ * ne retient personne, et il monte hors de la fenêtre.
+ *
+ * Elle prend le `y` **courant** et non la pose : la plaque couvre le ciel dès
+ * qu'elle descend, pas une fois arrivée. Un `NaN` ne couvre rien.
+ */
+export function pointDansRideau(x: number, y: number, yRideau: number): boolean {
+  return (
+    x >= RIDEAU.x &&
+    x <= RIDEAU.x + RIDEAU.largeur &&
+    y >= yRideau &&
+    y <= yRideau + RIDEAU.hauteur
+  )
+}
+
+/**
  * Le point `(x, y)`, en pixels de cadre, est-il sur l'horloge ?
  *
  * La cible est le **halo**, pas le seul cadran : le cadran fait ~58 px de
@@ -127,7 +144,8 @@ export function pointsBiseau(
  * **Elle suppose la gare à quai.** Elle compare à `HORLOGE.x`, l'abscisse à
  * l'arrêt ; or `Quai.avancer` pose `racineAllumee.x = distance` et l'horloge
  * défile avec la gare. Hors de l'arrêt, c'est à l'appelant de retrancher ce
- * décalage de `x` avant de la lui passer.
+ * décalage de `x` avant de la lui passer — `Quai.horlogeTouchee` le fait, parce
+ * que c'est le quai qui connaît l'abscisse de l'île.
  */
 export function horlogeTouchee(x: number, y: number): boolean {
   const rayon = HORLOGE.rayon * HALO_HORLOGE.rayon
