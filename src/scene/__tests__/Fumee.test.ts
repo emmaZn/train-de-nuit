@@ -9,11 +9,18 @@ import {
   RAYON,
   TAUX_ARRET,
   TAUX_VITESSE,
+  TROU,
+  TROUS,
+  TROUS_RESERVE,
   avancer,
+  epaisseurTrait,
   fermeture,
   morte,
   naitre,
+  nombreDeTrous,
   rayon,
+  rayonTrait,
+  trousDuLobe,
 } from '@/scene/Fumee'
 
 /** Un générateur sans surprise, pour que les tests ne dépendent pas du hasard. */
@@ -48,6 +55,13 @@ describe('naitre', () => {
     expect(naitre(tirage([0.5]), 0).repos).toBe(1)
     expect(naitre(tirage([0.5]), 1).repos).toBe(0)
     expect(naitre(tirage([0.5]), 0.25).repos).toBeCloseTo(0.75, 10)
+  })
+
+  it('tire sa réserve de trous, une fois pour toutes', () => {
+    const b = naitre(tirage([0.1, 0.6, 0.3, 0.9]))
+    expect(b.trous).toHaveLength(TROUS_RESERVE)
+    for (const t of b.trous) expect(t).toBeGreaterThanOrEqual(0)
+    for (const t of b.trous) expect(t).toBeLessThan(1)
   })
 
   it('est déterministe à tirage égal', () => {
@@ -129,5 +143,79 @@ describe('les réglages', () => {
 
   it('fume plus vite quand le train tire', () => {
     expect(TAUX_VITESSE).toBeGreaterThan(0)
+  })
+})
+
+describe('le contour', () => {
+  const cellule = 2
+
+  it('garde son épaisseur quand la bouffée enfle : c’est un trait, pas une auréole', () => {
+    expect(rayonTrait(30, cellule) - 30).toBeCloseTo(rayonTrait(100, cellule) - 100, 10)
+  })
+
+  it('s’épaissit avec le grain, puisqu’il en est fait', () => {
+    expect(rayonTrait(30, 4) - 30).toBeGreaterThan(rayonTrait(30, 2) - 30)
+  })
+
+  it('ne se referme jamais en pastille : il reste du noir au milieu', () => {
+    const b = naitre(tirage([0.1, 0.6, 0.3, 0.9, 0.45]))
+    for (let age = 0; age <= b.duree; age += b.duree / 60) {
+      const R = rayon({ ...b, age })
+      if (R < 1) continue
+      for (const l of b.lobes) {
+        expect(epaisseurTrait(l.r * R, cellule)).toBeLessThan(l.r * R)
+      }
+    }
+  })
+})
+
+describe('les trous du trait', () => {
+  const cellule = 2
+
+  it('effacent la même part du trait, que la bouffée soit jeune ou grande', () => {
+    for (const rayonLobe of [15, 30, 60, 90]) {
+      const efface = (nombreDeTrous(rayonLobe, cellule) * TROU * cellule) / (2 * Math.PI * rayonLobe)
+      expect(efface).toBeGreaterThan(0)
+      expect(efface).toBeCloseTo(TROUS, 1)
+    }
+  })
+
+  it('ne dépassent jamais la réserve tirée à la naissance', () => {
+    expect(nombreDeTrous(100000, cellule)).toBe(TROUS_RESERVE)
+  })
+
+  it('se posent dans l’épaisseur du trait, pas à côté', () => {
+    const b = naitre(tirage([0.1, 0.6, 0.3, 0.9, 0.45]))
+    const R = 60
+    const l = b.lobes[2]
+    for (const t of trousDuLobe(b, 2, R, cellule)) {
+      const d = Math.hypot(t.x - l.dx * R, t.y - l.dy * R)
+      expect(d).toBeGreaterThan(l.r * R)
+      expect(d).toBeLessThan(rayonTrait(l.r * R, cellule))
+    }
+  })
+
+  it('percent le trait de part en part : sinon ils ne font que l’amincir', () => {
+    const b = naitre(tirage([0.1, 0.6, 0.3, 0.9, 0.45]))
+    const R = 60
+    const l = b.lobes[2]
+    const cote = TROU * cellule
+    for (const t of trousDuLobe(b, 2, R, cellule)) {
+      const d = Math.hypot(t.x - l.dx * R, t.y - l.dy * R)
+      expect(d - cote / 2).toBeLessThanOrEqual(l.r * R)
+      expect(d + cote / 2).toBeGreaterThanOrEqual(rayonTrait(l.r * R, cellule))
+    }
+  })
+
+  it('ne percent pas deux lobes au même endroit', () => {
+    const b = naitre(tirage([0.1, 0.6, 0.3, 0.9, 0.45]))
+    const angle = (i: number) =>
+      trousDuLobe(b, i, 60, cellule).map((t) => Math.round(t.x * 1000))
+    expect(angle(0)).not.toEqual(angle(1))
+  })
+
+  it('suivent la bouffée sans se retirer au hasard', () => {
+    const b = naitre(tirage([0.1, 0.6, 0.3, 0.9, 0.45]))
+    expect(trousDuLobe(b, 0, 60, cellule)).toEqual(trousDuLobe(b, 0, 60, cellule))
   })
 })
