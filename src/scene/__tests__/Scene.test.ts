@@ -433,6 +433,23 @@ describe('le rideau, commandé par l’horloge', () => {
       expect(vues.at(-1)).toBe(trace)
     })
 
+    /**
+     * Le panneau du DOM arrête l'appui qui tombe sur lui — il est devant tout —,
+     * et cet appui n'allait donc plus fermer la bulle d'une étoile, ce que
+     * `setPointerPx` faisait pour tout appui qui ne prend rien. La scène offre
+     * la phrase courte, que le panneau dit à sa place.
+     */
+    it('ferme la bulle d’une étoile sur demande, sans en chercher une autre', async () => {
+      const { scene, interne } = await sceneDeTest()
+      const trace2 = { ...trace, id: 'b' }
+      interne.stars = { hit: () => trace2 }
+      const vues: Array<Trace | null> = []
+      scene.on('starHover', (t) => vues.push(t))
+      scene.fermerBulleEtoile(10, 20)
+      // `null`, et surtout pas l'étoile que `hit` aurait trouvée sous la plaque.
+      expect(vues.at(-1)).toBeNull()
+    })
+
     it('éclaire l’horloge sous le pointeur, et seulement elle', async () => {
       const { scene, interne } = await sceneDeTest()
       const { x, y } = centre()

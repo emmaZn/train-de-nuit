@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import gsap from 'gsap'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { HAUTEUR_FRISE, HORIZON, cadrageScene, fitStage } from '@/scene/layout'
+import { HAUTEUR_FRISE, HORIZON, cadrageScene } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
 import { HALO_HORLOGE, HORLOGE } from '@/scene/quai'
 import {
@@ -99,7 +99,11 @@ describe('la géométrie du rideau', () => {
  * il tient une **fraction** de course et la relit sur le cadre courant.
  */
 describe('Rideau', () => {
-  const CADRE = fitStage(1440, 900)
+  // `cadrageScene` et jamais `fitStage` : c'est `cadrageScene` qui ajoute son
+  // décalage à `offsetY` (20 px d'écran à 1440 × 900), et `yPoseA` comme
+  // `yRangeA` le lisent. Un cadre de `fitStage` est un cadre que l'application
+  // ne produit jamais.
+  const CADRE = cadrageScene(1440, 900).frame
 
   /**
    * Avance la timeline globale de GSAP sans attendre le temps réel. `time()`
@@ -185,7 +189,7 @@ describe('Rideau', () => {
   it('suit le cadre quand la fenêtre change en pleine descente', () => {
     // Deux fenêtres dont `yPoseA` diffère : sur 1440×900 le plancher de 340
     // s'applique, sur 2560×720 non — sinon le test comparerait 340 à 340.
-    const large = fitStage(2560, 720)
+    const large = cadrageScene(2560, 720).frame
     expect(yPoseA(large)).not.toBeCloseTo(yPoseA(CADRE), 0)
     const r = nouveau()
     r.cadrer(CADRE)

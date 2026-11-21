@@ -857,6 +857,25 @@ export class Scene {
   }
 
   /**
+   * Ferme la bulle d'une étoile, s'il y en a une d'ouverte, pour un appui qui
+   * n'a rien pris.
+   *
+   * « A tap that hits nothing closes the bubble » : c'est la règle de
+   * `setPointerPx`, et elle vaut aussi pour l'appui qui tombe sur le panneau des
+   * départs — sauf que celui-là est arrêté avant `window` (il est en DOM, devant
+   * tout), et doit donc le dire lui-même. Sans ça la bulle reste ouverte sous la
+   * plaque et réapparaît quand le panneau remonte.
+   *
+   * **Pas `setPointerPx` à sa place** : la scène ne sait plus ce que la plaque
+   * couvre, et `stars.hit` y trouverait une étoile *sous* le panneau — on
+   * ouvrirait une bulle au lieu d'en fermer une. Dire « rien » est plus court et
+   * plus vrai.
+   */
+  fermerBulleEtoile(px: number, py: number): void {
+    this.emitter.emit('starHover', null, px, py)
+  }
+
+  /**
    * The journey, as the store sees it. Called again whenever it changes, so a
    * target redirected in flight simply extends the number of legs left.
    */

@@ -254,6 +254,12 @@ const hauteurBras = `${STAGE.height}px`
  * ensemble. Les trois liens, eux, reçoivent leur `click` normalement — on
  * n'arrête que la remontée vers la fenêtre.
  *
+ * **Ce qu'arrêter coûte, et qu'il faut rendre** : `useScene.surAppui` finit par
+ * `setPointerPx`, et c'est ce qui ferme la bulle d'une étoile — « a tap that
+ * hits nothing closes the bubble ». Un appui sur la plaque n'y arrive plus ; la
+ * bulle resterait ouverte dessous et réapparaîtrait à la remontée du panneau. Le
+ * panneau le dit donc lui-même, par `Scene.fermerBulleEtoile`, avant d'arrêter.
+ *
  * **Le survol, lui, passe.** `useScene` fait voyager `setPointer` sur le même
  * `pointermove`, et c'est lui qui fait respirer la parallaxe du ciel : l'arrêter
  * figerait le ciel dès que le pointeur touche le panneau. Le prix est que le
@@ -261,8 +267,11 @@ const hauteurBras = `${STAGE.height}px`
  * `z-index: 5`, donc derrière elle, et seul un débord de bulle peut se voir au
  * ras du bord de la plaque. Un ciel figé se voit bien davantage.
  */
-function arreterAppui(e: Event) {
+function arreterAppui(e: PointerEvent) {
+  // L'arrêt d'abord, la politesse ensuite : c'est lui qui ferme la route du
+  // réverbère, et rien de ce qui suit ne doit pouvoir l'empêcher.
   e.stopPropagation()
+  scene.value?.fermerBulleEtoile(e.clientX, e.clientY)
 }
 
 // L'`id` de la région, que la commande désigne par `aria-controls`. Il n'y a qu'un

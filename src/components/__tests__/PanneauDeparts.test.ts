@@ -90,8 +90,9 @@ function monter(etat: 'ailleurs' | 'ici' | 'enRoute' = 'ailleurs', options: Opti
   const cadre = ref<Frame | null>(frame)
   const posee = frame ? { y: yPoseA(frame), baisse: true } : null
   const rideau = ref<EtatRideau | null>(options.rideau === undefined ? posee : options.rideau)
-  // La scène, réduite à ce que le bouton lui demande : la règle du rideau vit chez elle.
-  const scene = { basculerRideau: vi.fn() }
+  // La scène, réduite à ce que le panneau lui demande : la règle du rideau vit
+  // chez elle, et la bulle d'étoile aussi.
+  const scene = { basculerRideau: vi.fn(), fermerBulleEtoile: vi.fn() }
   const wrapper = mount(PanneauDeparts, {
     attachTo: document.body,
     global: {
@@ -1307,6 +1308,29 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
     })
 
     /**
+     * Ce qu'arrêter l'appui coûtait, et que le panneau rend.
+     *
+     * `useScene.surAppui` finit par `setPointerPx`, et c'est ce qui ferme la
+     * bulle d'une étoile : « a tap that hits nothing closes the bubble ». Un
+     * appui sur la plaque n'y arrive plus — elle l'arrête avant `window` —, et
+     * la bulle serait restée ouverte **dessous**, pour réapparaître à la
+     * remontée du panneau. Le panneau le dit donc lui-même, avec les
+     * coordonnées de l'appui.
+     *
+     * Et pas par `setPointerPx` : la scène ne sait plus ce que la plaque couvre,
+     * et `stars.hit` y trouverait une étoile sous le panneau — on ouvrirait une
+     * bulle au lieu d'en fermer une.
+     */
+    it('ferme la bulle d’une étoile, qu’il empêche l’appui d’aller fermer', async () => {
+      const { wrapper, scene } = posee(1512, 771)
+      wrapper.get('.panneau').element.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, clientX: 123, clientY: 456 }),
+      )
+      await nextTick()
+      expect(scene.fermerBulleEtoile).toHaveBeenCalledWith(123, 456)
+    })
+
+    /**
      * La lampe, elle, **reste atteignable** panneau baissé (spec §5) : la plaque
      * couvre le haut du mât, les deux tiers bas sont dégagés. Son bouton ne
      * déclare aucun `z-index`, donc le panneau (15) passe devant lui et prend ce
@@ -1450,10 +1474,23 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
 
     const TAILLES = [[320, 568], [390, 844], [414, 896], [430, 932], [1512, 771]] as const
 
-    it.each(TAILLES)('tient dans la plaque à %i × %i', (l, h) => {
+    /**
+     * Les deux gardes qui suivent se recouvrent **aujourd'hui** et pas demain, et
+     * c'est pour ça qu'elles sont deux.
+     *
+     * Celle-ci mesure le franc entre la ligne et le filet du cadre, qui vaut
+     * `filet + --creux − ce qui déborde`. À `--creux: 26` et 0,4 px de débord
+     * elle est en effet impliquée par la suivante. Mais elle ne dépend pas du
+     * seul débord : **un `--creux` plus court la fait tomber toute seule**, texte
+     * parfaitement tenu ou non — à 19 px de cadre elle casse avec un débord nul.
+     * Or descendre `--creux` est exactement ce que le rapport propose pour faire
+     * revenir les points de conduite sur un téléphone. C'est le garde-fou de ce
+     * réglage-là : la plaque doit garder 20 px de cadre de respiration, quel que
+     * soit le chemin par lequel on la serre.
+     */
+    it.each(TAILLES)('garde 20 px de cadre entre la ligne et le filet, à %i × %i', (l, h) => {
       const { wrapper } = posee(l, h)
       const trop = Math.max(0, debordement(plaque(wrapper).largeur))
-      // Ce qui déborde est repris sur le creux : au-delà, la ligne mordrait le filet.
       const franc = filet() + mesure('creux') - trop
       expect(franc, `il ne reste que ${franc}px de cadre de franc`).toBeGreaterThanOrEqual(20)
     })
