@@ -6,14 +6,15 @@
  *
  * Même parti que la commande de l'horloge (`PanneauDeparts.vue`) : le geste
  * passe par `Scene.basculerReverbere()`, qui tient la règle en un seul endroit,
- * et la boîte est **celle de la scène** — `CIBLE_REVERBERE`, le rectangle que
- * `Quai.reverbereTouche` teste, converti en pixels d'écran par le cadre.
+ * et la boîte est **celle de la scène** — `cibleReverbere(échelle)`, le
+ * rectangle que `Quai.reverbereTouche` teste, converti en pixels d'écran par le
+ * cadre.
  * La souris et le clavier visent ainsi exactement la même chose, et un réglage
  * de la lampe les déplace tous deux.
  *
  * L'état ne se devine pas : il vient de la scène, par `reverbere`. C'est elle
  * qui rallume la lampe d'office quand la gare quitte le champ — un jouet, pas
- * un réglage — et sans cet événement le bouton dirait « Allumer le réverbère »
+ * un réglage — et sans cet événement `aria-pressed` resterait à « non pressé »
  * sur une lampe rallumée au retour.
  */
 import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'

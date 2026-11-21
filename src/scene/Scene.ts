@@ -609,6 +609,18 @@ export class Scene {
    * Les oiseaux, eux, sont dans `plateau`, dessinés devant la plaque : on les
    * voit par-dessus et ils répondent — leurs fils passent en pleine boîte de la
    * plaque posée.
+   *
+   * **Le réverbère, lui, ignore délibérément la plaque**, et ce n'est pas un
+   * oubli. La plaque le recouvre pourtant : elle occupe x 551–1678, y 340–669
+   * en pixels de cadre, et le cône du faisceau descend de 598 à 885 — un clic
+   * sur une ligne éteinte du panneau (elles sont `pointer-events: none`, il
+   * tombe donc jusqu'ici) éteint un faisceau dont les deux tiers du bas sont en
+   * pleine vue, sous la plaque. La garde `sousLeRideau` n'est pas posée parce
+   * qu'elle serait du code mort : la plaque quitte le canvas pour le DOM, et
+   * son `pointerdown` qui arrête la propagation, avec le `pointer-events: auto`
+   * du panneau, ferme les deux routes d'un seul geste. C'est une décision
+   * datée, pas une omission : celui qui sort la plaque du canvas hérite de ce
+   * défaut et de sa fin.
    */
   clicPx(px: number, py: number): boolean {
     const f = this.frameCourante
@@ -1070,8 +1082,8 @@ export class Scene {
       this.quai?.avancer(this.ileAilleurs.distance, nuit)
     }
     // Le quai rallume le réverbère de lui-même quand la gare quitte le champ :
-    // c'est le seul changement que le DOM ne peut pas deviner, et sans lui le
-    // bouton dirait « Allumer » sur une lampe allumée au retour.
+    // c'est le seul changement que le DOM ne peut pas deviner, et sans lui
+    // `aria-pressed` resterait à « non pressé » sur une lampe allumée au retour.
     this.emettreReverbere()
     // Le faisceau respire de lui-même, posé ou non : il est caché avec l'île.
     this.quai?.animer(dt)

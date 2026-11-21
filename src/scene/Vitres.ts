@@ -56,9 +56,11 @@ export const DENSITE_HAUT = 0.55
  * Choisie à l'œil contre un halo en grain, qui respectait la règle mais se
  * lisait moins bien.
  *
- * Au réglage 3, la propriétaire a étendu cette entorse aux trois sources de la
- * gare d'« ailleurs » — lueur de la lanterne, cône du faisceau, halo de
- * l'horloge (`QuaiLayer`, `Faisceau`) —, et à elles seules.
+ * Au réglage 3, la propriétaire a étendu cette entorse aux **deux dégradés**
+ * de la gare d'« ailleurs » — cône du faisceau, halo de l'horloge
+ * (`QuaiLayer`, `Faisceau`) —, et à eux seuls. Ils étaient trois : le halo rond
+ * de la lanterne a été retiré le 21 novembre 2026, et la lanterne est depuis un
+ * blanc plein, qui ne fait pas de mi-teinte.
  */
 export const HALO_ALPHA = 0.5
 

@@ -51,7 +51,7 @@ export type Cone = {
 
 /**
  * D'où part le faisceau, en unités du cadre du réverbère : le **haut** du
- * corps vitré, qui court de 110 à 165 (`LANTERNE` dans `QuaiLayer.ts`). La
+ * corps vitré, qui court de 110 à 165 (`LANTERNE` dans `quai.ts`). La
  * lanterne se tient donc dans la pointe du cône, là où il est le plus clair —
  * c'est ce qui la pose comme la source.
  *

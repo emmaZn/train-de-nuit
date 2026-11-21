@@ -271,7 +271,7 @@ const DEMI_EMBASE =
  * du verre que déborder du dessin.
  *
  * Il vit ici, avec la géométrie, et non dans `QuaiLayer.ts` qui le trace :
- * `CIBLE_REVERBERE` a besoin de `hautY` pour savoir où commence la lampe, et
+ * `cibleReverbere` a besoin de `hautY` pour savoir où commence la lampe, et
  * un second 110 écrit à la main se serait désaccordé du dessin au premier
  * réglage.
  */

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import gsap from 'gsap'
-import { Container } from 'pixi.js'
+import { Container, Sprite } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { loadTexture } from '@/scene/assets'
@@ -507,6 +507,39 @@ describe('le réverbère qu’on éteint', () => {
     expect(quai.allumeReverbere).toBe(true)
     expect(quai.lumiere.groupe.visible).toBe(true)
     expect(quai.lanterne.visible).toBe(true)
+  })
+
+  /**
+   * L'autre moitié de la règle : éteindre emporte la **lumière**, et laisse le
+   * **mât**. Le dessin du lampadaire n'est que du trait ; un réverbère éteint
+   * est un lampadaire qu'on voit encore, pas un lampadaire disparu. Le sprite
+   * vit dans la racine allumée, aux côtés du faisceau et de la lanterne : rien
+   * n'empêcherait de l'éteindre avec eux, et c'est ce test qui l'interdit.
+   */
+  it('laisse le mât en place quand la lumière s’en va', async () => {
+    const restaurer = stubFetchEnEchec('rien-du-tout')
+    try {
+      const { quai } = poser()
+      await quai.charger()
+      const mat = quai.allume.children.find(
+        (n): n is Sprite => n instanceof Sprite && n.texture === quai.texture('reverbere'),
+      )
+      expect(mat, 'le sprite du réverbère est monté').toBeDefined()
+      // L'île posée : sans cela les deux racines sont encore cachées, et la
+      // visibilité de la racine ne dirait rien de l'extinction.
+      quai.avancer(0, 0)
+
+      quai.basculerReverbere()
+      expect(quai.allumeReverbere).toBe(false)
+      // La lumière est partie…
+      expect(quai.lumiere.groupe.visible).toBe(false)
+      expect(quai.lanterne.visible).toBe(false)
+      // …le mât est resté, et sa racine avec lui.
+      expect(mat!.visible).toBe(true)
+      expect(quai.allume.visible).toBe(true)
+    } finally {
+      restaurer()
+    }
   })
 
   /**
