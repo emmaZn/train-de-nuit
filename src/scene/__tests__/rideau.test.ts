@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { HAUTEUR_FRISE, HORIZON, cadrageScene } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
-import { HORLOGE } from '@/scene/quai'
+import { HALO_HORLOGE, HORLOGE } from '@/scene/quai'
 import {
   BRAS,
   DEGAGEMENT_ECRAN,
@@ -66,8 +66,25 @@ describe('la géométrie du rideau', () => {
     expect(horlogeTouchee(HORLOGE.x, HORLOGE.y)).toBe(true)
     expect(horlogeTouchee(HORLOGE.x + HORLOGE.rayon * 2.2, HORLOGE.y)).toBe(true)
     expect(horlogeTouchee(HORLOGE.x + HORLOGE.rayon * 3, HORLOGE.y)).toBe(false)
-    // Une cible de 44 px d'écran au minimum : c'est le halo, pas le cadran.
-    expect(HORLOGE.rayon * 2.4).toBeGreaterThanOrEqual(44 / 0.65)
+  })
+
+  /**
+   * La cible est le **halo** et non le seul cadran : c'est ce qui la garde touchable
+   * une fois la scène réduite. L'assertion qui portait cette phrase comparait deux
+   * constantes de cadre l'une à l'autre — un `2,4` recopié de `HALO_HORLOGE` au lieu
+   * d'être importé, et une échelle plancher de `0,65` que rien ne justifiait et qui
+   * est fausse : à 1280 × 720 l'échelle vaut 0,592, à 1024 × 600 elle vaut 0,493.
+   *
+   * On mesure donc le **diamètre à l'écran**, par l'échelle que la scène applique
+   * vraiment, aux fenêtres éprouvées ici. C'est tout ce que ce test établit : il ne
+   * promet pas 44 px à **toute** fenêtre. Le plancher d'échelle du rendu attaché
+   * (`SEUIL_MOBILE / STAGE.width`, c'est-à-dire une fenêtre de 720 px de large et de
+   * moins de 378 de haut) donnerait 43,4 px, et sous le seuil ce n'est de toute
+   * façon plus l'horloge qu'on vise mais le cadran épinglé de `PanneauDeparts`.
+   */
+  it.each(FENETRES)('fait du halo de l’horloge une cible de 44 px d’écran à %i×%i', (w, h) => {
+    const { frame } = cadrageScene(w, h)
+    expect(2 * HORLOGE.rayon * HALO_HORLOGE.rayon * frame.scale).toBeGreaterThanOrEqual(44)
   })
 })
 

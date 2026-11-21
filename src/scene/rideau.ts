@@ -68,9 +68,11 @@ export function yPoseA(frame: Frame): number {
 
 /**
  * Le biseau des coins de la plaque, en pixels de **cadre**. C'est le même
- * nombre que le `--biseau: 12px` de `PanneauDeparts.vue`, mais pas la même
- * longueur : 12 px de cadre valent `12 × échelle` px CSS (≈ 9 à l'échelle de
- * pose). Quiconque les confronte doit convertir.
+ * nombre que le `--biseau: 12px` de `PanneauDeparts.vue`, et la même longueur :
+ * le texte est posé à sa taille de cadre puis mis à l'échelle par
+ * `transform: scale()`, donc son `12px` vaut lui aussi `12 × échelle` px à
+ * l'écran (≈ 9 à l'échelle de pose). Rien à convertir entre les deux ; c'est
+ * en revanche en pixels d'**écran** qu'on les confronte à un pixel CSS ordinaire.
  */
 export const BISEAU = 12
 

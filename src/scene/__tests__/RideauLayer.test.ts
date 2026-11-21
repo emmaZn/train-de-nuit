@@ -59,6 +59,25 @@ afterEach(() => {
 })
 
 describe('Rideau', () => {
+  // Sous le seuil mobile le panneau du DOM se détache : la scène ne dessine plus
+  // la plaque, mais l'objet continue d'exister et d'émettre sa position.
+  it('éteint son tracé, et seulement lui, quand le rendu est détaché', () => {
+    const parent = new Container()
+    const r = nouveau(false, parent)
+    const racine = parent.children[0]
+    r.cadrer(CADRE, PAR_CADRE)
+    expect(racine.visible).toBe(true)
+    r.cadrer(CADRE, PAR_CADRE, true)
+    expect(racine.visible).toBe(false)
+    // L'objet vit : il se baisse, et sa position reste un vrai nombre.
+    r.baisser()
+    expect(r.baisse).toBe(true)
+    expect(Number.isFinite(r.y)).toBe(true)
+    // Et le tracé revient avec la fenêtre large.
+    r.cadrer(CADRE, PAR_CADRE, false)
+    expect(racine.visible).toBe(true)
+  })
+
   it('démarre rangé, hors de la fenêtre', () => {
     const r = nouveau()
     r.cadrer(CADRE, PAR_CADRE)

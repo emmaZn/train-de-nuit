@@ -21,8 +21,9 @@ export type SceneEvents = {
   /**
    * Le cadre de la scène, à chaque recadrage (redimensionnement compris). Ce
    * qui est en DOM mais posé *dans* la scène en tire sa place : `offset +
-   * position × scale`. **Personne ne le consomme plus pour l'instant** : le texte
-   * du panneau le faisait, et il attend la position du rideau (tâche 4 du plan).
+   * position × scale`. `App.vue` le passe par `FRAME_KEY` et `PanneauDeparts` le
+   * lit — avec `rideau` ci-dessous — pour poser le texte des départs sur la plaque
+   * et la commande du rideau sur l'horloge.
    */
   frame: (frame: Frame) => void
   /**

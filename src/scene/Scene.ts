@@ -554,7 +554,7 @@ export class Scene {
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
     this.cables?.cadrer(frame, this.app.renderer.resolution)
     this.quai?.cadrer(frame, this.app.renderer.resolution, width < SEUIL_MOBILE)
-    this.rideau?.cadrer(frame, this.app.renderer.resolution)
+    this.rideau?.cadrer(frame, this.app.renderer.resolution, width < SEUIL_MOBILE)
     // Le cadre change `y` sans que le rideau ait bougé : le texte doit le savoir.
     this.emettreRideau()
     this.oiseaux?.cadrer(frame, this.app.renderer.resolution, width)

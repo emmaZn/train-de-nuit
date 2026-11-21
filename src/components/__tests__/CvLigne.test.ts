@@ -11,7 +11,8 @@ import CvLigne from '@/components/CvLigne.vue'
 import GareAilleurs from '@/components/gares/GareAilleurs.vue'
 import { HORS_DE_LA_VOIE, PARCOURS } from '@/contenu/cv'
 import { brancherVoyage, createAppRouter } from '@/router'
-import { fitStage } from '@/scene/layout'
+import { cadrageScene } from '@/scene/layout'
+import type { Frame } from '@/scene/layout'
 import { yPoseA } from '@/scene/rideau'
 import { useVoyage } from '@/stores/voyage'
 
@@ -188,8 +189,8 @@ describe('CvLigne', () => {
    * d'ancêtre inerte.
    */
   it('rend le focus au lien du panneau, et hors de toute zone inerte', async () => {
-    faux.frame = fitStage(1440, 900)
-    faux.rideau = { y: yPoseA(faux.frame as ReturnType<typeof fitStage>), baisse: true }
+    faux.frame = cadrageScene(1440, 900).frame
+    faux.rideau = { y: yPoseA(faux.frame as Frame), baisse: true }
     const vraiFocus = HTMLElement.prototype.focus
     try {
       const { wrapper, router } = await monterApp('/ailleurs')

@@ -5,7 +5,7 @@ import { Application, Container } from 'pixi.js'
 import { Quai } from '@/scene/QuaiLayer'
 import { Rideau } from '@/scene/RideauLayer'
 import { Scene, plansDuDecor, poserCiel, poserMonde } from '@/scene/Scene'
-import { cadrageScene, HORIZON } from '@/scene/layout'
+import { cadrageScene, HORIZON, SEUIL_MOBILE } from '@/scene/layout'
 import { HORLOGE } from '@/scene/quai'
 import { RIDEAU, yPoseA } from '@/scene/rideau'
 import type { Trace } from '@/scene/types'
@@ -354,6 +354,25 @@ describe('le rideau, commandé par l’horloge', () => {
       }
       expect(emis.length).toBeGreaterThan(1)
       expect(emis.at(-1)![0]).not.toBeCloseTo(avant, 1)
+    })
+
+    it('ne trace pas la plaque sous le seuil mobile, mais continue d’émettre', async () => {
+      const { scene, emis, interne } = await sceneDeTest()
+      const racine = (scene as unknown as { plans: ReturnType<typeof plansDuDecor> }).plans.rideau.children[0]
+      expect(racine.visible).toBe(true)
+      ECRAN.width = SEUIL_MOBILE - 1
+      try {
+        scene.resize()
+        expect(racine.visible).toBe(false)
+        emis.length = 0
+        scene.basculerRideau()
+        expect(emis).toHaveLength(1)
+        expect(interne.rideau!.baisse).toBe(true)
+      } finally {
+        ECRAN.width = 1440
+      }
+      scene.resize()
+      expect(racine.visible).toBe(true)
     })
 
     it('n’émet jamais un y qui ne soit pas un nombre', async () => {

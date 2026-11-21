@@ -28,6 +28,9 @@ const NOIR = 0x0b0b0c
  * doucement et n'a pas besoin de rebond.
  */
 const DUREE = 1.45
+// `DEBUT_LIGNES_MS` et `DEBUT_ENTETE_MS` (`components/volets.ts`) sont calés sur
+// cette durée et sur la courbe ci-dessous : le texte se pose pendant que la
+// plaque finit de se rasseoir. Les changer ici sans eux désynchronise le tout.
 const COURBE_DESCENTE = 'back.out(1.1)'
 const COURBE_REMONTEE = 'power2.inOut'
 
@@ -88,7 +91,13 @@ export class Rideau {
     this.aller(!this.visee)
   }
 
-  cadrer(frame: Frame, resolution: number): void {
+  /**
+   * `detache` : sous le seuil mobile, le panneau du DOM se pose sur la fenêtre
+   * (et dessine ses propres bras) ; la plaque de scène ne se trace plus. Seul le
+   * tracé s'éteint — l'objet garde son état et sa position, que la scène émet.
+   */
+  cadrer(frame: Frame, resolution: number, detache = false): void {
+    this.racine.visible = !detache
     this.cadre = frame
     const parCadre = frame.scale * resolution
     // `scale` est dans la clé : le plancher du raster en dépend seul, et deux

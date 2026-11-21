@@ -13,7 +13,7 @@ vi.mock('@/composables/useScene', async (importOriginal) => {
   const reel = await importOriginal<typeof import('@/composables/useScene')>()
   return {
     ...reel,
-    useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), changerFond: () => {} }),
+    useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(null), rideau: ref(null), changerFond: () => {} }),
   }
 })
 
