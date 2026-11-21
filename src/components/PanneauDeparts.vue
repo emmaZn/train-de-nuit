@@ -61,12 +61,9 @@
  * se jouait pendant la descente et faisait fondre ce que les volets posent.
  * Sous `prefers-reduced-motion`, le texte est posé d'emblée.
  *
- * La commande, elle, est le même bouton partout et ne se dédouble jamais :
- * panneau rangé, c'est un disque transparent posé sur l'horloge de la gare ;
- * panneau posé, l'horloge est dessous, et le disque se déplace sur l'heure du
- * bandeau. (Le cadran épinglé de 52 px est parti avec le seuil mobile : il
- * n'existait que parce que l'horloge était hors champ sur un téléphone, et la
- * gare au milieu règle ce manque à la racine.)
+ * La commande du rideau est un disque transparent posé sur l'horloge de la gare,
+ * et elle **se retire** panneau baissé (spec §5) : l'horloge est alors dessous, et
+ * la sortie est la croix du bandeau.
  */
 import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -104,16 +101,12 @@ watch(frame, mesurer)
 const GOUTTIERE = 12
 
 /**
- * Les mesures du CSS dont le script a besoin, en pixels de **cadre** : le
- * retrait latéral (`--creux`), le filet du cadre, la hauteur du bandeau
- * (`--entete` moins la demi-ligne d'écart qui le sépare des départs), le corps
- * du bandeau et la largeur de l'heure qu'il porte (5 signes × (0,6 + 0,08) em).
- * Elles servent à poser la commande sur cette heure ; `PanneauDeparts.test.ts`
- * les confronte à la source du style.
+ * Les mesures du CSS dont le script a besoin, en pixels de **cadre** : la hauteur
+ * du bandeau (`--entete` moins la demi-ligne d'écart qui le sépare des départs),
+ * où se pose la croix. `PanneauDeparts.test.ts` les confronte à la source du style.
  */
-const PLAQUE = { creux: 26, filet: 1, entete: 80, ligne: 44, corpsEntete: 22 } as const
+const PLAQUE = { entete: 80, ligne: 44 } as const
 const BANDEAU = PLAQUE.entete - PLAQUE.ligne / 2
-const LARGEUR_HEURE = 5 * (0.6 + 0.08) * PLAQUE.corpsEntete
 
 /** Ce qu'un doigt exige, en pixels d'**écran** (WCAG 2.5.5) : le même nombre que `cibleReverbere`. */
 const CIBLE = 44
@@ -121,10 +114,8 @@ const CIBLE = 44
 /**
  * La croix de fermeture, en pixels de **cadre** : un carré de 44 px d'**écran**,
  * donc de `CIBLE / échelle` ici — le bandeau rétrécit avec le cadre, pas le
- * doigt. Elle est collée au bord intérieur droit du bandeau, et l'heure s'arrête
- * `ECART_CROIX` avant elle (le `margin-left` de `.croix`, que le test confronte).
+ * doigt. Elle est collée au bord intérieur droit du bandeau, l'heure juste avant.
  */
-const ECART_CROIX = 12
 const cote = computed(() => CIBLE / (frame.value?.scale ?? 1))
 
 /**
@@ -305,57 +296,27 @@ function arreterAppui(e: PointerEvent) {
 const ID_PANNEAU = 'panneau-departs'
 
 /**
- * La commande du rideau : un seul bouton, qui se déplace.
- *
- * Panneau rangé, c'est un disque transparent posé sur l'horloge du canvas, de la
- * taille exacte de la cible de la souris (`horlogeTouchee`) : le même geste au
+ * La commande du rideau : un disque transparent posé sur l'horloge du canvas, de
+ * la taille exacte de la cible de la souris (`horlogeTouchee`) : le même geste au
  * clavier qu'au pointeur, pour que les trois liens du panneau s'atteignent sans
  * souris. Elle passe par `Scene.basculerRideau()`, qui tient en un seul endroit
  * la règle (se baisse à l'arrêt, se relève toujours) — jamais par le rideau.
  *
- * Panneau posé, l'horloge est **dessous** : la commande ne reste pas en piège
- * sous la plaque, elle se déplace sur l'heure du bandeau, qui est le cadran qui
- * est là. Invisible, mais de 44 px, et dans la bande du bandeau, qui ne porte
- * aucun lien : un cadran dessiné, lui, tomberait sur les trois liens.
- *
- * **44 px dans les deux dimensions, toujours** : c'est le plancher qu'un doigt
- * exige, et il ne se négocie pas plus en hauteur qu'en largeur — c'est le même
- * plancher qui a fait élargir la cible du réverbère. Or le bandeau rétrécit avec
- * le cadre, pas le doigt : sur une fenêtre large et basse (800 × 450, échelle
- * 0,37) il ne fait que 21 px d'écran de haut. Le disque déborde donc de la
- * bande, **par le haut**, et jamais par le bas : au-dessus il n'y a que le bord
- * de la plaque et le ciel, en dessous il y a la première ligne, qui est un des
- * trois liens du site. Un disque invisible qui mange le haut d'un lien est
- * exactement le défaut que ce dépôt a déjà corrigé deux fois ; un qui déborde
- * d'une dizaine de pixels au-dessus de la plaque ne coûte rien.
+ * **Elle est la commande d'ouverture, et seulement elle.** Rideau baissé elle se
+ * retire (`null`, donc `v-if`) : l'horloge est dessous, et un disque resté en
+ * piège sous la plaque, ou posé sur le bandeau, serait une seconde commande de
+ * fermeture qui se disputerait la place de la croix. Elle revient dès que le
+ * rideau n'est plus baissé, plaque encore en vue : le focus y retourne.
  */
 const commande = computed<Record<string, string> | null>(() => {
   // Ni ailleurs ni cadre : pas de commande.
   if (voyage.gare !== 'ailleurs') return null
   const f = frame.value
   if (!f) return null
-  if (visible.value) {
-    const haut = hautEcran.value ?? 0
-    const debutLignes = haut + (PLAQUE.filet + PLAQUE.entete) * f.scale
-    // Centré sur la bande du bandeau, puis remonté juste ce qu'il faut pour que
-    // son bas n'entre pas dans les lignes. Il reste donc 44 × 44, et il déborde
-    // vers le haut quand la bande est plus courte que le doigt.
-    const sommet = Math.min(haut + (PLAQUE.filet + BANDEAU / 2) * f.scale - CIBLE / 2, debutLignes - CIBLE)
-    // Et de même en largeur : centré sur l'heure, mais jamais sur la croix, qui
-    // est à sa droite et que le disque (16 contre 15) recouvrirait, mangeant
-    // son clic. À petite échelle l'heure est si près de la croix que le disque
-    // de 44 px s'y poserait : il se cale alors sur son bord gauche.
-    const gaucheCroix = gaucheEcran.value + (largeurCadre.value - PLAQUE.filet) * f.scale - cote.value * f.scale
-    const centreHeure =
-      gaucheEcran.value +
-      (largeurCadre.value - PLAQUE.filet - cote.value - ECART_CROIX - LARGEUR_HEURE / 2) * f.scale
-    return {
-      left: `${Math.min(centreHeure - CIBLE / 2, gaucheCroix - CIBLE)}px`,
-      top: `${sommet}px`,
-      width: `${CIBLE}px`,
-      height: `${CIBLE}px`,
-    }
-  }
+  // Panneau baissé, l'horloge est dessous : la commande se retire (spec §5), elle ne
+  // reste pas en piège sous la plaque. La croix du bandeau est la sortie, et le
+  // focus y entre à l'ouverture.
+  if (rideau.value?.baisse) return null
   const r = HORLOGE.rayon * HALO_HORLOGE.rayon * f.scale
   return {
     left: `${f.offsetX + HORLOGE.x * f.scale - r}px`,
@@ -376,10 +337,21 @@ const croixEl = ref<HTMLButtonElement | null>(null)
  * reste monté dessous (décision 7 de la spec du rideau), attend le suivant.
  * Passe par `Scene.basculerRideau()`, comme la croix et l'horloge.
  */
+/**
+ * Ferme, et **seulement** si le panneau est baissé : `basculerRideau` est une
+ * bascule, et la croix reste atteignable pendant la remontée (la plaque doit
+ * rester dans le chemin du pointeur). Un second appui — un double-tap — la
+ * rebaisserait sans cette garde.
+ */
+function fermer() {
+  if (!rideau.value?.baisse) return
+  scene.value?.basculerRideau()
+}
+
 function surEchap(e: KeyboardEvent) {
   if (e.key !== 'Escape' || e.defaultPrevented) return
-  if (!rideau.value?.baisse || route.name === 'cv') return
-  scene.value?.basculerRideau()
+  if (route.name === 'cv') return
+  fermer()
 }
 onMounted(() => document.addEventListener('keydown', surEchap))
 onBeforeUnmount(() => document.removeEventListener('keydown', surEchap))
@@ -432,7 +404,6 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
     v-if="commande"
     ref="commandeEl"
     class="commande"
-    :class="{ 'sur-bandeau': visible }"
     data-commande
     type="button"
     aria-label="Prochains départs"
@@ -452,7 +423,7 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
         <span class="heure"><VoletTexte :texte="heure" :retard="DEBUT_ENTETE_MS" :fige="fige" /></span>
         <!-- Visible, et non un disque transparent : c'est le chemin de sortie. Le
              dessin est masqué au lecteur d'écran, qui lit le nom du bouton. -->
-        <button ref="croixEl" class="croix" type="button" aria-label="Fermer les prochains départs" :style="styleCroix" @click="scene?.basculerRideau()">
+        <button ref="croixEl" class="croix" type="button" aria-label="Fermer les prochains départs" :style="styleCroix" @click="fermer">
           <svg viewBox="0 0 44 44" aria-hidden="true" focusable="false"><path d="M14 14L30 30M30 14L14 30" /></svg>
         </button>
       </p>
@@ -521,13 +492,6 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
 .commande:focus-visible {
   outline: 2px solid var(--texte);
   outline-offset: 2px;
-}
-
-/* Posée sur l'heure du bandeau : le panneau est à 15, elle doit passer devant
-   lui, sans quoi il la recouvrirait. C'est la pile de la spec — frise 2,
-   panneau 15, commande 16, CV 20. */
-.commande.sur-bandeau {
-  z-index: 16;
 }
 
 /* La plaque. Tout ce qui est écrit ici est en pixels de **cadre** : le
@@ -634,6 +598,10 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
   background: var(--texte);
   color: var(--fond);
   cursor: pointer;
+}
+
+.entete .heure {
+  margin-left: auto;
 }
 
 .croix svg {

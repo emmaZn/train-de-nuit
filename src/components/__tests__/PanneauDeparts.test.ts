@@ -688,9 +688,14 @@ describe('PanneauDeparts — la commande du rideau', () => {
     return texte.slice(i, texte.indexOf('}', i))
   }
   const commande = (wrapper: ReturnType<typeof monter>['wrapper']) => wrapper.get('[data-commande]')
+  /** La commande n'existe que panneau rangé (spec §5) : c'est là qu'on la monte. */
+  const rangee = (etat: 'ailleurs' | 'enRoute' = 'ailleurs') => {
+    const f = cadreDe(1440, 900)
+    return { f, ...monter(etat, { frame: f, rideau: { y: yRangeA(f), baisse: false } }) }
+  }
 
   it('offre une commande focalisable qui nomme le panneau', () => {
-    const bouton = commande(monter().wrapper)
+    const bouton = commande(rangee().wrapper)
     expect(bouton.attributes('aria-label')).toMatch(/départs/i)
   })
 
@@ -706,28 +711,36 @@ describe('PanneauDeparts — la commande du rideau', () => {
    * document sans démonter, et un panneau d'un test précédent traîne encore.
    */
   it('dit quelle région elle commande, tant que cette région est là', async () => {
-    const f = cadreDe(1440, 900)
-    const { wrapper, rideau } = monter('ailleurs', { frame: f, rideau: { y: yPoseA(f), baisse: true } })
-    const region = wrapper.get('[role="region"]')
-    const id = region.attributes('id')
-    expect(id, 'la région du panneau n’a pas d’id').toBeTruthy()
-    expect(commande(wrapper).attributes('aria-controls')).toBe(id)
-    // Le nom, lui, ne change pas : il est le même des deux côtés, et c'est voulu.
-    expect(region.attributes('aria-label')).toBe('Prochains départs')
-
-    rideau.value = { y: yRangeA(f), baisse: false }
-    await nextTick()
+    const { wrapper, rideau, f } = rangee()
+    // Rangé : il n'y a pas de région, donc rien à désigner.
     expect(wrapper.find('[role="region"]').exists()).toBe(false)
+    expect(commande(wrapper).attributes('aria-expanded')).toBe('false')
     expect(commande(wrapper).attributes('aria-controls')).toBeUndefined()
+
+    // Baissé : la commande se retire, et la croix du bandeau est la sortie.
+    rideau.value = { y: yPoseA(f), baisse: true }
+    await nextTick()
+    const region = wrapper.get('[role="region"]')
+    expect(region.attributes('id')).toBeTruthy()
+    // Le nom est le même des deux côtés, et c'est voulu.
+    expect(region.attributes('aria-label')).toBe('Prochains départs')
+    expect(wrapper.find('[data-commande]').exists()).toBe(false)
+
+    // Remontée : la plaque est encore là, la commande est revenue sur l'horloge
+    // et désigne la région tant qu'elle existe ; elle dit « fermé ».
+    rideau.value = { y: yPoseA(f) - 40, baisse: false }
+    await nextTick()
+    expect(commande(wrapper).attributes('aria-expanded')).toBe('false')
+    expect(commande(wrapper).attributes('aria-controls')).toBe(region.attributes('id'))
   })
 
   // Un `<button>` n'a pas d'attribut `tabindex` : on éprouve le focus lui-même.
   it('prend le focus clavier à quai, pas en route', () => {
-    const bouton = commande(monter().wrapper).element as HTMLElement
+    const bouton = commande(rangee().wrapper).element as HTMLElement
     bouton.focus()
     expect(document.activeElement).toBe(bouton)
     bouton.blur()
-    const enRoute = commande(monter('enRoute').wrapper).element as HTMLElement
+    const enRoute = commande(rangee('enRoute').wrapper).element as HTMLElement
     enRoute.focus()
     expect(document.activeElement).toBe(document.body)
   })
@@ -735,13 +748,13 @@ describe('PanneauDeparts — la commande du rideau', () => {
   // Entrée et Espace déclenchent `click` sur un vrai bouton : un `@keydown.enter`
   // de plus ferait deux bascules, le rideau descendrait et remonterait aussitôt.
   it('est un vrai bouton, donc Entrée et Espace le déclenchent', () => {
-    const bouton = commande(monter().wrapper)
+    const bouton = commande(rangee().wrapper)
     expect(bouton.element.tagName).toBe('BUTTON')
     expect(bouton.attributes('type')).toBe('button')
   })
 
   it('bascule le rideau au clic, par la scène', async () => {
-    const { wrapper, scene } = monter()
+    const { wrapper, scene } = rangee()
     await commande(wrapper).trigger('click')
     expect(scene.basculerRideau).toHaveBeenCalled()
   })
@@ -753,7 +766,7 @@ describe('PanneauDeparts — la commande du rideau', () => {
    * le rideau descend et remonte aussitôt. `window` imite `surAppui` ici.
    */
   it('ne bascule qu’une fois pour un appui de souris suivi de son clic', async () => {
-    const { wrapper, scene } = monter()
+    const { wrapper, scene } = rangee()
     const surAppui = () => scene.basculerRideau()
     window.addEventListener('pointerdown', surAppui)
     try {
@@ -767,24 +780,30 @@ describe('PanneauDeparts — la commande du rideau', () => {
   })
 
   it('ne bascule pas sur une touche : le clic natif du bouton suffit', async () => {
-    const { wrapper, scene } = monter()
+    const { wrapper, scene } = rangee()
     await commande(wrapper).trigger('keydown', { key: 'Enter' })
     await commande(wrapper).trigger('keydown', { key: ' ' })
     expect(scene.basculerRideau).not.toHaveBeenCalled()
   })
 
-  it('dit l’état du rideau, et le suit', async () => {
-    const { wrapper, rideau } = monter('ailleurs', { rideau: { y: 10, baisse: true } })
-    expect(commande(wrapper).attributes('aria-expanded')).toBe('true')
-    rideau.value = { y: -400, baisse: false }
+  it('dit l’état du rideau : fermé tant qu’elle existe, absente dès qu’il est baissé', async () => {
+    const { wrapper, rideau, f } = rangee()
+    expect(commande(wrapper).attributes('aria-expanded')).toBe('false')
+    rideau.value = { y: yPoseA(f), baisse: true }
+    await nextTick()
+    expect(wrapper.find('[data-commande]').exists()).toBe(false)
+    rideau.value = { y: yRangeA(f), baisse: false }
     await nextTick()
     expect(commande(wrapper).attributes('aria-expanded')).toBe('false')
   })
 
-  it('garde le même nom quel que soit l’état', async () => {
-    const { wrapper, rideau } = monter('ailleurs', { rideau: { y: 10, baisse: true } })
+  it('garde le même nom que la région, rangée comme au retour', async () => {
+    const { wrapper, rideau, f } = rangee()
     const avant = commande(wrapper).attributes('aria-label')
-    rideau.value = { y: -400, baisse: false }
+    expect(avant).toBe('Prochains départs')
+    rideau.value = { y: yPoseA(f), baisse: true }
+    await nextTick()
+    rideau.value = { y: yRangeA(f), baisse: false }
     await nextTick()
     expect(commande(wrapper).attributes('aria-label')).toBe(avant)
   })
@@ -814,7 +833,7 @@ describe('PanneauDeparts — la commande du rideau', () => {
    * ≈ 9 s), et la commande restait à l'écran sans répondre.
    */
   it('se désactive au départ et se réactive à l’arrivée, sans changer de bouton', async () => {
-    const { wrapper, voyage, scene } = monter()
+    const { wrapper, voyage, scene } = rangee()
     const bouton = () => wrapper.get('[data-commande]')
     const noeud = bouton().element
     expect(bouton().attributes('disabled')).toBeUndefined()
@@ -1013,16 +1032,11 @@ describe('PanneauDeparts — la plaque est le panneau', () => {
   })
 
   /** Et sa commande passe devant lui, sinon le panneau la recouvrirait. */
-  it('la commande du panneau passe devant le panneau, et reste sous le CV', () => {
-    const cv = Number(/z-index:\s*(\d+)/.exec(readFileSync('src/components/CvLigne.vue', 'utf8'))![1])
-    const panneau = Number(/z-index:\s*(\d+)/.exec(declarations('.panneau'))![1])
-    // Sur le bandeau, et là seulement : posée sur l'horloge elle est un disque
-    // invisible en plein ciel, qu'un `z-index` ferait passer devant les bulles.
+  it('la commande n’a plus de z-index : elle se retire panneau baissé, au lieu de passer devant', () => {
+    // Posée sur l'horloge elle est un disque invisible en plein ciel, qu'un
+    // `z-index` ferait passer devant les bulles ; et baissé, le panneau la retire.
     expect(declarations('.commande')).not.toMatch(/z-index/)
-    const commande = /z-index:\s*(\d+)/.exec(declarations('.commande.sur-bandeau'))
-    expect(commande, 'la commande posée sur le bandeau ne déclare pas de z-index').not.toBeNull()
-    expect(Number(commande![1])).toBeGreaterThan(panneau)
-    expect(Number(commande![1])).toBeLessThan(cv)
+    expect(readFileSync('src/components/PanneauDeparts.vue', 'utf8')).not.toContain('sur-bandeau')
   })
 
   /**
@@ -1163,97 +1177,42 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
   })
 
   /**
-   * L'horloge est **sous** la plaque dès qu'elle est posée : la commande ne
-   * reste pas en piège dessous, elle se déplace sur l'heure du bandeau. C'est le
-   * même bouton, jamais un second.
+   * L'horloge est **sous** la plaque dès qu'elle est baissée : sa commande se
+   * retire (spec §5, `v-if`) au lieu de rester en piège sous elle, et la croix
+   * du bandeau est la sortie. Pas de seconde commande de fermeture qui se
+   * disputerait le bandeau avec la croix.
    */
-  describe('la commande posée sur le bandeau', () => {
-    // 800 × 450 et 719 × 500 sont les fenêtres larges et basses où la bande du
-    // bandeau ne fait que 21 et 24 px d'écran : c'est là que la cible tombait
-    // sous les 44 px de haut. 720 × 400 pousse l'échelle plus bas encore.
-    const TAILLES = [[1512, 771], [1920, 1080], [2560, 1440], [800, 450], [720, 400], [719, 500], [320, 568], [390, 844]] as const
+  describe('la commande se retire panneau baissé', () => {
+    const TAILLES = [[1512, 771], [1920, 1080], [800, 450], [320, 568], [390, 844]] as const
 
-    it('ne se dédouble jamais', () => {
-      for (const [l, h] of TAILLES) {
-        expect(posee(l, h).wrapper.findAll('[data-commande]'), `${l}×${h}`).toHaveLength(1)
-      }
+    it.each(TAILLES)('n’existe pas panneau posé, à %i × %i', (l, h) => {
+      expect(posee(l, h).wrapper.find('[data-commande]').exists()).toBe(false)
     })
 
-    it.each(TAILLES)('est un disque de 44 px sur l’heure du bandeau à %i × %i', (l, h) => {
-      const { wrapper } = posee(l, h)
-      const bouton = wrapper.get('[data-commande]')
-      expect(bouton.classes()).toContain('sur-bandeau')
-      const s = (bouton.element as HTMLElement).style
-      const [gauche, haut, large, hauteur] = [s.left, s.top, s.width, s.height].map(parseFloat)
-      const p = plaque(wrapper)
-      expect(large).toBe(44)
-      // 44 px dans les deux dimensions : le plancher du doigt ne se négocie pas
-      // plus en hauteur qu'en largeur (c'est celui de `cibleReverbere`).
-      expect(hauteur).toBe(44)
-      // Centré sur l'heure : à droite, après le filet, la croix (44 px d'écran,
-      // collée au bord) et son écart, puis la moitié du texte.
-      const espacement = nb(/letter-spacing:\s*([\d.]+)em/, regle('.entete'), 'l’espacement du bandeau')
-      const corpsEntete = nb(/font-size:\s*([\d.]+)px/, regle('.entete'), 'le corps du bandeau')
-      const largeurHeure = '00:00'.length * (0.6 + espacement) * corpsEntete
-      const ecart = nb(/margin-left:\s*([\d.]+)px/, regle('.croix'), 'l’écart de la croix')
-      const croix = 44 / p.echelle
-      const centreHeure = p.gauche + (p.largeur - filet() - croix - ecart - largeurHeure / 2) * p.echelle
-      const gaucheCroix = p.gauche + (p.largeur - filet() - croix) * p.echelle
-      // Centré sur l'heure, sauf quand l'échelle est si basse que 44 px
-      // toucheraient la croix : il se cale alors sur son bord gauche, comme en
-      // hauteur il se cale sur le début des lignes. Il ne la recouvre jamais.
-      expect(gauche + large / 2).toBeCloseTo(Math.min(centreHeure, gaucheCroix - large / 2))
-      // Il reste **dans** la plaque : ni au-dessus, où il mangerait des clics sur
-      // le ciel, ni sur la première ligne, qui porte un lien.
-      expect(gauche).toBeGreaterThanOrEqual(p.gauche)
-      expect(gauche + large).toBeLessThanOrEqual(p.gauche + p.largeur * p.echelle)
-      // Il ne descend **jamais** sur la première ligne, qui est un lien : quand la
-      // bande du bandeau est plus courte que 44 px d'écran, c'est par le haut
-      // qu'il déborde, au-dessus de la plaque, où il n'y a que le ciel.
-      const debutLignes = p.haut + (filet() + mesure('entete')) * p.echelle
-      expect(haut + hauteur).toBeLessThanOrEqual(debutLignes + 1e-6)
-      // Et il ne monte pas dans la frise, qui reste lisible sous le panneau.
-      expect(haut).toBeGreaterThanOrEqual(HAUTEUR_FRISE)
-      // Centré sur la bande partout où elle est assez haute pour le porter.
-      const bandeau = (mesure('entete') - mesure('ligne') / 2) * p.echelle
-      if (bandeau >= 44) {
-        expect(haut + hauteur / 2).toBeCloseTo(p.haut + (filet() + bandeau / p.echelle / 2) * p.echelle)
-      }
+    it('apparaît sur l’horloge dès que le rideau n’est plus baissé, même plaque en vue', async () => {
+      const f = cadreDe(1512, 771)
+      const { wrapper, rideau } = monter('ailleurs', { frame: f, largeur: 1512, rideau: { y: yPoseA(f), baisse: true } })
+      rideau.value = { y: yPoseA(f) - 40, baisse: false }
+      await nextTick()
+      expect(wrapper.find('.panneau').exists()).toBe(true)
+      const s = (wrapper.get('[data-commande]').element as HTMLElement).style
+      expect((parseFloat(s.left) + parseFloat(s.width) / 2 - f.offsetX) / f.scale).toBeCloseTo(HORLOGE.x)
+      expect((parseFloat(s.top) + parseFloat(s.width) / 2 - f.offsetY) / f.scale).toBeCloseTo(HORLOGE.y)
     })
 
     it('est un disque invisible : ni texte, ni cadran, et le nom reste fixe', () => {
-      const bouton = posee(1512, 771).wrapper.get('[data-commande]')
+      const f = cadreDe(1512, 771)
+      const bouton = monter('ailleurs', { frame: f, largeur: 1512, rideau: { y: yRangeA(f), baisse: false } }).wrapper.get('[data-commande]')
       expect(bouton.text()).toBe('')
       expect(bouton.attributes('aria-label')).toBe('Prochains départs')
-      // Le cadran épinglé de 52 px s'en est allé avec le seuil mobile : l'horloge
-      // de la gare est désormais visible sur tout écran (spec §4).
       expect(bouton.classes()).not.toContain('visible')
-      const sansCommentaires = source().replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '')
-      expect(sansCommentaires).not.toMatch(/cadranDessine|cadranMontre|\.commande\.visible/)
     })
 
-    it('suit le panneau dans sa course', async () => {
-      const { wrapper, f, rideau } = posee(1512, 771)
-      const ecart = () =>
-        parseFloat(wrapper.get<HTMLElement>('[data-commande]').element.style.top) - plaque(wrapper).haut
-      const avant = ecart()
-      rideau.value = { y: yPoseA(f) - 40, baisse: true }
-      await nextTick()
-      expect(plaque(wrapper).haut).toBeLessThan(f.offsetY + yPoseA(f) * f.scale)
-      // Même distance au haut de la plaque : elle le suit, elle ne reste pas en route.
-      expect(ecart()).toBeCloseTo(avant)
-    })
-
-    it('revient sur l’horloge dès que le panneau est rangé', async () => {
-      const f = cadreDe(1512, 771)
-      const { wrapper, rideau } = monter('ailleurs', { frame: f, largeur: 1512, rideau: { y: yPoseA(f), baisse: true } })
-      expect(wrapper.get('[data-commande]').classes()).toContain('sur-bandeau')
-      rideau.value = { y: yRangeA(f), baisse: false }
-      await nextTick()
-      const bouton = wrapper.get('[data-commande]')
-      expect(bouton.classes()).not.toContain('sur-bandeau')
-      const s = (bouton.element as HTMLElement).style
-      expect((parseFloat(s.left) + parseFloat(s.width) / 2 - f.offsetX) / f.scale).toBeCloseTo(HORLOGE.x)
+    it('l’heure garde sa place : collée à la croix, à droite du bandeau', () => {
+      const { wrapper } = posee(1512, 771)
+      expect(regle('.heure')).toMatch(/margin-left:\s*auto/)
+      const enfants = [...wrapper.get('.entete').element.children].map((c) => c.className.split(' ')[0] || c.tagName)
+      expect(enfants.slice(-2)).toEqual(['heure', 'croix'])
     })
   })
 
@@ -1628,13 +1587,23 @@ describe('PanneauDeparts — fermer le panneau', () => {
     })
 
     it('ne touche pas au retrait du panneau, que la largeur des lignes consomme', () => {
-      expect(creux()).toBeGreaterThanOrEqual(26)
+      expect(creux()).toBe(26)
     })
 
     it('un clic ferme le panneau, par la scène', async () => {
       const { wrapper, scene } = posee(1512, 771)
       await wrapper.get('.croix').trigger('click')
       expect(scene.basculerRideau).toHaveBeenCalledTimes(1)
+    })
+
+    it('ne fait rien pendant la remontée : une bascule la rebaisserait', async () => {
+      const { wrapper, scene, rideau, f } = posee(1512, 771)
+      // Fermeture manuelle : le rideau n'est plus baissé, la plaque est encore en vue.
+      rideau.value = { y: yPoseA(f) - 40, baisse: false }
+      await nextTick()
+      expect(wrapper.find('.panneau').exists()).toBe(true)
+      await wrapper.get('.croix').trigger('click')
+      expect(scene.basculerRideau).not.toHaveBeenCalled()
     })
 
     it('un appui sur la croix ne tombe pas sur la scène : l’arrêt du panneau tient', () => {
@@ -1645,23 +1614,6 @@ describe('PanneauDeparts — fermer le panneau', () => {
       window.removeEventListener('pointerdown', surFenetre)
       expect(surFenetre).not.toHaveBeenCalled()
       expect(scene.fermerBulleEtoile).toHaveBeenCalledTimes(1)
-    })
-
-    it.each(TAILLES)('ne se superpose pas à la commande posée sur l’heure, à %i × %i', (l, h) => {
-      const { wrapper, f } = posee(l, h)
-      const croix = (wrapper.get('.croix').element as HTMLElement).style
-      const cmd = (wrapper.get('[data-commande]').element as HTMLElement).style
-      const p = (wrapper.get('.panneau').element as HTMLElement).style
-      const droiteInterieure = parseFloat(p.left) + (parseFloat(p.width) - filet()) * f.scale
-      const gaucheCroix = droiteInterieure - parseFloat(croix.width) * f.scale
-      // La commande est au-dessus de la croix dans la pile (16 contre 15) : si
-      // elles se recouvraient, c'est elle qui mangerait le clic de la croix.
-      expect(parseFloat(cmd.left) + parseFloat(cmd.width)).toBeLessThanOrEqual(gaucheCroix + 1e-6)
-    })
-
-    it('l’écart du script est celui du style', () => {
-      const dansLeScript = nb(/const ECART_CROIX = (\d+)/, source(), 'ECART_CROIX')
-      expect(nb(/margin-left:\s*([\d.]+)px/, regle('.croix'), 'le margin-left')).toBe(dansLeScript)
     })
 
     it.each(TAILLES)('ne monte pas dans la frise de navigation, à %i × %i', (l, h) => {
