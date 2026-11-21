@@ -14,7 +14,7 @@ import {
 } from '@/scene/quai'
 import { lirePngIndexe } from './png'
 import { RECUL_HORS_CHAMP, solParEtape } from '@/scene/cables'
-import { HORIZON, STAGE } from '@/scene/layout'
+import { HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
 
 describe('la géométrie du quai', () => {
   it('la gare sort du champ avant que la suivante entre', () => {
@@ -92,18 +92,38 @@ describe('la géométrie du quai', () => {
 
   /**
    * Le piège que le second dessin a ouvert, et la raison d'être de
-   * `BORD_DROIT_CORPS`. Son pignon est au **milieu** de l'image, là où celui
-   * du premier était aux deux tiers : ancrer la gare sur le bord droit de son
-   * image amenait le cadran exactement sur le mât du réverbère, à 1256 contre
-   * 1195–1265. Deux lumières l'une dans l'autre, et personne pour le dire.
+   * `BORD_DROIT_CORPS` : le cadran tombé sur le mât du réverbère, deux lumières
+   * l'une dans l'autre. La gare au milieu a retourné l'ordre — le réverbère est
+   * maintenant **à droite** de l'horloge, devant la gare — d'où la valeur
+   * absolue : l'écart se mesure dans un sens comme dans l'autre. Ce qui ne doit
+   * pas se toucher, ce sont les deux disques : le halo de l'horloge (plus large
+   * que son cadran) et l'embase du réverbère.
    */
-  it('l’horloge ne tombe pas sur le réverbère', () => {
+  it('les deux disques de lumière ne se touchent pas', () => {
+    const halo = HORLOGE.rayon * HALO_HORLOGE.rayon
     const embase = CADRES.reverbere.largeur / 2
-    // Le halo porte plus loin que le cadran : on garde cette marge-là, et pas
-    // le seul disque.
-    expect(HORLOGE.x - HORLOGE.rayon * HALO_HORLOGE.rayon).toBeGreaterThan(
-      PIECES.reverbere.x + embase,
-    )
+    const ecart = Math.abs(HORLOGE.x - PIECES.reverbere.x) - halo - embase
+    expect(ecart).toBeGreaterThan(0)
+  })
+
+  /**
+   * Tolérance 0 (à moins de 0,5 px) : l'horloge tombe à 1160,37 pour un centre
+   * de scène à 1160, parce que `DECALAGE_GARE` est un entier choisi à l'œil.
+   */
+  it('l’horloge est au milieu de la scène', () => {
+    expect(HORLOGE.x).toBeCloseTo(STAGE.width / 2, 0)
+  })
+
+  /**
+   * Le réverbère est posé sur une abscisse littérale, découplée de la gare : ce
+   * test garde qu'il ne rentre pas dans la rame, quel que soit le prochain
+   * réglage de `DECALAGE_GARE`. Le bord gauche de son embase doit rester au-delà
+   * du nez de la locomotive.
+   */
+  it('le réverbère est dégagé du nez de la locomotive', () => {
+    const demiEmbase =
+      (CADRES.reverbere.largeur / 2) * (PIECES.reverbere.hauteur / CADRES.reverbere.hauteur)
+    expect(PIECES.reverbere.x - demiEmbase).toBeGreaterThan(STAGE.width * TETE_LOCO)
   })
 
   /**

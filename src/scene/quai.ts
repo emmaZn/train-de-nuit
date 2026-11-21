@@ -2,8 +2,11 @@
  * La géométrie du quai de « ailleurs ».
  *
  * Pendant de `cables.ts` : des nombres et des fonctions pures, rien ne dessine.
- * La composition vient du §5.4 de la spec (maquette du 15 novembre) : loco à
- * gauche, réverbère vers le centre, bâtiment à droite. Le panneau des départs
+ * La composition : loco à gauche, **gare au milieu**, réverbère devant elle.
+ * Elle vient du §5.4 de la spec (maquette du 15 novembre), puis le 21 novembre
+ * la gare est descendue au centre de la scène (`DECALAGE_GARE`) : à droite, ni
+ * elle ni son horloge n'étaient dans le cadre d'un écran étroit, d'un
+ * téléphone surtout. Le panneau des départs
  * n'y figure plus : ce n'est plus une plaque posée sur le mur mais un rideau
  * suspendu à la scène (`rideau.ts`), qui ne suit pas la gare. Le bâtiment n'est plus un mur mais la gare entière
  * dessinée par la propriétaire, ses **deux** marquises de quai comprises :
@@ -18,9 +21,11 @@
  *
  * La rame est opaque et s'arrête le nez à `TETE_LOCO × STAGE.width`, en
  * s'allongeant vers l'arrière : elle occupe toute la moitié gauche du cadre.
- * La gare avait d'abord été posée tout entière à droite de son nez ; la
- * propriétaire l'a décalée vers la gauche (`DECALAGE_GARE`) en acceptant que le
- * réverbère passe derrière la rame à l'arrêt. C'est voulu.
+ * La gare avait d'abord été posée tout entière à droite de son nez ; elle a été
+ * décalée vers la gauche, et c'est maintenant l'**horloge** qui tient le centre
+ * de la scène, le pignon étant sa place. Le flanc gauche du bâtiment passe
+ * derrière la rame à l'arrêt : c'est voulu. Le réverbère, lui, n'y passe pas :
+ * il reste devant la gare, à droite de l'horloge, hors de la rame.
  * Le faisceau du réverbère déborde sur le massif : il se construit à partir de
  * `x`, `pied` et `hauteur`.
  *
@@ -71,11 +76,15 @@ export const IMAGES = {
 /**
  * De combien toute la gare est décalée vers la gauche, en pixels de cadre.
  *
- * **Le seul nombre à changer** pour la déplacer : réverbère, bâtiment et
- * bordure (celle-ci suit `DEBUT_GARE` / `FIN_GARE`) en dérivent tous, du
- * même déplacement, donc la composition interne ne bouge pas.
- * Les abscisses de `PIECES` sont écrites à la place d'origine (gare entière à
- * droite du nez de la loco), moins ce décalage.
+ * Il déplace le **bâtiment**, et avec lui l'horloge et la bordure (celle-ci
+ * suit `DEBUT_GARE` / `FIN_GARE`) : leurs abscisses sont écrites à la place
+ * d'origine (gare entière à droite du nez de la loco), moins ce décalage.
+ * **Il ne déplace plus le réverbère** : celui-ci a une abscisse littérale
+ * (`PIECES.reverbere.x`), parce que le décalage de la gare, qui sert à placer
+ * l'horloge, ne doit pas entraîner la lampe avec lui — l'ancienne soustraction
+ * l'aurait ramenée dans la rame au prochain réglage. Changer ce nombre, c'est
+ * donc revérifier que l'horloge est au milieu de la scène, et que les deux
+ * disques de lumière se tiennent à l'écart (`quai.test.ts` le fait).
  *
  * **Mesure, pour qui voudra la déplacer ou remplacer l'asset.** Le cadre de
  * 2320 est rogné par la fenêtre dès qu'elle est plus étroite que 2320:1217
@@ -90,9 +99,18 @@ export const IMAGES = {
  * rognage : **le bord droit de la gare sort de la bande commune, à dessein.**
  * Un portrait de téléphone ne montre que ~560 px (879 à 1441).
  *
- * 60 est la valeur du réglage 1, décidée en regardant la scène tourner.
+ * **626, parce que c'est la valeur qui amène l'horloge au centre du cadre**
+ * (`HORLOGE.x` = 1160,37 pour un centre à 1160), et non un goût : la scène
+ * fait 2320 de large, l'horloge est le point qu'on veut voir sur tous les
+ * écrans, et la bande d'un portrait de téléphone (879 à 1441) l'encadre alors.
+ * Le bord droit de la gare, lui, reste hors de la bande commune : il tombe à
+ * 2064 (`FIN_GARE`) et le rognage de la marquise de droite est assumé.
+ *
+ * (Les mesures de bande ci-dessus datent d'avant ce décalage ; elles restent
+ * vraies, c'est la gare qui a bougé.) 60 fut la valeur du réglage 1, 600 un
+ * essai à la main, 626 la valeur tenue.
  */
-export const DECALAGE_GARE = 60
+export const DECALAGE_GARE = 626
 
 /**
  * La largeur du bâtiment, en pixels de cadre — à l'échelle 1 de son dessin
@@ -149,13 +167,18 @@ export const CORPS_IMAGE = { x0: 638, x1: 1484 } as const
 const BORD_DROIT_CORPS = 2150
 
 export const PIECES = {
-  // 490 = 560 × 0,875 : réduit de 12,5 % (réglage 4). `hauteur` est la hauteur
-  // **posée** ; le dessin reste mesuré dans `CADRES.reverbere`, et lanterne,
-  // lueur et sommet du faisceau en suivent l'échelle (`hauteur / CADRES…`).
-  // 1390 et non 1290 (20 novembre 2026) : la propriétaire l'a décalé vers la
-  // droite avec la rame, pour resserrer le groupe. Posé à 1330, il se tient
-  // entre le nez de la loco (1299) et le bord gauche du corps de gare (1364).
-  reverbere: { x: 1390 - DECALAGE_GARE, pied: HORIZON, hauteur: 490 },
+  // `hauteur` est la hauteur **posée** (400, réglée à l'œil le 21 novembre) ; le
+  // dessin reste mesuré dans `CADRES.reverbere`, et lanterne, lueur et sommet du
+  // faisceau en suivent l'échelle (`hauteur / CADRES…`).
+  //
+  // **1390 est écrit en clair, et c'est la décision** : le réverbère ne dérive
+  // plus de `DECALAGE_GARE`. Il se posait en lui soustrayant ce décalage et suivait
+  // la gare ; or la gare est maintenant calée sur l'horloge, au milieu de la
+  // scène, et la lampe se tient devant elle, à droite du cadran. Garder la
+  // soustraction la ferait bouger à chaque réglage de la gare, jusque dans la
+  // rame (nez de la loco à 1299) — `quai.test.ts` garde cette marge, et celle
+  // qui la sépare de l'horloge.
+  reverbere: { x: 1390, pied: HORIZON, hauteur: 400 },
   batiment: {
     x: BORD_DROIT_CORPS - CORPS_IMAGE.x1 * ECHELLE_BATIMENT - DECALAGE_GARE,
     pied: HORIZON,
