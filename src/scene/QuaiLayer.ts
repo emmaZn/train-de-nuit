@@ -496,13 +496,14 @@ export class Quai {
    * Les deux racines prennent la même abscisse — c'est ce qui fait qu'une île
    * coupée en deux plans reste une seule chose posée sur un seul sol.
    *
-   * **`nuit` ne sert toujours à rien ici**, et c'est voulu : les lumières du
-   * quai — faisceau compris — ne s'éteignent pas, aucune teinte ne les
-   * atteint, et le faisceau est aussi lumineux de jour que de nuit. Le
-   * paramètre est gardé, préfixé, pour ne pas changer la signature de
-   * `avancer`.
+   * **`nuit` n'éclaire que la neige du faisceau.** Les lumières du quai —
+   * faisceau compris — ne s'éteignent pas, aucune teinte ne les atteint, et le
+   * cône peint est aussi lumineux de jour que de nuit. Mais il ne neige dans le
+   * faisceau qu'à « ailleurs » : `Faisceau.setNuit` pose `nuit` sur les seuls
+   * flocons, comme `Neige.setNuit` le fait pour ceux du fond.
    */
-  avancer(distance: number, _nuit: number): void {
+  avancer(distance: number, nuit: number): void {
+    this.faisceau.setNuit(nuit)
     this.racineEteinte.x = distance
     this.racineAllumee.x = distance
     if (!this.posee) {

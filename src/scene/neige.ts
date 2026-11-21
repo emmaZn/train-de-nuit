@@ -23,10 +23,7 @@
  */
 import { alea } from './alea'
 import type { Grain } from './alea'
-// Un import de **type** : effacé à la compilation, il ne charge rien — et
-// `Faisceau.ts` charge Pixi. Le test de la coupe nombres/dessin veille à ce que
-// ce soit le seul lien.
-import type { Cone } from './Faisceau'
+import type { Cone } from './cone'
 
 /**
  * Un flocon : exactement la matière d'un grain de `Sky` — une place, un rayon,
@@ -180,9 +177,12 @@ const RAYONS_CONE: readonly (readonly [number, number])[] = [
 ]
 
 /**
- * Opacité, par couche : toutes plus vives que la libre (`OPACITES`), où la
- * lointaine ne dépasse pas 0,4. Le flocon est blanc, comme la lanterne qui
- * l'éclaire — pas de mi-teinte nouvelle (CONCEPT §12.2). PROVISOIRE (§7).
+ * Opacité, par couche : plus vive que la libre (`OPACITES`) couche pour couche,
+ * et de beaucoup en médiane. Pas pour chaque flocon : `PLANCHER_CLARTE` assombrit
+ * le haut du cône, et un flocon de la couche 0 près du sommet (0,385 au plus
+ * terne) peut passer sous le plafond de 0,4 de la couche lointaine libre. Le
+ * flocon est blanc, comme la lanterne qui l'éclaire — pas de mi-teinte
+ * nouvelle (CONCEPT §12.2). PROVISOIRE (§7).
  */
 const OPACITES_CONE: readonly (readonly [number, number])[] = [
   [0.55, 0.75],
@@ -195,22 +195,31 @@ const OPACITES_CONE: readonly (readonly [number, number])[] = [
 const PLANCHER_CLARTE = 0.7
 
 /**
- * La neige du faisceau : une population par couche, **dans** le cône.
+ * La neige du faisceau : une population par couche, tirée sur le **rectangle**
+ * qui enveloppe le cône — la largeur de la base, sur la hauteur du cône.
  *
- * Même échantillonnage que `grainsDuFaisceau` : la profondeur se tire en racine
- * carrée, sinon le sommet, plus étroit, serait plus dense que la base. Le
- * nombre vient de l'aire du cône et se répartit entre `COUCHES_NEIGE` couches —
- * le même nombre de couches que la neige libre, parce que `decalageCouche` lit
- * `VITESSES` couche par couche et que rien ne doit les désaccorder en silence.
+ * Pas sur le cône : la chute est un décalage vertical à `x` fixe, bouclé sur la
+ * hauteur du cône. Une population tirée dans le cône (ou dans la colonne du
+ * cône à chaque `x`) ne remplit, une fois décalée, que l'intersection de deux
+ * arcs de la boucle : la quantité visible pulse et les bords se vident — mesuré
+ * à 0,02..0,47 de flocons dans le quart extérieur selon la phase, contre 0,25
+ * pour une densité uniforme. Une densité uniforme sur le rectangle bouclé reste
+ * uniforme sous le masque du cône à chaque phase, à l'arrêt comme en chute.
+ * C'est donc **le masque** (`Faisceau`) qui découpe le cône, et les flocons au
+ * repos ne sont pas tous dans le triangle : seuls ceux qu'il laisse voir le sont.
  *
- * Le tirage est en pixels de cadre, donc **indifférent à l'échelle** : c'est le
- * cône qui suit l'échelle, pas la neige. Les flocons tombent ensuite hors du
- * cône, puisque la chute est un décalage vertical — c'est un masque Pixi sur le
- * polygone du cône (`Faisceau`) qui les y retient.
+ * La densité est celle de ce qu'on **voit** (`1/150` par pixel² de cône) : le
+ * rectangle en tire donc le double du cône, qui en cache la moitié. Le nombre
+ * de couches est `COUCHES_NEIGE`, le même que la neige libre, parce que
+ * `decalageCouche` lit `VITESSES` couche par couche et que rien ne doit les
+ * désaccorder en silence.
+ *
+ * Le tirage est en pixels de cadre, donc indifférent à l'échelle.
  */
 export function floconsDuCone(cone: Cone, graine: number, mobile: boolean): Flocon[][] {
-  const aire = ((cone.base[1] - cone.base[0]) * cone.hauteur) / 2
-  const brut = aire * DENSITE_CONE * (mobile ? FACTEUR_MOBILE_CONE : 1)
+  const largeur = cone.base[1] - cone.base[0]
+  const surface = largeur * cone.hauteur
+  const brut = surface * DENSITE_CONE * (mobile ? FACTEUR_MOBILE_CONE : 1)
   const parCouche = Math.max(PLANCHER_COUCHE_CONE, Math.round(brut / COUCHES_NEIGE))
   const suivant = alea(graine)
   const couches: Flocon[][] = []
@@ -219,14 +228,12 @@ export function floconsDuCone(cone: Cone, graine: number, mobile: boolean): Floc
     const [aMin, aMax] = OPACITES_CONE[i]
     const flocons: Flocon[] = []
     for (let n = 0; n < parCouche; n += 1) {
-      const t = Math.sqrt(suivant())
-      const u = suivant()
-      const gauche = cone.sommet.x + (cone.base[0] - cone.sommet.x) * t
-      const droite = cone.sommet.x + (cone.base[1] - cone.sommet.x) * t
+      const t = suivant()
       flocons.push({
-        x: gauche + (droite - gauche) * u,
+        x: cone.base[0] + suivant() * largeur,
         y: cone.sommet.y + cone.hauteur * t,
         r: rMin + suivant() * (rMax - rMin),
+        // Plus clair vers le bas, comme la poussière : t est la profondeur.
         a: (aMin + suivant() * (aMax - aMin)) * (PLANCHER_CLARTE + (1 - PLANCHER_CLARTE) * t),
       })
     }

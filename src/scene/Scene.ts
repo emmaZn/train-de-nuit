@@ -187,15 +187,21 @@ export function horsDuReflet(
   decor: Container,
   echelle: number,
   rendre: () => void,
+  aussi: Container[] = [],
 ): void {
-  const caches = [plans.ciel, plans.neige]
+  // `aussi` : ce qui sort du reflet sans que son plan en sorte — la neige du
+  // faisceau, qui vit dans `lumieres` à côté du cône peint (lui se reflète).
+  const caches = [plans.ciel, plans.neige, ...aussi]
+  const avant = caches.map((c) => c.visible)
   for (const plan of caches) plan.visible = false
   decor.scale.set(echelle)
   try {
     rendre()
   } finally {
     decor.scale.set(1)
-    for (const plan of caches) plan.visible = true
+    caches.forEach((plan, i) => {
+      plan.visible = avant[i]
+    })
   }
 }
 
@@ -1198,9 +1204,18 @@ export class Scene {
   private rendreReflet(): void {
     const cible = this.refletTexture
     if (!cible) return
-    horsDuReflet(this.plans, this.decor, REFLET_RESOLUTION, () => {
-      this.app.renderer.render({ container: this.decor, target: cible, clear: true })
-    })
+    // La neige du faisceau sort du reflet elle aussi, et elle seule : le cône
+    // peint est immobile et se reflète correctement.
+    const neigeDuFaisceau = this.quai ? [this.quai.lumiere.neige.racine] : []
+    horsDuReflet(
+      this.plans,
+      this.decor,
+      REFLET_RESOLUTION,
+      () => {
+        this.app.renderer.render({ container: this.decor, target: cible, clear: true })
+      },
+      neigeDuFaisceau,
+    )
   }
 
   dispose(): void {

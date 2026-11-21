@@ -1,10 +1,11 @@
 import { Container } from 'pixi.js'
 import { describe, expect, it } from 'vitest'
 
-import { Faisceau, coneDuFaisceau, grainsDuFaisceau, nappesDuCone } from '@/scene/Faisceau'
-import type { Cone } from '@/scene/Faisceau'
+import { Faisceau, grainsDuFaisceau, nappesDuCone } from '@/scene/Faisceau'
+import { coneDuFaisceau, dansLeCone } from '@/scene/cone'
+import type { Cone } from '@/scene/cone'
 import { Quai } from '@/scene/QuaiLayer'
-import { plansDuDecor } from '@/scene/Scene'
+import { horsDuReflet, plansDuDecor } from '@/scene/Scene'
 import { PIECES } from '@/scene/quai'
 import { HORIZON, STAGE } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
@@ -14,24 +15,6 @@ const cone = coneDuFaisceau(PIECES.reverbere)
 /** Un triangle : sommet à la lanterne, base à `sommet.y + hauteur`. */
 function aireDuCone(c: Cone): number {
   return ((c.base[1] - c.base[0]) * c.hauteur) / 2
-}
-
-/**
- * Un cheveu de tolérance, parce qu'un point du bord du cône y revient par un
- * aller-retour en virgule flottante : `nappesDuCone` calcule `y` depuis `t`,
- * on recalcule `t` depuis `y`, et les deux ne retombent pas toujours sur le
- * même dernier bit. L'écart mesuré vaut 2 × 10⁻¹³ pixel. Sans cette marge, le
- * test dit « hors du cône » d'un point qui est exactement dessus, et ce qu'il
- * garde — le cône ne déborde pas sur les rails — n'a rien à voir avec ça.
- */
-const CHEVEU = 1e-9
-
-function dansLeCone(c: Cone, g: { x: number; y: number }): boolean {
-  const t = (g.y - c.sommet.y) / c.hauteur
-  if (t < -CHEVEU || t > 1 + CHEVEU) return false
-  const gauche = c.sommet.x + (c.base[0] - c.sommet.x) * t
-  const droite = c.sommet.x + (c.base[1] - c.sommet.x) * t
-  return g.x >= gauche - CHEVEU && g.x <= droite + CHEVEU
 }
 
 describe('la géométrie du faisceau', () => {
@@ -206,7 +189,15 @@ describe('la neige du faisceau', () => {
 
   it('est découpée au cône : un masque, sur un conteneur immobile', () => {
     const f = new Faisceau(new Container())
-    expect(f.neige.racine.mask).toBeTruthy()
+    const masque = f.neige.racine.mask as Container | null
+    expect(masque).toBeTruthy()
+    // Le masque est seul à retenir les flocons dans le faisceau : sa géométrie
+    // est l'invariant, pas son existence. Il doit valoir le cône.
+    const { minX, maxX, minY, maxY } = masque!.getLocalBounds()
+    expect(minX).toBeCloseTo(cone.base[0], 3)
+    expect(maxX).toBeCloseTo(cone.base[1], 3)
+    expect(minY).toBeCloseTo(cone.sommet.y, 3)
+    expect(maxY).toBeCloseTo(cone.sommet.y + cone.hauteur, 3)
     f.cadrer(cadre, false)
     f.animer(2)
     expect(f.neige.racine.y).toBe(0)
@@ -256,5 +247,59 @@ describe('la neige du faisceau', () => {
     const petit = new Faisceau(new Container())
     petit.cadrer(cadre, true)
     expect(petit.neige.nombreDeFlocons).toBeLessThan(grand.neige.nombreDeFlocons)
+  })
+
+  it('elle commence absente, et la nuit seule la fait venir : à nuit = 0 les flocons sont éteints, le cône reste là', () => {
+    const f = new Faisceau(new Container())
+    f.cadrer(cadre, false)
+    expect(f.neige.racine.alpha).toBe(0)
+    f.setNuit(1)
+    expect(f.neige.racine.alpha).toBe(1)
+    f.setNuit(0)
+    expect(f.neige.racine.alpha).toBe(0)
+    // Le cône peint, lui, ne dépend pas de la nuit : toujours là, toujours visible.
+    expect(f.groupe.visible).toBe(true)
+    expect(f.groupe.children.some((c) => c !== f.neige.racine && c.visible && c.alpha > 0)).toBe(true)
+    // Une nuit qui n'est pas un nombre ne passe pas.
+    f.setNuit(0.6)
+    f.setNuit(Number.NaN)
+    expect(f.neige.racine.alpha).toBe(0.6)
+  })
+
+  it('le quai passe la nuit à la neige du faisceau, pas au cône peint', () => {
+    const decor = new Container()
+    const plans = plansDuDecor(decor)
+    const planQuai = new Container()
+    plans.plateauFond.addChild(planQuai)
+    const quai = new Quai(planQuai, plans.lumieres, false)
+    quai.cadrer(cadre, 1, false)
+    quai.avancer(0, 0)
+    expect(quai.lumiere.neige.racine.alpha).toBe(0)
+    quai.avancer(0, 1)
+    expect(quai.lumiere.neige.racine.alpha).toBe(1)
+    expect(quai.lumiere.groupe.visible).toBe(true)
+  })
+
+  it('sort du reflet avec le plan de la neige, et elle seule : le cône peint s’y reflète', () => {
+    const decor = new Container()
+    const plans = plansDuDecor(decor)
+    const f = new Faisceau(plans.lumieres)
+    f.cadrer(cadre, false)
+    let neigeVue = true
+    let faisceauVu = false
+    horsDuReflet(
+      plans,
+      decor,
+      2,
+      () => {
+        neigeVue = f.neige.racine.visible
+        faisceauVu = f.groupe.visible
+      },
+      [f.neige.racine],
+    )
+    expect(neigeVue).toBe(false)
+    expect(faisceauVu).toBe(true)
+    // Tout est remis en place.
+    expect(f.neige.racine.visible).toBe(true)
   })
 })

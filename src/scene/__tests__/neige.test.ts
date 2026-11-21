@@ -9,8 +9,8 @@ import {
   floconsDuCone,
   floconsLibres,
 } from '@/scene/neige'
-import type { Cone } from '@/scene/Faisceau'
-import { coneDuFaisceau } from '@/scene/Faisceau'
+import { coneDuFaisceau, dansLeCone } from '@/scene/cone'
+import { grainsDuFaisceau } from '@/scene/Faisceau'
 import { PIECES } from '@/scene/quai'
 
 /**
@@ -31,10 +31,17 @@ describe('la coupe nombres / dessin', () => {
     }
   })
 
-  it('`neige.ts` ne touche `Faisceau.ts` (qui charge Pixi) que par un import de type, effacé à la compilation', () => {
+  it('`neige.ts` n’importe que des modules purs : liste blanche, guillemets et alias compris', () => {
     const source = readFileSync('src/scene/neige.ts', 'utf8')
-    const lignes = source.split('\n').filter((l) => /from '\.\/Faisceau'/.test(l))
-    for (const l of lignes) expect(l).toMatch(/^import type /)
+    const imports = [...source.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)].map((m) => m[1])
+    expect(imports.length).toBeGreaterThan(0)
+    for (const i of imports) expect(['./alea', './cone'], i).toContain(i)
+  })
+
+  it('`cone.ts` ne charge pas Pixi', () => {
+    const source = readFileSync('src/scene/cone.ts', 'utf8')
+    const imports = [...source.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1])
+    for (const i of imports) expect(['./quai'], i).toContain(i)
   })
 })
 
@@ -104,62 +111,80 @@ describe('le tirage des flocons', () => {
   })
 })
 
-function dansLeCone(c: Cone, g: { x: number; y: number }): boolean {
-  const t = (g.y - c.sommet.y) / c.hauteur
-  if (t < -1e-9 || t > 1 + 1e-9) return false
-  const gauche = c.sommet.x + (c.base[0] - c.sommet.x) * t
-  const droite = c.sommet.x + (c.base[1] - c.sommet.x) * t
-  return g.x >= gauche - 1e-9 && g.x <= droite + 1e-9
-}
-
 const mediane = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
 const total = (couches: { length: number }[]) => couches.reduce((n, c) => n + c.length, 0)
 
 describe('la neige du cône', () => {
   const cone = coneDuFaisceau(PIECES.reverbere)
+  // L'aire que l'œil voit : le triangle. Le tirage couvre le rectangle, le masque en cache la moitié.
+  // (le tirage en porte donc le double : `/ (2 * aire)` est la densité visible)
   const aire = ((cone.base[1] - cone.base[0]) * cone.hauteur) / 2
 
   it('rend exactement COUCHES_NEIGE populations : decalageCouche lit VITESSES par couche', () => {
-    expect(floconsDuCone(cone, 11, false)).toHaveLength(COUCHES_NEIGE)
-    expect(floconsDuCone(cone, 11, true)).toHaveLength(COUCHES_NEIGE)
+    expect(floconsDuCone(cone, 29, false)).toHaveLength(COUCHES_NEIGE)
+    expect(floconsDuCone(cone, 29, true)).toHaveLength(COUCHES_NEIGE)
   })
 
-  it('les flocons du cône sont tous dans le cône', () => {
-    for (const mobile of [false, true])
-      for (const couche of floconsDuCone(cone, 11, mobile))
-        for (const f of couche) expect(dansLeCone(cone, f)).toBe(true)
+  it('une fois découpés au cône, la densité visible est uniforme à chaque phase de la chute', () => {
+    const tous = floconsDuCone(cone, 29, false).flat()
+    const h = cone.hauteur
+    const demi = (cone.base[1] - cone.base[0]) / 2
+    const part: number[] = []
+    const nombre: number[] = []
+    for (const d of [0, 0.1, 0.25, 0.5, 0.75, 0.9]) {
+      const vus = tous
+        .map((f) => ({ x: f.x, y: cone.sommet.y + ((f.y - cone.sommet.y + d * h) % h) }))
+        .filter((p) => dansLeCone(cone, p))
+      nombre.push(vus.length)
+      part.push(vus.filter((p) => Math.abs(p.x - cone.sommet.x) / demi > 0.75 * ((p.y - cone.sommet.y) / h)).length / vus.length)
+    }
+    // Le quart extérieur de la demi-largeur, à chaque profondeur : 0,25 si c'est uniforme.
+    for (const p of part) expect(p).toBeGreaterThan(0.17)
+    for (const p of part) expect(p).toBeLessThan(0.33)
+    // Et la quantité visible ne pulse pas.
+    expect(Math.max(...nombre) / Math.min(...nombre)).toBeLessThan(1.12)
+  })
+
+  it('aucun flocon ne partage sa position avec un grain de poussière du faisceau', () => {
+    const poussiere = grainsDuFaisceau(cone, 11, false)
+    const prises = new Set(poussiere.map((g) => `${g.x.toFixed(6)}|${g.y.toFixed(6)}`))
+    for (const f of floconsDuCone(cone, 29, false).flat())
+      expect(prises.has(`${f.x.toFixed(6)}|${f.y.toFixed(6)}`)).toBe(false)
+    // ni même colonne : x ne change jamais, et une colonne partagée le resterait.
+    const colonnes = new Set(poussiere.map((g) => g.x.toFixed(4)))
+    for (const f of floconsDuCone(cone, 29, false).flat()) expect(colonnes.has(f.x.toFixed(4))).toBe(false)
   })
 
   it('le tirage est stable : même graine, mêmes flocons', () => {
-    expect(floconsDuCone(cone, 11, false)).toEqual(floconsDuCone(cone, 11, false))
-    expect(floconsDuCone(cone, 12, false)).not.toEqual(floconsDuCone(cone, 11, false))
+    expect(floconsDuCone(cone, 29, false)).toEqual(floconsDuCone(cone, 29, false))
+    expect(floconsDuCone(cone, 12, false)).not.toEqual(floconsDuCone(cone, 29, false))
   })
 
   it('les flocons du cône sont plus vifs que ceux du fond', () => {
-    const cone_ = floconsDuCone(cone, 11, false).flat().map((f) => f.a)
+    const cone_ = floconsDuCone(cone, 29, false).flat().map((f) => f.a)
     const libres = floconsLibres(1440, 900, 23, false).flat().map((f) => f.a)
     expect(mediane(cone_)).toBeGreaterThan(mediane(libres))
   })
 
   it('ils sont plus denses que la neige libre', () => {
-    const duCone = total(floconsDuCone(cone, 11, false)) / aire
+    const duCone = total(floconsDuCone(cone, 29, false)) / (2 * aire)
     const libre = total(floconsLibres(1440, 900, 23, false)) / (1440 * 900)
     expect(duCone).toBeGreaterThan(libre)
     // Et sur mobile aussi : on en retire, on ne repasse pas sous le fond.
-    const duConeMobile = total(floconsDuCone(cone, 11, true)) / aire
+    const duConeMobile = total(floconsDuCone(cone, 29, true)) / (2 * aire)
     const libreMobile = total(floconsLibres(400, 700, 23, true)) / (400 * 700)
     expect(duConeMobile).toBeGreaterThan(libreMobile)
   })
 
   it('il y a moins de flocons dans le cône sur mobile', () => {
-    expect(total(floconsDuCone(cone, 11, true))).toBeLessThan(total(floconsDuCone(cone, 11, false)))
+    expect(total(floconsDuCone(cone, 29, true))).toBeLessThan(total(floconsDuCone(cone, 29, false)))
   })
 
-  it('le sommet n’est pas plus dense que la base : la profondeur se tire en racine carrée', () => {
-    const tous = floconsDuCone(cone, 11, false).flat()
-    const haut = tous.filter((f) => f.y < cone.sommet.y + cone.hauteur / 2)
-    // Le tiers haut du cône ne porte qu'un quart de son aire : bien moins de la moitié des flocons.
-    expect(haut.length / tous.length).toBeLessThan(0.35)
-    expect(haut.length / tous.length).toBeGreaterThan(0.15)
+  it('le sommet n’est pas plus dense que la base : au repos, le quart des flocons visibles est dans la moitié haute', () => {
+    const vus = floconsDuCone(cone, 29, false).flat().filter((f) => dansLeCone(cone, f))
+    const haut = vus.filter((f) => f.y < cone.sommet.y + cone.hauteur / 2)
+    // La moitié haute du triangle n'a que le quart de son aire.
+    expect(haut.length / vus.length).toBeGreaterThan(0.2)
+    expect(haut.length / vus.length).toBeLessThan(0.3)
   })
 })

@@ -34,48 +34,14 @@
  */
 import { Container, Graphics } from 'pixi.js'
 import type { Frame } from './layout'
+import { coneDuFaisceau, pointDuCone } from './cone'
+import type { Cone } from './cone'
 import { CouchesQuiTombent } from './NeigeLayer'
 import { floconsDuCone } from './neige'
 import { GRAIN_ECRAN } from './poses'
-import { CADRES, PIECES } from './quai'
+import { PIECES } from './quai'
 import { alea } from './Sky'
 import type { Grain } from './Sky'
-
-export type Point = { x: number; y: number }
-
-/** Le cône, en pixels de cadre, depuis la lanterne. */
-export type Cone = {
-  sommet: Point
-  /** Les abscisses des deux coins de la base, à `sommet.y + hauteur`. */
-  base: [number, number]
-  hauteur: number
-}
-
-/**
- * D'où part le faisceau, en unités du cadre du réverbère : le **haut** du
- * corps vitré, qui court de 110 à 165 (`LANTERNE` dans `quai.ts`). La
- * lanterne se tient donc dans la pointe du cône, là où il est le plus clair —
- * c'est ce qui la pose comme la source.
- *
- * Passé de 48 à 108 avec le lampadaire de la propriétaire : son dessin porte
- * une flèche et un toit au-dessus de la lanterne, là où l'ancien SVG avait
- * presque tout de suite le verre. Le sommet du cône **suit la lanterne**,
- * sinon il partirait du vide au-dessus d'elle.
- */
-const HAUT_LANTERNE = 108
-/** Le cadre du dessin, en unités : posé à `piece.hauteur` pixels. */
-const HAUTEUR_CADRE = CADRES.reverbere.hauteur
-
-/**
- * Demi-ouverture de la base, en pixels de cadre : **la largeur du faisceau**.
- * Elle commande le cône peint **et** la population de poussière, qui garde sa
- * densité — élargir le faisceau ne l'éclaircit pas, il en met simplement sur
- * plus de surface. Passée de 170 à 230 au réglage 3 : la maquette montre un
- * cône large. PROVISOIRE (§7) : à régler à vue.
- */
-const DEMI_BASE = 230
-/** De combien le cône s'arrête au-dessus du sol, en pixels. PROVISOIRE (§7) : à régler à vue. */
-const GARDE_AU_SOL = 36
 
 /** Un grain par ce nombre de pixels² : 4 fois la poussière du fond (`1/600`). PROVISOIRE (§7). */
 const DENSITE = 1 / 150
@@ -83,18 +49,6 @@ const DENSITE = 1 / 150
 const FACTEUR_MOBILE = 0.6
 /** Sous ce nombre, un faisceau ne se lit plus comme un faisceau. */
 const PLANCHER = 40
-
-export function coneDuFaisceau(piece: typeof PIECES.reverbere): Cone {
-  const sommet = {
-    x: piece.x,
-    y: piece.pied - piece.hauteur + (HAUT_LANTERNE * piece.hauteur) / HAUTEUR_CADRE,
-  }
-  return {
-    sommet,
-    base: [piece.x - DEMI_BASE, piece.x + DEMI_BASE],
-    hauteur: piece.pied - GARDE_AU_SOL - sommet.y,
-  }
-}
 
 /**
  * Les grains du faisceau : un tirage stable (`graine`), uniforme sur la surface
@@ -111,13 +65,10 @@ export function grainsDuFaisceau(cone: Cone, graine: number, mobile: boolean): G
   const suivant = alea(graine)
   const grains: Grain[] = []
   for (let i = 0; i < nombre; i += 1) {
-    const t = Math.sqrt(suivant())
-    const u = suivant()
-    const gauche = cone.sommet.x + (cone.base[0] - cone.sommet.x) * t
-    const droite = cone.sommet.x + (cone.base[1] - cone.sommet.x) * t
+    const { x, y, t } = pointDuCone(cone, suivant)
     grains.push({
-      x: gauche + (droite - gauche) * u,
-      y: cone.sommet.y + cone.hauteur * t,
+      x,
+      y,
       r: 0.5 + suivant() * 1.2,
       a: (0.3 + suivant() * 0.5) * (0.55 + 0.45 * t),
     })
@@ -188,6 +139,14 @@ export function nappesDuCone(cone: Cone): NappeDuCone[] {
   return nappes
 }
 
+/**
+ * La graine de la neige du cône. **Pas la 11 de la poussière** : les deux
+ * tirages consomment `alea` dans le même ordre, et avec la même graine chaque
+ * flocon tomberait exactement sur un grain — la neige se lirait comme de la
+ * poussière plus grasse, et sous mouvement réduit les deux seraient confondues.
+ */
+const GRAINE_NEIGE = 29
+
 /** Les couches respirent chacune à leur rythme : quelques `Graphics`, pas un par grain. */
 const COUCHES = 4
 /** De combien une couche s'éteint au creux de sa respiration. */
@@ -215,6 +174,7 @@ export class Faisceau {
    */
   private readonly flocons: Container
   private readonly neigeDuCone: CouchesQuiTombent
+  private readonly geometrie = coneDuFaisceau(PIECES.reverbere)
   private horloge = 0
   private echelle = 0
   private mobile: boolean | null = null
@@ -227,7 +187,7 @@ export class Faisceau {
     // Le cône ne dépend que de la géométrie du quai : une fois tracé, il ne
     // bouge plus — ni avec l'échelle, ni avec l'écran.
     this.racine.addChild(this.cone)
-    for (const nappe of nappesDuCone(coneDuFaisceau(PIECES.reverbere))) {
+    for (const nappe of nappesDuCone(this.geometrie)) {
       this.cone.poly(nappe.points).fill({ color: 0xffffff, alpha: nappe.alpha })
     }
     for (let i = 0; i < COUCHES; i += 1) {
@@ -235,8 +195,10 @@ export class Faisceau {
       this.couches.push(g)
       this.racine.addChild(g)
     }
-    const geometrie = coneDuFaisceau(PIECES.reverbere)
+    const geometrie = this.geometrie
     this.flocons = new Container()
+    // Elle commence absente, comme la neige libre : la nuit la fera venir.
+    this.flocons.alpha = 0
     // Le masque est le polygone du cône. Il reste dans l'arbre, à côté de ce
     // qu'il découpe, et ne bouge pas : seules les couches de flocons tombent.
     const masque = new Graphics()
@@ -287,6 +249,18 @@ export class Faisceau {
     this.racine.visible = allume
   }
 
+  /**
+   * La neige du cône **est** la nuit, comme celle du fond (`Neige.setNuit`) :
+   * sa seule opacité, sans rampe à elle. Elle ne touche **pas** au cône peint,
+   * qui est aussi lumineux de jour que de nuit — mais il ne neige pas dans le
+   * faisceau d'une traversée sans arrêt. Une nuit qui n'est pas un nombre ne
+   * passe pas : NaN effacerait la neige sans retour.
+   */
+  setNuit(nuit: number): void {
+    if (!Number.isFinite(nuit)) return
+    this.flocons.alpha = Math.min(1, Math.max(0, nuit))
+  }
+
   /** Retrace les grains quand l'échelle ou la taille de l'écran change — pas avant. */
   cadrer(frame: Frame, mobile: boolean): void {
     if (frame.scale === this.echelle && mobile === this.mobile) return
@@ -296,7 +270,7 @@ export class Faisceau {
     // se lisserait en mi-teinte, et le projet n'en allume pas.
     const rMin = GRAIN_ECRAN / 2 / frame.scale
     for (const g of this.couches) g.clear()
-    const grains = grainsDuFaisceau(coneDuFaisceau(PIECES.reverbere), 11, mobile)
+    const grains = grainsDuFaisceau(this.geometrie, 11, mobile)
     grains.forEach((grain, i) => {
       this.couches[i % COUCHES]
         .circle(grain.x, grain.y, Math.max(grain.r, rMin))
@@ -304,8 +278,11 @@ export class Faisceau {
     })
     // La neige se boucle sur la hauteur du cône. Tirée en pixels de cadre, elle
     // ne dépend pas de l'échelle : seul son rayon plancher la suit.
-    const geometrie = coneDuFaisceau(PIECES.reverbere)
-    this.neigeDuCone.poser(floconsDuCone(geometrie, 11, mobile), geometrie.hauteur, rMin)
+    this.neigeDuCone.poser(
+      floconsDuCone(this.geometrie, GRAINE_NEIGE, mobile),
+      this.geometrie.hauteur,
+      rMin,
+    )
   }
 
   /** Ça bouge tout seul : chaque couche respire à son rythme, déphasée des autres. */
