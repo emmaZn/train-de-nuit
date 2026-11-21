@@ -45,6 +45,7 @@ import type { Place } from './stars'
 import { DEFILEMENT, Train, WAGONS, avancement, wagonX } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
+import { Neige } from './NeigeLayer'
 import { nuitDeLaGare } from './nuit'
 import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
 import { forwardSteps } from './types'
@@ -112,6 +113,7 @@ export type Plans = {
   plateauFond: Container
   lumieres: Container
   plateau: Container
+  neige: Container
   nuit: Nuit
 }
 
@@ -119,7 +121,8 @@ export type Plans = {
  * L'ordre des plans du décor, du fond vers l'avant : le massif, puis le ciel,
  * puis le **fond du plateau** (voile du pied, câbles, décor éteint du quai),
  * puis les **lumières**, puis le plateau (rails, train, vitres, fumée, terre,
- * oiseaux). Le ciel passe donc **devant** la montagne et **derrière** le train
+ * oiseaux), puis la **neige**, qui tombe devant tout, rame comprise (spec §6).
+ * Le ciel passe donc **devant** la montagne et **derrière** le train
  * (CONCEPT.md §6).
  *
  * Toutes les places se réservent ici, en entier et tout de suite : le massif
@@ -147,16 +150,41 @@ export function plansDuDecor(decor: Container): Plans {
   const plateauFond = plan('plateau-fond')
   const lumieres = plan('lumieres')
   const plateau = plan('plateau')
-  decor.addChild(massif, ciel, plateauFond, lumieres, plateau)
+  // La neige passe devant la rame, comme la neige le fait — et elle n'entre
+  // dans aucune liste de `nuit` : elle est blanche, la teinte la grisaillerait.
+  const neige = plan('neige')
+  decor.addChild(massif, ciel, plateauFond, lumieres, plateau, neige)
   return {
     massif,
     ciel,
     plateauFond,
     lumieres,
     plateau,
+    neige,
     // Le plateau n'est pas là : ses porteurs s'inscrivent dans `peupler`,
     // un par un (`planSombre`), parce que les vitres sont au milieu.
     nuit: { profond: [massif, plateauFond], ciel: [ciel] },
+  }
+}
+
+/**
+ * Rend quelque chose **hors du reflet** : les plans que l'eau ne renvoie pas
+ * sont cachés le temps du rendu, et rendus ensuite — même si le rendu jette.
+ *
+ * Le ciel, parce que sa poussière couvre déjà le reflet et s'y dessinerait
+ * une seconde fois, retournée ; la neige, parce que des flocons retournés
+ * **monteraient** dans l'eau au lieu d'y tomber.
+ *
+ * C'est une fonction, et non trois lignes dans `rendreReflet`, pour que ce
+ * qui en sort se vérifie sans WebGL.
+ */
+export function horsDuReflet(plans: Plans, rendre: () => void): void {
+  const caches = [plans.ciel, plans.neige]
+  for (const plan of caches) plan.visible = false
+  try {
+    rendre()
+  } finally {
+    for (const plan of caches) plan.visible = true
   }
 }
 
@@ -268,6 +296,8 @@ export class Scene {
 
   private sky: Sky | null = null
   private stars: Stars | null = null
+  /** La neige d'« ailleurs » : devant la rame, et hors du reflet. */
+  private neige: Neige | null = null
   /** Kept so stars set before init, or between resizes, are not lost. */
   private traces: Trace[] = []
   private relief: Relief | null = null
@@ -403,6 +433,9 @@ export class Scene {
     // change pas de repère.
     this.sky = new Sky(this.plans.ciel)
     this.stars = new Stars(this.plans.ciel, { reducedMotion: this.reducedMotion })
+    // Dès ici, avant le premier `cadrer()` et le premier `assombrir()` : un
+    // lien partagé vers « ailleurs » doit neiger sur sa toute première image.
+    this.neige = new Neige(this.plans.neige, this.reducedMotion)
     // Il n'attend pas le manifeste : construit ici, il est cadré par le
     // `cadrer()` qui suit, et sa position n'est jamais indéfinie.
     this.rideau = new Rideau(this.reducedMotion)
@@ -542,6 +575,9 @@ export class Scene {
     poserCiel(this.plans.ciel, frame)
 
     this.sky?.resize(frame, width, height, width < SEUIL_MOBILE)
+    // La neige se trace en pixels de cadre, sur la part du cadre que l'écran
+    // montre : elle ne se retrace qu'ici, jamais à l'image.
+    this.neige?.cadrer(frame, width, height, width < SEUIL_MOBILE)
     this.stars?.setStars(this.traces, width, height)
     this.stars?.resize(width, height)
     // La place d'une étoile est une fraction, sa cible des pixels : une
@@ -1048,6 +1084,8 @@ export class Scene {
     this.relief?.dessiner()
     this.sky?.update()
     this.stars?.update(dt, Date.now())
+    // Rien ne se reconstruit : on ne déplace que les racines des couches.
+    this.neige?.animer(dt)
     for (const d of this.dissolutions) {
       d.update(dt)
       if (d.fini) this.dissolutions.delete(d)
@@ -1123,24 +1161,33 @@ export class Scene {
       reducedMotion: this.reducedMotion,
     })
     appliquerNuit(this.plans, nuit)
+    // L'opacité de la neige **est** la nuit, sans rampe à elle : elle n'est
+    // là qu'à « ailleurs », pleine dès la première image d'un lien partagé,
+    // et absente d'une traversée sans arrêt.
+    this.neige?.setNuit(nuit)
     return nuit
   }
 
   /**
-   * Le reflet ne prend pas le ciel. L'eau renvoie le massif et le train —
+   * Le reflet ne prend ni le ciel ni la neige. L'eau renvoie le massif et le train —
    * les choses solides. La poussière, elle, couvre déjà tout l'écran, reflet
    * compris : la renvoyer y dessinerait une seconde fois le même grain,
    * retourné. Et les étoiles-voyageuses y laisseraient des sosies qui ne
    * répondent à rien, juste sous la voie — précisément la zone que
    * `regionCiel` leur interdit pour qu'on ne les y cherche pas.
+   *
+   * La neige en sort pour une autre raison : l'eau retourne ce qu'on lui
+   * donne, et des flocons retournés **monteraient** dans le reflet au lieu
+   * d'y tomber.
    */
   private rendreReflet(): void {
-    if (!this.refletTexture) return
-    this.plans.ciel.visible = false
-    this.decor.scale.set(REFLET_RESOLUTION)
-    this.app.renderer.render({ container: this.decor, target: this.refletTexture, clear: true })
-    this.decor.scale.set(1)
-    this.plans.ciel.visible = true
+    const cible = this.refletTexture
+    if (!cible) return
+    horsDuReflet(this.plans, () => {
+      this.decor.scale.set(REFLET_RESOLUTION)
+      this.app.renderer.render({ container: this.decor, target: cible, clear: true })
+      this.decor.scale.set(1)
+    })
   }
 
   dispose(): void {
@@ -1157,6 +1204,7 @@ export class Scene {
     this.train?.destroy()
     this.sky?.destroy()
     this.stars?.destroy()
+    this.neige?.destroy()
     for (const d of this.dissolutions) d.destroy()
     this.dissolutions.clear()
     if (this.vivante) this.app.destroy(true, { children: true })

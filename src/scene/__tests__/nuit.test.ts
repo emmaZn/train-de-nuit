@@ -173,6 +173,7 @@ describe('l’assombrissement par teinte', () => {
       'plateau-fond',
       'lumieres',
       'plateau',
+      'neige',
     ])
   })
 
@@ -193,6 +194,9 @@ describe('l’assombrissement par teinte', () => {
     expect(plans.nuit.profond).not.toContain(plans.lumieres)
     // Le plateau porte la rame, donc les vitres : il ne peut pas être teinté.
     expect(plans.nuit.profond).not.toContain(plans.plateau)
+    // La neige est blanche : la teinte la grisaillerait (spec §6).
+    expect(plans.nuit.profond).not.toContain(plans.neige)
+    expect(plans.nuit.ciel).not.toContain(plans.neige)
   })
 
   it('à nuit nulle, rien n’est teinté', () => {
