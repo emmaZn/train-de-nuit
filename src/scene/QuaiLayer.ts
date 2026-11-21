@@ -96,11 +96,11 @@ const ALLUMEES: readonly PieceDessinee[] = ['reverbere']
 const GRADUATION = { de: 29 / 36, a: 34 / 36 } as const
 
 /* ----------------------------------------------------------------------------
- * Les trois sources de la gare sont des DÉGRADÉS (réglage 3).
+ * Deux sources de la gare sont des DÉGRADÉS (réglage 3).
  *
- * La maquette montre une lanterne blanche entourée d'une lueur, un cône plein
- * de lumière et une horloge à cadran blanc cerclée d'un halo. Les trois sont
- * des dégradés, donc des mi-teintes : c'est l'entorse à « blanc ou absent »
+ * La maquette montre un cône plein de lumière et une horloge à cadran blanc
+ * cerclée d'un halo (la lanterne, elle, est un corps blanc plein : plus de
+ * halo rond autour d'elle). Ce sont des dégradés, donc des mi-teintes : c'est l'entorse à « blanc ou absent »
  * (CONCEPT §12.2) que la propriétaire avait déjà assumée pour le halo des
  * vitres du train (`Vitres.HALO_ALPHA`), et qu'elle étend ici. Elle s'arrête
  * aux sources : le mur, la bordure, le massif et la rame restent blancs ou
@@ -128,18 +128,6 @@ const GRADUATION = { de: 29 / 36, a: 34 / 36 } as const
  * du verre que déborder du dessin.
  */
 const LANTERNE = { hautY: 110, basY: 165, hautDemi: 31, basDemi: 14, cx: 40 } as const
-
-/**
- * La lueur autour de la lanterne : rayon en unités du cadre du réverbère, et
- * opacité d'**une** nappe. Les nappes se cumulent au centre — à 0,022 et 60
- * nappes, le cœur monte vers 0,74. **Le réglage de la luminosité du
- * lampadaire, c'est `alpha`** ; `rayon` dit jusqu'où la lueur porte.
- *
- * Le nombre de nappes, lui, n'est pas un réglage de goût : c'est la finesse
- * du dégradé. À 26 nappes de 0,05, les marches se voyaient en anneaux autour
- * de la lampe. PROVISOIRE (§7).
- */
-const LUEUR = { rayon: 150, nappes: 60, alpha: 0.022 } as const
 
 /**
  * Les angles des deux aiguilles, en degrés. **0° = midi, sens horaire.**
@@ -226,8 +214,8 @@ export class Quai {
    * lumière : elle a droit au dégradé, comme le halo qu'elle double.
    */
   private readonly halo = new Graphics()
-  /** La lanterne : sa lueur et son corps blanc, tracés en code, pas dessinés. */
-  private readonly lanterne = new Graphics()
+  /** La lanterne : son corps blanc, tracé en code, pas dessiné. */
+  private readonly corpsLanterne = new Graphics()
   private readonly faisceau: Faisceau
 
   private readonly svgs = new Map<PieceDessinee, string>()
@@ -281,7 +269,7 @@ export class Quai {
     this.faisceau = new Faisceau(this.racineAllumee, reducedMotion)
     // La lanterne **après** le faisceau : c'est la source, rien ne passe
     // devant elle — sinon le sprite du réverbère, qui n'est que du trait.
-    this.racineAllumee.addChild(this.lanterne)
+    this.racineAllumee.addChild(this.corpsLanterne)
     // Tant qu'on ne sait pas où est la gare, l'île n'est nulle part : la scène
     // tourne sa première image avant que Vue ne lui dise d'où l'on part, et
     // une île qui se pose quand même s'ancre à quai — à « ailleurs ».
@@ -303,6 +291,11 @@ export class Quai {
   /** Le halo du battement et du survol, pour les tests de plan. */
   get eclat(): Graphics {
     return this.halo
+  }
+
+  /** La lanterne (corps blanc), pour les tests de plan. */
+  get lanterne(): Graphics {
+    return this.corpsLanterne
   }
 
   /** La racine allumée, pour les tests de plan. */
@@ -496,28 +489,19 @@ export class Quai {
   }
 
   /**
-   * La lanterne : une lueur en nappes, puis le corps vitré en blanc plein.
+   * La lanterne : le corps vitré en blanc plein, sans halo autour.
    *
    * C'est la source de la gare, et elle doit être la chose la plus claire de
    * l'écran — d'où le blanc pur, et non le gris du décor. Voir `LANTERNE`
    * pour la raison qui interdit de la remplir dans son dessin.
    */
   private tracerLanterne(): void {
-    const g = this.lanterne
+    const g = this.corpsLanterne
     g.clear()
     const b = boite('reverbere')
     const k = b.largeur / CADRES.reverbere.largeur
     const px = (x: number) => b.x + x * k
     const py = (y: number) => b.y + y * k
-    const cx = px(LANTERNE.cx)
-    const cy = py((LANTERNE.hautY + LANTERNE.basY) / 2)
-    // La lueur, du plus large au plus étroit : l'alpha se cumule vers le centre.
-    for (let i = LUEUR.nappes; i >= 1; i -= 1) {
-      g.circle(cx, cy, (LUEUR.rayon * k * i) / LUEUR.nappes).fill({
-        color: BLANC,
-        alpha: LUEUR.alpha,
-      })
-    }
     const { hautY, basY, hautDemi, basDemi, cx: c } = LANTERNE
     g.poly([
       px(c - hautDemi), py(hautY),
@@ -666,9 +650,9 @@ export class Quai {
       if (piece === 'batiment') racine.addChildAt(sprite, 0)
       // Le réverbère passe **sous** la lanterne : son dessin garde le verre en
       // creux (voir `LANTERNE`), et c'est le blanc tracé ici qui le remplit.
-      // Au-dessus, le mât et le toit de la lampe masqueraient la lueur, qui est
-      // la source — un lampadaire éteint devant son propre halo.
-      else if (piece === 'reverbere') racine.addChildAt(sprite, racine.getChildIndex(this.lanterne))
+      // Au-dessus, le mât et le toit de la lampe masqueraient la lanterne, qui
+      // est la source — un lampadaire éteint devant sa propre lampe.
+      else if (piece === 'reverbere') racine.addChildAt(sprite, racine.getChildIndex(this.corpsLanterne))
       else racine.addChild(sprite)
     }
     const b = boite(piece)

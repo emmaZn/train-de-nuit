@@ -7,9 +7,9 @@ import { loadTexture } from '@/scene/assets'
 import { Quai, anglesHorloge } from '@/scene/QuaiLayer'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
-import { HALO_HORLOGE, HORLOGE, HORLOGE_IMAGE } from '@/scene/quai'
+import { CADRES, HALO_HORLOGE, HORLOGE, HORLOGE_IMAGE, PIECES } from '@/scene/quai'
 import { lirePngIndexe } from './png'
-import { DUREE_ETAPE, STAGE } from '@/scene/layout'
+import { DUREE_ETAPE, STAGE, cadrageScene } from '@/scene/layout'
 
 vi.mock('@/scene/poses', async (importOriginal) => {
   const vrai = await importOriginal<typeof import('@/scene/poses')>()
@@ -148,6 +148,17 @@ describe('les plans du quai dans le décor', () => {
     expect(train).toBeGreaterThan(0)
     expect(quai).toBeLessThan(train)
     expect(source).toContain('plateauFond.addChild(planQuai)')
+  })
+})
+
+describe('la lanterne du réverbère', () => {
+  it('ne trace plus de halo rond autour d’elle', () => {
+    const { quai } = poser()
+    quai.cadrer(cadrageScene(1512, 771).frame, 1)
+    const embase =
+      CADRES.reverbere.largeur * (PIECES.reverbere.hauteur / CADRES.reverbere.hauteur)
+    // Le corps vitré seul : sans le halo, rien de tracé ne déborde de l’embase.
+    expect(quai.lanterne.getLocalBounds().width).toBeLessThanOrEqual(embase)
   })
 })
 
