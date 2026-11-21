@@ -158,7 +158,10 @@ describe('la lanterne du réverbère', () => {
     const embase =
       CADRES.reverbere.largeur * (PIECES.reverbere.hauteur / CADRES.reverbere.hauteur)
     // Le corps vitré seul : sans le halo, rien de tracé ne déborde de l’embase.
-    expect(quai.lanterne.getLocalBounds().width).toBeLessThanOrEqual(embase)
+    const { width } = quai.lanterne.getLocalBounds()
+    expect(width).toBeLessThanOrEqual(embase)
+    // Et elle reste tracée : une lanterne absente passerait la borne haute.
+    expect(width).toBeGreaterThan(0)
   })
 })
 

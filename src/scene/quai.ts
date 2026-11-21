@@ -48,7 +48,7 @@ import { HORIZON } from './layout'
  *
  * Les deux cadres d'image ne valent **pas** les dimensions de leur fichier :
  * ils restent à l'échelle du cadre, parce que c'est en unités de cadre que se
- * lisent la lueur de la lanterne (`LUEUR.rayon`) et le sommet du faisceau.
+ * lisent le corps de la lanterne (`LANTERNE`) et le sommet du faisceau.
  * Seul leur rapport doit suivre l'image.
  */
 export const CADRES = {
@@ -172,7 +172,7 @@ const BORD_DROIT_CORPS = 2150
 
 export const PIECES = {
   // `hauteur` est la hauteur **posée** (400, réglée à l'œil le 21 novembre) ; le
-  // dessin reste mesuré dans `CADRES.reverbere`, et lanterne, lueur et sommet du
+  // dessin reste mesuré dans `CADRES.reverbere`, et lanterne et sommet du
   // faisceau en suivent l'échelle (`hauteur / CADRES…`).
   //
   // **1390 est écrit en clair, et c'est la décision** : le réverbère ne dérive
@@ -243,8 +243,8 @@ export const HORLOGE = {
  * Le halo de l'horloge : rayon en fractions du rayon du cadran, et opacité
  * d'une nappe. Il remplace les deux cercles de points de l'ancien dessin, qui
  * se lisaient comme un anneau et non comme un halo. **Le réglage de la
- * luminosité de l'horloge, c'est `alpha`** ; `nappes`, comme pour la lueur du
- * réverbère (`LUEUR`, dans `QuaiLayer.ts`), n'est que la finesse du dégradé. PROVISOIRE (§7).
+ * luminosité de l'horloge, c'est `alpha`** ; `nappes`, comme pour le cône du
+ * faisceau (`Faisceau.ts`), n'est que la finesse du dégradé. PROVISOIRE (§7).
  */
 export const HALO_HORLOGE = { rayon: 2.4, nappes: 48, alpha: 0.023 } as const
 

@@ -135,7 +135,7 @@ describe('la géométrie du quai', () => {
    * deux dimensions près, parce que `fabriquerPiece` rasterise à cette
    * échelle. Le bâtiment et le réverbère sont des images déjà grainées : seul
    * leur **rapport** doit suivre, leur cadre restant à l'échelle du cadre (en
-   * unités de laquelle se lisent `LUEUR.rayon` et le sommet du faisceau).
+   * unités de laquelle se lisent `LANTERNE` et le sommet du faisceau).
    */
   it('chaque pièce en SVG garde le cadre de son dessin', () => {
     for (const nom of ['banc', 'valise'] as const) {
@@ -203,7 +203,7 @@ describe('la géométrie du quai', () => {
     // `PIECES.reverbere` ne porte qu'une hauteur : la largeur posée se déduit,
     // et elle peut se déduire de deux côtés. Par l'image (108 × 756, lue dans
     // l'en-tête du PNG par le test d'au-dessus) et par le cadre (80 × 560, où
-    // se lisent lanterne, lueur et faisceau) : deux littéraux indépendants, qui
+    // se lisent lanterne et faisceau) : deux littéraux indépendants, qui
     // doivent s'accorder sur ce que fait le lampadaire à l'écran. Réduire la
     // pièce (`hauteur`) sans toucher à l'un des deux ne les sépare pas ; changer
     // l'un sans l'autre, si.
