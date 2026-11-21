@@ -1,15 +1,18 @@
 import { Container, Graphics } from 'pixi.js'
+import { alea } from './alea'
 import { HORIZON, STAGE } from './layout'
 import type { Frame } from './layout'
+import type { Grain } from './alea'
 
-export type Grain = {
-  x: number
-  y: number
-  /** Radius in pixels. */
-  r: number
-  /** Opacity, 0 to 1. */
-  a: number
-}
+/**
+ * Le générateur et le type du grain vivent dans `alea.ts`, en nombres purs :
+ * les modules qui ne dessinent pas — les horaires, la neige — ne doivent pas
+ * charger Pixi pour s'en servir. Ils se relisent ici pour que rien de ce qui
+ * les importait de `Sky` n'ait à changer de chemin.
+ */
+export { alea }
+export type { Grain }
+
 
 /** One grain per this many square pixels. */
 const DENSITE = 1 / 600
@@ -24,16 +27,6 @@ export function dustCount(viewportW: number, viewportH: number, mobile: boolean)
   return Math.max(PLANCHER, Math.round(brut))
 }
 
-/** mulberry32: small, fast, and seeded — the same sky on every visit. */
-export function alea(graine: number): () => number {
-  let a = graine >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
-}
 
 export function makeDust(count: number, seed: number, w: number, h: number): Grain[] {
   const suivant = alea(seed)

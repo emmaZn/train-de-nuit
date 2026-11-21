@@ -168,22 +168,33 @@ export function plansDuDecor(decor: Container): Plans {
 }
 
 /**
- * Rend quelque chose **hors du reflet** : les plans que l'eau ne renvoie pas
- * sont cachés le temps du rendu, et rendus ensuite — même si le rendu jette.
+ * Prépare le décor pour le reflet, rend, et **remet tout en place** : les
+ * plans que l'eau ne renvoie pas et l'échelle du reflet.
  *
- * Le ciel, parce que sa poussière couvre déjà le reflet et s'y dessinerait
- * une seconde fois, retournée ; la neige, parce que des flocons retournés
- * **monteraient** dans l'eau au lieu d'y tomber.
+ * Le ciel en sort parce que sa poussière couvre déjà le reflet et s'y
+ * dessinerait une seconde fois, retournée ; la neige, parce que des flocons
+ * retournés **monteraient** dans l'eau au lieu d'y tomber.
  *
- * C'est une fonction, et non trois lignes dans `rendreReflet`, pour que ce
- * qui en sort se vérifie sans WebGL.
+ * Tout ce qui est posé ici est défait dans le même `finally` : un rendu qui
+ * jette laisserait sinon le décor à l'échelle du reflet pour le reste de la
+ * session — une avarie pire que celle dont on se garde.
+ *
+ * C'est une fonction, et non six lignes dans `rendreReflet`, pour que ce qui
+ * en sort se vérifie sans WebGL.
  */
-export function horsDuReflet(plans: Plans, rendre: () => void): void {
+export function horsDuReflet(
+  plans: Plans,
+  decor: Container,
+  echelle: number,
+  rendre: () => void,
+): void {
   const caches = [plans.ciel, plans.neige]
   for (const plan of caches) plan.visible = false
+  decor.scale.set(echelle)
   try {
     rendre()
   } finally {
+    decor.scale.set(1)
     for (const plan of caches) plan.visible = true
   }
 }
@@ -447,6 +458,10 @@ export class Scene {
     this.decor.filters = [this.recolor]
 
     this.cadrer()
+    // La nuit, tout de suite : la neige d'un lien partagé vers « ailleurs »
+    // doit être pleine sur la **première** image rendue, et non attendre le
+    // premier tick. `peupler` fait de même pour les plans qui s'inscrivent.
+    this.assombrir()
     // `resizeTo: window` reporte le redimensionnement à un requestAnimationFrame :
     // lire `app.screen` depuis un écouteur `resize` du document donne toujours
     // les dimensions d'avant. C'est le renderer qui dit quand il a changé.
@@ -1183,10 +1198,8 @@ export class Scene {
   private rendreReflet(): void {
     const cible = this.refletTexture
     if (!cible) return
-    horsDuReflet(this.plans, () => {
-      this.decor.scale.set(REFLET_RESOLUTION)
+    horsDuReflet(this.plans, this.decor, REFLET_RESOLUTION, () => {
       this.app.renderer.render({ container: this.decor, target: cible, clear: true })
-      this.decor.scale.set(1)
     })
   }
 

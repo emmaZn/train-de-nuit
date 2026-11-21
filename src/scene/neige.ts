@@ -21,8 +21,8 @@
  * propriétaire (spec, « Ce qui reste ouvert » : la densité et la vitesse de la
  * neige se posent à vue, sur la scène qui tourne).
  */
-import { alea } from './Sky'
-import type { Grain } from './Sky'
+import { alea } from './alea'
+import type { Grain } from './alea'
 
 /**
  * Un flocon : exactement la matière d'un grain de `Sky` — une place, un rayon,
@@ -118,8 +118,9 @@ export function floconsLibres(
   graine: number,
   mobile: boolean,
 ): Flocon[][] {
-  // `alea` de `Sky` : le même mulberry32 que la poussière et le faisceau — un
-  // seul générateur dans la scène, et la même neige à chaque visite.
+  // Le même mulberry32 que la poussière et le faisceau — un seul générateur
+  // dans la scène, et la même neige à chaque visite. Il vit dans `alea.ts`,
+  // sans Pixi : ce module reste en nombres purs, ses tests aussi.
   const suivant = alea(graine)
   const parCouche = Math.max(
     PLANCHER_COUCHE,

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -6,6 +8,25 @@ import {
   decalageCouche,
   floconsLibres,
 } from '@/scene/neige'
+
+/**
+ * La coupe nombres/dessin du dépôt : `neige.ts` est à `NeigeLayer.ts` ce que
+ * `quai.ts` est à `QuaiLayer.ts`. Elle ne tient que si personne ne ramène Pixi
+ * par la bande — c'est pour ça qu'`alea` et `Grain` ont quitté `Sky.ts`, qui
+ * dessine, pour `alea.ts`, qui ne dessine pas.
+ */
+describe('la coupe nombres / dessin', () => {
+  it('ni `neige.ts` ni `alea.ts` ne chargent Pixi, même en transitif', () => {
+    for (const module of ['neige', 'alea']) {
+      const source = readFileSync(`src/scene/${module}.ts`, 'utf8')
+      const imports = [...source.matchAll(/from '([^']+)'/g)].map((m) => m[1])
+      expect(imports, module).not.toContain('pixi.js')
+      // Et rien qui en charge : `Sky.ts` et `Train.ts` dessinent.
+      expect(imports, module).not.toContain('./Sky')
+      expect(imports, module).not.toContain('./Train')
+    }
+  })
+})
 
 describe('la chute des couches', () => {
   it('le décalage d’une couche reste dans la hauteur de tirage', () => {

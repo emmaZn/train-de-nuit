@@ -1,4 +1,4 @@
-import { alea } from './Sky'
+import { alea } from './alea'
 
 export type Depart = {
   heure: string

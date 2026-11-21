@@ -1,4 +1,4 @@
-import { Container } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import { describe, expect, it } from 'vitest'
 
 import { Neige } from '@/scene/NeigeLayer'
@@ -112,6 +112,38 @@ describe('la chute', () => {
     }
   })
 
+  it('chaque flocon est tracé deux fois : c’est ce qui ferme le bouclage', () => {
+    // Sans la seconde copie, à `y - hauteur`, une bande vide traverserait
+    // l'écran à chaque tour. Un `circle(...).fill(...)` laisse exactement une
+    // instruction de remplissage : on les compte.
+    const { neige } = neigeCadree()
+    const traces = neige.groupe.children.reduce(
+      (n, c) => n + (c as Graphics).context.instructions.length,
+      0,
+    )
+    expect(traces).toBe(2 * neige.nombreDeFlocons)
+  })
+
+  it('un temps qui n’est pas un nombre n’empoisonne pas l’horloge', () => {
+    // `poser` ne remet pas l'horloge à zéro : un NaN y resterait, et la neige
+    // disparaîtrait pour le reste de la session.
+    const { neige } = neigeCadree()
+    neige.animer(0.5)
+    const avant = neige.decalages
+    neige.animer(Number.NaN)
+    neige.animer(Number.POSITIVE_INFINITY)
+    expect(neige.decalages).toEqual(avant)
+    neige.animer(0.5)
+    for (const d of neige.decalages) expect(Number.isFinite(d)).toBe(true)
+  })
+
+  it('une nuit qui n’est pas un nombre n’efface pas la neige', () => {
+    const { neige } = neigeCadree()
+    neige.setNuit(1)
+    neige.setNuit(Number.NaN)
+    expect(neige.groupe.alpha).toBe(1)
+  })
+
   it('ne retrace rien tant que le cadre ne change pas', () => {
     const { neige } = neigeCadree()
     const traces = neige.tracages
@@ -135,26 +167,35 @@ describe('la chute', () => {
 })
 
 describe('le reflet', () => {
+  /** L'échelle du reflet, quelle qu'elle soit : ce qui compte est qu'elle parte. */
+  const ECHELLE = 0.5
+
   it('la neige ne se dessine pas dans le reflet', () => {
-    const { plans } = monter()
+    const { decor, plans } = monter()
     expect(plans.neige.visible).toBe(true)
-    let pendant: boolean[] = []
-    horsDuReflet(plans, () => {
-      pendant = [plans.neige.visible, plans.ciel.visible]
+    let pendant: unknown[] = []
+    horsDuReflet(plans, decor, ECHELLE, () => {
+      pendant = [plans.neige.visible, plans.ciel.visible, decor.scale.x]
     })
-    expect(pendant).toEqual([false, false])
+    expect(pendant).toEqual([false, false, ECHELLE])
     expect(plans.neige.visible).toBe(true)
     expect(plans.ciel.visible).toBe(true)
+    expect(decor.scale.x).toBe(1)
+    expect(decor.scale.y).toBe(1)
   })
 
-  it('rend les plans même si le rendu jette', () => {
-    const { plans } = monter()
+  it('rend les plans **et** l’échelle même si le rendu jette', () => {
+    // Un décor resté à l'échelle du reflet le serait pour toute la session :
+    // l'avarie serait pire que celle dont on se garde.
+    const { decor, plans } = monter()
     expect(() =>
-      horsDuReflet(plans, () => {
+      horsDuReflet(plans, decor, ECHELLE, () => {
         throw new Error('pas de contexte')
       }),
     ).toThrow()
     expect(plans.neige.visible).toBe(true)
     expect(plans.ciel.visible).toBe(true)
+    expect(decor.scale.x).toBe(1)
+    expect(decor.scale.y).toBe(1)
   })
 })

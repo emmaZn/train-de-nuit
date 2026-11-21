@@ -93,9 +93,15 @@ export class CouchesQuiTombent {
     this.placer()
   }
 
-  /** Ça tombe tout seul : on ne déplace que les racines. */
+  /**
+   * Ça tombe tout seul : on ne déplace que les racines.
+   *
+   * Un `dt` qui n'est pas fini empoisonnerait l'horloge **définitivement** —
+   * tous les décalages passeraient à NaN, et `poser` ne remet pas l'horloge à
+   * zéro : la neige disparaîtrait pour le reste de la session.
+   */
   animer(dt: number): void {
-    if (!this.anime) return
+    if (!this.anime || !Number.isFinite(dt)) return
     this.horloge += dt
     this.placer()
   }
@@ -167,8 +173,14 @@ export class Neige {
     )
   }
 
-  /** L'opacité de la neige **est** la nuit : aucune rampe de plus ici. */
+  /**
+   * L'opacité de la neige **est** la nuit : aucune rampe de plus ici.
+   *
+   * Une nuit qui n'est pas un nombre ne passe pas : `Math.min`/`Math.max`
+   * laissent filer NaN, et une opacité NaN efface la neige sans retour.
+   */
   setNuit(nuit: number): void {
+    if (!Number.isFinite(nuit)) return
     this.racine.alpha = Math.min(1, Math.max(0, nuit))
   }
 
