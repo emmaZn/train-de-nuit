@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, provide, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import CommandeReverbere from '@/components/CommandeReverbere.vue'
 import EyeButton from '@/components/EyeButton.vue'
 import EtoilesListe from '@/components/EtoilesListe.vue'
 import NavFrise from '@/components/NavFrise.vue'
@@ -32,6 +33,11 @@ const cvOuvert = computed(() => route.name === 'cv')
   <RouterView />
   <div class="dessous" :inert="cvOuvert || undefined">
     <RepliquesOiseaux />
+    <!-- Avant le panneau des départs : les deux boîtes `fixed` sont au même
+         `z-index`, et c'est l'ordre du gabarit qui décide qui est au-dessus.
+         La plaque posée croise le mât ; montée après, elle garde ses trois
+         liens au-dessus de la commande du réverbère. -->
+    <CommandeReverbere />
     <!-- Hors des routes : il doit pouvoir s'effacer après le changement d'URL. -->
     <PanneauDeparts />
     <StarTooltip />

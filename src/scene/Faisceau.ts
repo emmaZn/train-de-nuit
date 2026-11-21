@@ -9,9 +9,11 @@
  *
  * Le cône est donc **un dégradé**, donc des mi-teintes. C'est l'entorse à
  * « blanc ou absent » (CONCEPT §12.2), étendue au réglage 3 des vitres du
- * train (`Vitres.HALO_ALPHA`) **aux trois sources de la gare** : la lueur de
- * la lanterne, ce cône, et le halo de l'horloge. Elle s'arrête là : le mur, la
- * bordure, le massif et le train restent blancs ou absents.
+ * train (`Vitres.HALO_ALPHA`) **aux deux dégradés de la gare** : ce cône et le
+ * halo de l'horloge. (Il y en avait trois : le halo rond de la lanterne a été
+ * retiré le 21 novembre 2026, et la lanterne est depuis un blanc plein, qui ne
+ * fait pas de mi-teinte.) Elle s'arrête là : le mur, la bordure, le massif et
+ * le train restent blancs ou absents.
  *
  * Il est peint en nappes de blanc translucide qui se recouvrent — pas un
  * dégradé de Pixi : un `FillGradient` se construit sur un canvas 2D, que jsdom
@@ -229,6 +231,19 @@ export class Faisceau {
   /** L'opacité de chaque couche, pour les tests. */
   get opacites(): number[] {
     return this.couches.map((g) => g.alpha)
+  }
+
+  /**
+   * Allume ou éteint le faisceau tout entier : le cône peint, sa poussière, et
+   * la neige qui y tombera (tâche 7). Un seul interrupteur, parce que tout cela
+   * vit dans `racine` — ce qui est dans le faisceau s'éteint avec lui.
+   *
+   * On **cache**, on ne vide pas : les tracés sont posés une fois (le cône à la
+   * construction, les grains au cadrage) et les refaire au rallumage coûterait
+   * sans rien donner.
+   */
+  allumer(allume: boolean): void {
+    this.racine.visible = allume
   }
 
   /** Retrace les grains quand l'échelle ou la taille de l'écran change — pas avant. */

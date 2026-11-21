@@ -37,6 +37,13 @@ export type SceneEvents = {
    * nulle part. Un rideau qui n'a pas encore de cadre ne dit donc rien.
    */
   rideau: (y: number, baisse: boolean) => void
+  /**
+   * Le réverbère d'« ailleurs » est-il allumé ? Émis à chaque changement, et
+   * seulement alors : le clic du canvas, le bouton du DOM, et le rallumage
+   * d'office quand la gare quitte le champ — c'est ce dernier que le DOM ne
+   * peut pas deviner, et sans lequel `aria-pressed` mentirait au retour.
+   */
+  reverbere: (allume: boolean) => void
   starHover: (trace: Trace | null, x: number, y: number) => void
   /**
    * Un oiseau vient d'être lâché. Sans coordonnées : la réplique paraît

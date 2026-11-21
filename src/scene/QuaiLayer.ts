@@ -31,7 +31,16 @@ import gsap from 'gsap'
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
 import { STAGE } from './layout'
 import type { Frame } from './layout'
-import { CADRES, DEBUT_GARE, FIN_GARE, HALO_HORLOGE, HORLOGE, PIECES } from './quai'
+import {
+  CADRES,
+  DEBUT_GARE,
+  FIN_GARE,
+  HALO_HORLOGE,
+  HORLOGE,
+  LANTERNE,
+  PIECES,
+  reverbereTouche,
+} from './quai'
 import { loadTexture } from './assets'
 import { GRAIN_ECRAN, fabriquerPiece } from './poses'
 import { Faisceau } from './Faisceau'
@@ -111,23 +120,6 @@ const GRADUATION = { de: 29 / 36, a: 34 / 36 } as const
  * canvas 2D, que jsdom n'a pas, et les lumières disparaîtraient des tests.
  * L'alpha se cumule, et quelques dizaines de nappes se lisent comme un dégradé.
  * ------------------------------------------------------------------------- */
-
-/**
- * Le corps vitré de la lanterne, en unités du cadre du réverbère —
- * **miroir du dessin**, à tenir à jour avec lui (même parti que
- * `PORTE_IMAGE`).
- *
- * Le dessin de la propriétaire **garde le verre en creux** : `vider_le_verre`
- * y retire la masse et ne laisse que les meneaux, exactement comme le pignon
- * de la gare garde son trou d'horloge. C'est la raison d'être de ce trapèze :
- * une masse noire à cet endroit serait rendue à la couleur du fond par le
- * shader, et le lampadaire serait éteint.
- *
- * Il est posé **en retrait** du trait de la lanterne, qui est galbé là où le
- * trapèze est droit : il vaut mieux laisser paraître un filet de lueur au bord
- * du verre que déborder du dessin.
- */
-const LANTERNE = { hautY: 110, basY: 165, hautDemi: 31, basDemi: 14, cx: 40 } as const
 
 /**
  * Les angles des deux aiguilles, en degrés. **0° = midi, sens horaire.**
@@ -231,6 +223,14 @@ export class Quai {
   private readonly images = new Map<PieceImage, Texture>()
 
   private parCadre = 1
+  /**
+   * L'échelle du cadre, telle que le dernier `cadrer` l'a donnée. Elle ne sert
+   * qu'à la cible du réverbère, qui doit tenir 44 px d'**écran** à toute
+   * échelle (`cibleReverbere`). 1 par défaut : un quai qui n'a pas encore été
+   * cadré rend alors la cible la plus étroite, celle de l'emprise du dessin —
+   * jamais plus large qu'il ne faut.
+   */
+  private echelleCadre = 1
   private posee = false
   private detruite = false
   /**
@@ -242,6 +242,13 @@ export class Quai {
   private cuisson = 0
   /** La minute déjà tracée : les aiguilles ne se redessinent qu'au changement. */
   private minuteTracee = -1
+
+  /**
+   * Le réverbère est-il allumé ? C'est un **jouet**, pas un réglage : il
+   * s'éteint d'un clic, se rallume d'un second, et la gare quittée il est
+   * rallumé (`avancer`). Rien n'en est retenu d'une visite à l'autre.
+   */
+  private lampeAllumee = true
 
   private readonly reducedMotion: boolean
   /** L'opacité du battement : une valeur que GSAP anime, et que `poserEclat` lit. */
@@ -329,6 +336,44 @@ export class Quai {
    */
   horlogeTouchee(x: number, y: number): boolean {
     return this.posee && horlogeTouchee(x - this.x, y)
+  }
+
+  /**
+   * Le point `(x, y)`, en pixels de cadre, est-il sur le réverbère **là où il
+   * est dessiné** ? Même détour que `horlogeTouchee` : la cible est écrite à la
+   * place d'arrêt (`cibleReverbere`) et le mât défile avec l'île, donc on
+   * retranche ici l'abscisse de l'île, parce que c'est ici qu'on la connaît.
+   *
+   * L'échelle vient du dernier cadrage : la cible tient 44 px d'écran à toute
+   * échelle, et c'est le quai qui connaît la sienne.
+   */
+  reverbereTouche(x: number, y: number): boolean {
+    return this.posee && reverbereTouche(x - this.x, y, this.echelleCadre)
+  }
+
+  /** Le réverbère est-il allumé ? Vrai au départ, et de retour à chaque gare. */
+  get allumeReverbere(): boolean {
+    return this.lampeAllumee
+  }
+
+  /** Un clic l'éteint, un second le rallume. */
+  basculerReverbere(): void {
+    this.allumerReverbere(!this.lampeAllumee)
+  }
+
+  /**
+   * Allume ou éteint : on **cache** la lumière, on ne l'efface pas.
+   *
+   * Le faisceau entier part d'un coup — son cône, sa poussière et, plus tard,
+   * sa neige — parce que c'est un seul conteneur. La lanterne, elle, perd sa
+   * visibilité et garde son tracé : `redessiner` repasse dessus à chaque
+   * cadrage, et une lanterne éteinte par un `clear()` se rallumerait au premier
+   * redimensionnement.
+   */
+  private allumerReverbere(allume: boolean): void {
+    this.lampeAllumee = allume
+    this.faisceau.allumer(allume)
+    this.corpsLanterne.visible = allume
   }
 
   /** Le battement est-il en cours ? Il s'arrête de lui-même, ou quand on l'apaise. */
@@ -433,6 +478,9 @@ export class Quai {
   }
 
   cadrer(frame: Frame, resolution: number, mobile = false): void {
+    // Avant la sortie anticipée : la cible du réverbère suit l'échelle, même
+    // quand il n'y a plus rien à retracer.
+    this.echelleCadre = frame.scale
     this.faisceau.cadrer(frame, mobile)
     const parCadre = frame.scale * resolution
     if (parCadre === this.parCadre && this.sprites.size) return
@@ -462,6 +510,13 @@ export class Quai {
       this.racineEteinte.visible = true
       this.racineAllumee.visible = true
     }
+    // Le réverbère est un jouet : la gare sortie du champ, il est rallumé.
+    // C'est **ici** et non dans `horsChamp`, qui est une question et doit le
+    // rester : `suivreIle` ne la pose pas toutes les images (elle est derrière
+    // deux `||`), et une question qui change l'état ne répondrait pas toujours.
+    // `avancer` est le moment où le quai apprend où il est : personne ne peut
+    // voir la lampe se rallumer, elle est hors de l'écran.
+    if (!this.lampeAllumee && this.horsChamp(distance)) this.allumerReverbere(true)
     this.tracerAiguilles()
   }
 

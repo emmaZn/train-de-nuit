@@ -297,6 +297,8 @@ export class Scene {
   private rideau: Rideau | null = null
   /** Ce que le rideau a dit en dernier : on ne répète pas une position qui n'a pas changé. */
   private rideauEmis: { y: number; baisse: boolean } | null = null
+  /** Le dernier état du réverbère dit à Vue : on ne répète pas ce qu'on a déjà dit. */
+  private reverbereEmis: boolean | null = null
   private frameCourante: Frame | null = null
 
   /**
@@ -598,13 +600,15 @@ export class Scene {
 
   /**
    * Un clic, en pixels CSS. Rend `true` s'il a pris le clic — l'horloge, qui
-   * commande le rideau, ou un oiseau — : l'appelant sait alors qu'il ne doit
-   * pas aussi ouvrir la bulle d'une étoile.
+   * commande le rideau, le réverbère, ou un oiseau — : l'appelant sait alors
+   * qu'il ne doit pas aussi ouvrir la bulle d'une étoile.
    *
-   * L'horloge passe avant les oiseaux. Un point sous la plaque ne prend **pas**
-   * l'horloge : la plaque est devant elle, comme devant le ciel. Les oiseaux,
-   * eux, sont dans `plateau`, dessinés devant la plaque : on les voit par-dessus
-   * et ils répondent — leurs fils passent en pleine boîte de la plaque posée.
+   * L'horloge passe avant le réverbère, qui passe avant les oiseaux : chacun
+   * rend la main au suivant quand il n'est pas visé. Un point sous la plaque ne
+   * prend **pas** l'horloge : la plaque est devant elle, comme devant le ciel.
+   * Les oiseaux, eux, sont dans `plateau`, dessinés devant la plaque : on les
+   * voit par-dessus et ils répondent — leurs fils passent en pleine boîte de la
+   * plaque posée.
    */
   clicPx(px: number, py: number): boolean {
     const f = this.frameCourante
@@ -612,6 +616,10 @@ export class Scene {
     const cadre = versCadre(px, py, f)
     if (!this.sousLeRideau(cadre.x, cadre.y) && this.quai?.horlogeTouchee(cadre.x, cadre.y)) {
       this.basculerRideau()
+      return true
+    }
+    if (this.reverbereVise(cadre.x, cadre.y)) {
+      this.basculerReverbere()
       return true
     }
     if (!this.oiseaux || !this.gagOuvert) return false
@@ -641,6 +649,42 @@ export class Scene {
   /** L'état **visé** du rideau : il change dès le geste, bien avant que la plaque arrive. */
   get rideauBaisse(): boolean {
     return this.rideau?.baisse ?? false
+  }
+
+  /**
+   * Le clic vise-t-il le réverbère ? Un prédicat à lui seul, et une sortie
+   * franche dans `clicPx` : la route de la lampe doit se lire et se déplacer
+   * sans toucher à celle de l'horloge.
+   */
+  private reverbereVise(x: number, y: number): boolean {
+    return this.quai?.reverbereTouche(x, y) ?? false
+  }
+
+  /**
+   * Éteint le réverbère, ou le rallume : le geste du clic sur le mât, et celui
+   * du bouton du DOM — le même, pour que le clavier n'ait pas une lampe à lui.
+   *
+   * Pas de règle d'arrêt, à la différence du rideau : la lampe répond là où
+   * elle est, même en marche. Rien n'est perdu à l'éteindre en route, elle est
+   * rallumée dès que la gare a quitté le champ.
+   */
+  basculerReverbere(): void {
+    this.quai?.basculerReverbere()
+    this.emettreReverbere()
+  }
+
+  /** Le réverbère est-il allumé ? Sans quai — sans WebGL — il l'est. */
+  get reverbereAllume(): boolean {
+    return this.quai?.allumeReverbere ?? true
+  }
+
+  /** Dit l'état du réverbère, s'il a changé depuis la dernière fois. */
+  private emettreReverbere(): void {
+    if (!this.quai) return
+    const allume = this.quai.allumeReverbere
+    if (this.reverbereEmis === allume) return
+    this.reverbereEmis = allume
+    this.emitter.emit('reverbere', allume)
   }
 
   /** Le battement de l'horloge est-il en cours ? */
@@ -1025,6 +1069,10 @@ export class Scene {
     if (this.ileAilleurs.distance !== null) {
       this.quai?.avancer(this.ileAilleurs.distance, nuit)
     }
+    // Le quai rallume le réverbère de lui-même quand la gare quitte le champ :
+    // c'est le seul changement que le DOM ne peut pas deviner, et sans lui le
+    // bouton dirait « Allumer » sur une lampe allumée au retour.
+    this.emettreReverbere()
     // Le faisceau respire de lui-même, posé ou non : il est caché avec l'île.
     this.quai?.animer(dt)
     // Ce que GSAP a fait de la plaque depuis l'image d'avant. Si son rappel passe

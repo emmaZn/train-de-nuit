@@ -6,7 +6,7 @@ import { Quai } from '@/scene/QuaiLayer'
 import { Rideau } from '@/scene/RideauLayer'
 import { Scene, plansDuDecor, poserCiel, poserMonde } from '@/scene/Scene'
 import { cadrageScene, HORIZON, SEUIL_MOBILE } from '@/scene/layout'
-import { HORLOGE } from '@/scene/quai'
+import { HORLOGE, PIECES, cibleReverbere } from '@/scene/quai'
 import { RIDEAU, yPoseA } from '@/scene/rideau'
 import type { Trace } from '@/scene/types'
 
@@ -179,69 +179,71 @@ describe('la porte du gag', () => {
   })
 })
 
+const ECRAN = { width: 1440, height: 900 }
+const CADRE = cadrageScene(ECRAN.width, ECRAN.height).frame
+
+/** Un point du cadre, tel que le pointeur le donne : en pixels CSS. */
+const enPixelsEcran = (x: number, y: number) => ({
+  x: CADRE.offsetX + x * CADRE.scale,
+  y: CADRE.offsetY + y * CADRE.scale,
+})
+
+/** Avance la timeline globale de GSAP sans attendre le temps réel. */
+function avancerGsap(secondes: number): void {
+  gsap.globalTimeline.time(gsap.globalTimeline.time() + secondes)
+}
+
+type Interne = {
+  quai: Quai | null
+  stars: { hit: (px: number, py: number) => Trace | null } | null
+  rideau: Rideau | null
+  oiseaux: { cliquer: (x: number, y: number) => boolean } | null
+}
+
+const vivantes: Scene[] = []
+afterEach(() => {
+  for (const s of vivantes.splice(0)) {
+    // Les doublures posées par les tests n'ont pas de `destroy`, et le
+    // Pixi de pacotille n'a pas de contexte à défaire.
+    const interne = s as unknown as Interne & { vivante: boolean }
+    interne.stars = null
+    interne.oiseaux = null
+    interne.vivante = false
+    s.dispose()
+  }
+  vi.restoreAllMocks()
+})
+
+/**
+ * Une scène qui a fait son `init()` pour de bon — le rideau naît là, dans le
+ * même ordre que dans le navigateur —, sans carte graphique : Pixi est
+ * remplacé par ce que la scène lui demande, et l'horloge de rendu par une
+ * fonction qu'on appelle (`image`). Le quai, que `peupler` monte après le
+ * manifeste, est posé à la main : l'île est à l'arrêt (distance 0).
+ */
+async function sceneDeTest(reducedMotion = false) {
+  vi.spyOn(Application.prototype, 'init').mockResolvedValue(undefined as never)
+  const scene = new Scene(document.createElement('canvas'), { reducedMotion })
+  vivantes.push(scene)
+  const app = (scene as unknown as { app: Record<string, unknown> }).app
+  Object.defineProperty(app, 'screen', { get: () => ECRAN, configurable: true })
+  app.renderer = { on() {}, resolution: 1, background: { color: 0 }, render() {} }
+  const images: Array<(t: { deltaMS: number }) => void> = []
+  app.ticker = { add: (f: (t: { deltaMS: number }) => void) => images.push(f) }
+  const emis: Array<[number, boolean]> = []
+  scene.on('rideau', (y, baisse) => emis.push([y, baisse]))
+  await scene.init()
+
+  const interne = scene as unknown as Interne
+  const plans = (scene as unknown as { plans: ReturnType<typeof plansDuDecor> }).plans
+  interne.quai = new Quai(new Container(), plans.lumieres, reducedMotion)
+  // Cadré comme la scène le cadre : la cible du réverbère suit l'échelle.
+  interne.quai.cadrer(CADRE, 1)
+  interne.quai.avancer(0, 0)
+  return { scene, interne, emis, image: () => images[0]({ deltaMS: 16 }) }
+}
+
 describe('le rideau, commandé par l’horloge', () => {
-  const ECRAN = { width: 1440, height: 900 }
-  const CADRE = cadrageScene(ECRAN.width, ECRAN.height).frame
-
-  /** Un point du cadre, tel que le pointeur le donne : en pixels CSS. */
-  const enPixelsEcran = (x: number, y: number) => ({
-    x: CADRE.offsetX + x * CADRE.scale,
-    y: CADRE.offsetY + y * CADRE.scale,
-  })
-
-  /** Avance la timeline globale de GSAP sans attendre le temps réel. */
-  function avancerGsap(secondes: number): void {
-    gsap.globalTimeline.time(gsap.globalTimeline.time() + secondes)
-  }
-
-  type Interne = {
-    quai: Quai | null
-    stars: { hit: (px: number, py: number) => Trace | null } | null
-    rideau: Rideau | null
-    oiseaux: { cliquer: (x: number, y: number) => boolean } | null
-  }
-
-  const vivantes: Scene[] = []
-  afterEach(() => {
-    for (const s of vivantes.splice(0)) {
-      // Les doublures posées par les tests n'ont pas de `destroy`, et le
-      // Pixi de pacotille n'a pas de contexte à défaire.
-      const interne = s as unknown as Interne & { vivante: boolean }
-      interne.stars = null
-      interne.oiseaux = null
-      interne.vivante = false
-      s.dispose()
-    }
-    vi.restoreAllMocks()
-  })
-
-  /**
-   * Une scène qui a fait son `init()` pour de bon — le rideau naît là, dans le
-   * même ordre que dans le navigateur —, sans carte graphique : Pixi est
-   * remplacé par ce que la scène lui demande, et l'horloge de rendu par une
-   * fonction qu'on appelle (`image`). Le quai, que `peupler` monte après le
-   * manifeste, est posé à la main : l'île est à l'arrêt (distance 0).
-   */
-  async function sceneDeTest(reducedMotion = false) {
-    vi.spyOn(Application.prototype, 'init').mockResolvedValue(undefined as never)
-    const scene = new Scene(document.createElement('canvas'), { reducedMotion })
-    vivantes.push(scene)
-    const app = (scene as unknown as { app: Record<string, unknown> }).app
-    Object.defineProperty(app, 'screen', { get: () => ECRAN, configurable: true })
-    app.renderer = { on() {}, resolution: 1, background: { color: 0 }, render() {} }
-    const images: Array<(t: { deltaMS: number }) => void> = []
-    app.ticker = { add: (f: (t: { deltaMS: number }) => void) => images.push(f) }
-    const emis: Array<[number, boolean]> = []
-    scene.on('rideau', (y, baisse) => emis.push([y, baisse]))
-    await scene.init()
-
-    const interne = scene as unknown as Interne
-    const plans = (scene as unknown as { plans: ReturnType<typeof plansDuDecor> }).plans
-    interne.quai = new Quai(new Container(), plans.lumieres, reducedMotion)
-    interne.quai.avancer(0, 0)
-    return { scene, interne, emis, image: () => images[0]({ deltaMS: 16 }) }
-  }
-
   const trace = { id: 'a', phrase: 'une phrase', creeLe: 1, x: 0.5, y: 0.5 } as Trace
   const centre = () => enPixelsEcran(HORLOGE.x, HORLOGE.y)
 
@@ -595,5 +597,79 @@ describe('le rideau, commandé par l’horloge', () => {
     expect(scene.horlogeBat).toBe(false)
     expect(() => scene.basculerRideau()).not.toThrow()
     expect(scene.rideauBaisse).toBe(false)
+  })
+})
+
+describe('le réverbère, qu’un clic éteint', () => {
+  /** Le milieu du mât, en pixels d'écran : le point que le visiteur vise. */
+  const CIBLE = cibleReverbere(CADRE.scale)
+  const surLeMat = () => enPixelsEcran(PIECES.reverbere.x, (CIBLE.y0 + CIBLE.y1) / 2)
+  const etoile = { id: 'e', phrase: 'une phrase', creeLe: 1, x: 0.5, y: 0.5 } as Trace
+
+  it('un clic l’éteint, un second le rallume, et chaque fois la scène le dit', async () => {
+    const { scene } = await sceneDeTest()
+    const dits: boolean[] = []
+    scene.on('reverbere', (allume) => dits.push(allume))
+    const { x, y } = surLeMat()
+    expect(scene.reverbereAllume).toBe(true)
+    expect(scene.clicPx(x, y)).toBe(true)
+    expect(scene.reverbereAllume).toBe(false)
+    expect(scene.clicPx(x, y)).toBe(true)
+    expect(scene.reverbereAllume).toBe(true)
+    expect(dits).toEqual([false, true])
+  })
+
+  /**
+   * `clicPx` rend `true` : `useScene.surAppui` s'arrête là et n'appelle pas
+   * `setPointerPx`. Un clic ne fait qu'une chose — éteindre la lampe n'ouvre
+   * pas aussi la bulle d'une étoile.
+   */
+  it('prend le clic : l’appelant n’ouvrira pas de bulle', async () => {
+    const { scene, interne } = await sceneDeTest()
+    const hit = vi.fn(() => etoile)
+    interne.stars = { hit }
+    const { x, y } = surLeMat()
+    expect(scene.clicPx(x, y)).toBe(true)
+    expect(hit).not.toHaveBeenCalled()
+  })
+
+  it('est pris avant les oiseaux', async () => {
+    const { scene, interne } = await sceneDeTest()
+    const cliquer = vi.fn(() => true)
+    interne.oiseaux = { cliquer }
+    scene.setGare('plus-loin')
+    scene.setVoyage(false, 0)
+    expect(scene.gagOuvert).toBe(true)
+    const { x, y } = surLeMat()
+    expect(scene.clicPx(x, y)).toBe(true)
+    expect(cliquer).not.toHaveBeenCalled()
+  })
+
+  it('à côté du mât, ne prend pas le clic et ne touche à rien', async () => {
+    const { scene } = await sceneDeTest()
+    const loin = enPixelsEcran(CIBLE.x0 - 40, CIBLE.y0 - 40)
+    expect(scene.clicPx(loin.x, loin.y)).toBe(false)
+    expect(scene.reverbereAllume).toBe(true)
+  })
+
+  /** Il se rallume seul une fois la gare sortie — et le DOM doit l'apprendre. */
+  it('dit au DOM qu’il s’est rallumé tout seul après le départ', async () => {
+    const { scene, interne, image } = await sceneDeTest()
+    const { x, y } = surLeMat()
+    scene.clicPx(x, y)
+    expect(scene.reverbereAllume).toBe(false)
+    const dits: boolean[] = []
+    scene.on('reverbere', (allume) => dits.push(allume))
+    interne.quai!.avancer(1e6, 0)
+    expect(scene.reverbereAllume).toBe(true)
+    image()
+    expect(dits).toEqual([true])
+  })
+
+  it('sans WebGL, le geste est inoffensif', () => {
+    const scene = sceneSansRendu()
+    expect(scene.reverbereAllume).toBe(true)
+    expect(() => scene.basculerReverbere()).not.toThrow()
+    expect(scene.reverbereAllume).toBe(true)
   })
 })

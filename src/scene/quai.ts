@@ -255,6 +255,101 @@ export const HALO_HORLOGE = { rayon: 2.4, nappes: 48, alpha: 0.023 } as const
 const DEMI_EMBASE =
   (CADRES.reverbere.largeur / 2) * (PIECES.reverbere.hauteur / CADRES.reverbere.hauteur)
 
+/**
+ * Le corps vitré de la lanterne, en unités du cadre du réverbère —
+ * **miroir du dessin**, à tenir à jour avec lui (même parti que
+ * `CORPS_IMAGE`).
+ *
+ * Le dessin de la propriétaire **garde le verre en creux** : `vider_le_verre`
+ * y retire la masse et ne laisse que les meneaux, exactement comme le pignon
+ * de la gare garde son trou d'horloge. C'est la raison d'être de ce trapèze :
+ * une masse noire à cet endroit serait rendue à la couleur du fond par le
+ * shader, et le lampadaire serait éteint.
+ *
+ * Il est posé **en retrait** du trait de la lanterne, qui est galbé là où le
+ * trapèze est droit : il vaut mieux laisser paraître un filet de lueur au bord
+ * du verre que déborder du dessin.
+ *
+ * Il vit ici, avec la géométrie, et non dans `QuaiLayer.ts` qui le trace :
+ * `CIBLE_REVERBERE` a besoin de `hautY` pour savoir où commence la lampe, et
+ * un second 110 écrit à la main se serait désaccordé du dessin au premier
+ * réglage.
+ */
+export const LANTERNE = { hautY: 110, basY: 165, hautDemi: 31, basDemi: 14, cx: 40 } as const
+
+/**
+ * Ce qu'un doigt exige, en pixels d'écran (WCAG 2.5.5). C'est le même nombre
+ * que la cible du bandeau dans `PanneauDeparts.vue`.
+ */
+const CIBLE_ECRAN = 44
+
+/**
+ * Un pixel de cadre de rab sur la largeur de la cible. Une cible posée
+ * **exactement** sur les 44 px y tombe au premier flottant — `44 / e * e` rend
+ * 43,999999999999872 à l'échelle de 1512 — et un plancher d'accessibilité ne
+ * doit pas dépendre de l'arrondi. Un pixel de cadre vaut moins d'un pixel
+ * d'écran à toutes les échelles qui nous concernent : il ne coûte rien.
+ */
+const MARGE_FLOTTANT = 1
+
+/** Le haut de la cible : le haut du corps vitré. Il ne dépend pas de l'échelle. */
+const CIBLE_Y0 =
+  PIECES.reverbere.pied -
+  PIECES.reverbere.hauteur +
+  (LANTERNE.hautY * PIECES.reverbere.hauteur) / CADRES.reverbere.hauteur
+
+/** Le bas de la cible : le rail. */
+const CIBLE_Y1 = PIECES.reverbere.pied
+
+/** La cible du réverbère, en pixels de cadre. */
+export type CibleReverbere = { x0: number; x1: number; y0: number; y1: number }
+
+/**
+ * La cible du réverbère à cette échelle de cadre, **à la place d'arrêt** : ce
+ * qu'un clic doit toucher pour éteindre la lampe, et la boîte où
+ * `CommandeReverbere.vue` pose son bouton. Les deux l'appellent, avec la même
+ * échelle, pour que la souris et le clavier visent exactement la même chose.
+ *
+ * En x : l'emprise du réverbère, qui ne fait que 57,1 px de cadre — 37 px
+ * d'écran à 1512, 21 px sur un téléphone en paysage —, **élargie pour tenir
+ * `CIBLE_ECRAN` px d'écran à toute échelle**. C'est un plancher
+ * d'accessibilité, pas un réglage : une cible de cadre à taille fixe tombe
+ * sous les 44 px dès que la scène se réduit. Comme la largeur demandée est en
+ * pixels d'**écran**, la demi-largeur en pixels de cadre vaut
+ * `CIBLE_ECRAN / échelle / 2` — c'est tout ce que l'échelle sert à faire ici.
+ *
+ * L'élargissement peut mordre sur le nez de la loco (1299,2) aux très petites
+ * échelles, et c'est sans conséquence : la rame ne se clique pas, et la cible
+ * est invisible. L'horloge, elle, est consultée **avant** dans `clicPx` : même
+ * si les deux se touchaient un jour, elle garderait son clic.
+ *
+ * En y : du haut de la lanterne au rail, à toute échelle. Au-dessus il n'y a
+ * que le toit de la lampe, qui n'éclaire rien ; au-dessous, le quai.
+ *
+ * **Elle suppose la gare à quai**, comme `horlogeTouchee` : hors de l'arrêt,
+ * c'est à l'appelant de retrancher l'abscisse de l'île — `Quai.reverbereTouche`
+ * le fait, parce que c'est le quai qui la connaît.
+ */
+export function cibleReverbere(echelle: number): CibleReverbere {
+  // Une échelle nulle ou absurde rendrait un rectangle infini : `fitStage` n'en
+  // produit jamais, mais une cible qui couvre la scène entière est le genre de
+  // chose qu'on ne veut pas découvrir en production.
+  const e = Number.isFinite(echelle) && echelle > 0 ? echelle : 1
+  const demi = Math.max(DEMI_EMBASE, (CIBLE_ECRAN / e + MARGE_FLOTTANT) / 2)
+  return {
+    x0: PIECES.reverbere.x - demi,
+    x1: PIECES.reverbere.x + demi,
+    y0: CIBLE_Y0,
+    y1: CIBLE_Y1,
+  }
+}
+
+/** Le point `(x, y)`, en pixels de cadre, est-il sur le réverbère à quai ? */
+export function reverbereTouche(x: number, y: number, echelle: number): boolean {
+  const c = cibleReverbere(echelle)
+  return x >= c.x0 && x <= c.x1 && y >= c.y0 && y <= c.y1
+}
+
 const bords = [PIECES.reverbere.x - DEMI_EMBASE, PIECES.batiment.x]
 const fins = [
   PIECES.reverbere.x + DEMI_EMBASE,

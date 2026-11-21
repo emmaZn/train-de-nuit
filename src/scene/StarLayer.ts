@@ -6,7 +6,7 @@ import type { Trace } from './types'
 
 const JOUR_MS = 86_400_000
 /** Pointer reach around a star, in CSS pixels. */
-const RAYON_SURVOL = 14
+export const RAYON_SURVOL = 14
 /** A star put out by the limit fades over this many seconds. */
 const DUREE_EXTINCTION = 1.2
 /** Reach of a star's glow and radius of its core, in CSS pixels. */

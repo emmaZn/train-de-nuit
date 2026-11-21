@@ -7,9 +7,9 @@ import { loadTexture } from '@/scene/assets'
 import { Quai, anglesHorloge } from '@/scene/QuaiLayer'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
-import { CADRES, HALO_HORLOGE, HORLOGE, HORLOGE_IMAGE, PIECES } from '@/scene/quai'
+import { CADRES, HALO_HORLOGE, HORLOGE, HORLOGE_IMAGE, PIECES, cibleReverbere } from '@/scene/quai'
 import { lirePngIndexe } from './png'
-import { DUREE_ETAPE, STAGE, cadrageScene } from '@/scene/layout'
+import { DUREE_ETAPE, HORIZON, STAGE, TETE_LOCO, cadrageScene } from '@/scene/layout'
 
 vi.mock('@/scene/poses', async (importOriginal) => {
   const vrai = await importOriginal<typeof import('@/scene/poses')>()
@@ -476,5 +476,161 @@ describe('l’éclat au survol', () => {
     const rang = (g: object) => quai.allume.children.indexOf(g as never)
     expect(rang(quai.eclat)).toBeGreaterThanOrEqual(0)
     expect(rang(quai.eclat)).toBeLessThan(rang(quai.horloge))
+  })
+})
+
+describe('le réverbère qu’on éteint', () => {
+  /** Le cadre des tests de cible : celui de l'écran de référence. */
+  const CADRE = cadrageScene(1512, 771).frame
+  const CIBLE = cibleReverbere(CADRE.scale)
+  /** Le milieu de la cible, en pixels de cadre : sur le mât, à l'arrêt. */
+  const surLeMat = { x: PIECES.reverbere.x, y: (CIBLE.y0 + CIBLE.y1) / 2 }
+  /** Un quai cadré comme la scène le cadre : la cible suit l'échelle du cadre. */
+  const quaiCadre = () => {
+    const { quai } = poser()
+    quai.cadrer(CADRE, 1)
+    return quai
+  }
+
+  it('s’éteint au premier geste et se rallume au second', () => {
+    const { quai } = poser()
+    expect(quai.allumeReverbere).toBe(true)
+    expect(quai.lumiere.groupe.visible).toBe(true)
+    expect(quai.lanterne.visible).toBe(true)
+
+    quai.basculerReverbere()
+    expect(quai.allumeReverbere).toBe(false)
+    expect(quai.lumiere.groupe.visible).toBe(false)
+    expect(quai.lanterne.visible).toBe(false)
+
+    quai.basculerReverbere()
+    expect(quai.allumeReverbere).toBe(true)
+    expect(quai.lumiere.groupe.visible).toBe(true)
+    expect(quai.lanterne.visible).toBe(true)
+  })
+
+  /**
+   * Éteindre, c'est **cacher** le `Graphics`, jamais l'effacer ni le retracer :
+   * `redessiner` repasse sur la lanterne à chaque cadrage, et une lanterne
+   * éteinte par un tracé vide se rallumerait au premier redimensionnement —
+   * ou ferait revenir, un jour, le halo rond retiré le 21 novembre.
+   */
+  it('reste éteint quand le cadrage retrace la lanterne', () => {
+    const { quai } = poser()
+    quai.basculerReverbere()
+    quai.cadrer(cadrageScene(1512, 771).frame, 1)
+    quai.cadrer(cadrageScene(1280, 800).frame, 2)
+    expect(quai.lanterne.visible).toBe(false)
+    // Cachée, pas effacée : le corps vitré est toujours tracé dessous.
+    expect(quai.lanterne.getLocalBounds().width).toBeGreaterThan(0)
+  })
+
+  /**
+   * **Un plancher d'accessibilité, pas un réglage** : 44 px d'écran (WCAG
+   * 2.5.5) à **toute** échelle, et non seulement sur l'écran de référence. Une
+   * cible de cadre à taille fixe tombait à 42,9 px à 1024 × 768, 40,2 px à
+   * 1280 × 720 et 24,7 px sur un téléphone en paysage ; la demi-largeur se
+   * calcule donc à partir de l'échelle du cadre.
+   */
+  it('offre une cible d’au moins 44 px d’écran à toute échelle, centrée sur le mât', () => {
+    for (const [largeur, hauteur] of [
+      [1512, 771],
+      [1280, 720],
+      [1280, 960],
+      [1024, 768],
+      [390, 844],
+      [844, 390],
+      [2560, 1440],
+      [3440, 1440],
+    ] as Array<[number, number]>) {
+      const { frame } = cadrageScene(largeur, hauteur)
+      const c = cibleReverbere(frame.scale)
+      expect((c.x1 - c.x0) * frame.scale).toBeGreaterThanOrEqual(44)
+      // Centrée : les deux moitiés sont égales.
+      expect(c.x1 - PIECES.reverbere.x).toBeCloseTo(PIECES.reverbere.x - c.x0, 6)
+    }
+  })
+
+  /** Jamais plus étroite que le dessin, même si l'échelle devenait absurde. */
+  it('ne descend jamais sous l’emprise du dessin, et ne devient jamais infinie', () => {
+    const emprise = CADRES.reverbere.largeur * (PIECES.reverbere.hauteur / CADRES.reverbere.hauteur)
+    for (const echelle of [10, 1, 0.3, 0, -1, Number.NaN]) {
+      const c = cibleReverbere(echelle)
+      expect(c.x1 - c.x0).toBeGreaterThanOrEqual(emprise)
+      expect(Number.isFinite(c.x1 - c.x0)).toBe(true)
+    }
+  })
+
+  it('tient de la lanterne au rail, à toute échelle', () => {
+    const haut = PIECES.reverbere.pied - PIECES.reverbere.hauteur
+    for (const echelle of [1, CADRE.scale, 0.3]) {
+      const c = cibleReverbere(echelle)
+      expect(c.y0).toBeGreaterThan(haut)
+      expect(c.y1).toBe(HORIZON)
+    }
+    // À l'échelle de référence elle reste à droite du nez de la loco. Plus bas
+    // elle finit par le mordre, et c'est sans conséquence : la rame ne se
+    // clique pas, et l'horloge est consultée avant elle dans `clicPx`.
+    expect(CIBLE.x0).toBeGreaterThan(STAGE.width * TETE_LOCO)
+  })
+
+  it('se cherche là où l’île l’a emporté, pas à sa place d’arrêt', () => {
+    const quai = quaiCadre()
+    quai.avancer(0, 0)
+    expect(quai.reverbereTouche(surLeMat.x, surLeMat.y)).toBe(true)
+    quai.avancer(300, 0)
+    expect(quai.reverbereTouche(surLeMat.x, surLeMat.y)).toBe(false)
+    expect(quai.reverbereTouche(surLeMat.x + 300, surLeMat.y)).toBe(true)
+  })
+
+  it('ne répond à personne tant que l’île n’est pas posée', () => {
+    const quai = quaiCadre()
+    expect(quai.reverbereTouche(surLeMat.x, surLeMat.y)).toBe(false)
+  })
+
+  it('ne répond ni au-dessus de la lanterne ni sous le rail, ni hors de la cible', () => {
+    const quai = quaiCadre()
+    quai.avancer(0, 0)
+    // Dedans, jusqu'aux bords.
+    expect(quai.reverbereTouche(CIBLE.x0, CIBLE.y0)).toBe(true)
+    expect(quai.reverbereTouche(CIBLE.x1, CIBLE.y1)).toBe(true)
+    expect(quai.reverbereTouche(surLeMat.x, CIBLE.y0 - 1)).toBe(false)
+    expect(quai.reverbereTouche(surLeMat.x, CIBLE.y1 + 1)).toBe(false)
+    expect(quai.reverbereTouche(CIBLE.x0 - 1, surLeMat.y)).toBe(false)
+    expect(quai.reverbereTouche(CIBLE.x1 + 1, surLeMat.y)).toBe(false)
+  })
+
+  /** La cible du quai suit l'échelle que `cadrer` lui donne, pas une autre. */
+  it('élargit sa cible quand la scène rétrécit', () => {
+    const quai = poser().quai
+    const petit = cadrageScene(844, 390).frame
+    quai.cadrer(petit, 1)
+    quai.avancer(0, 0)
+    const large = cibleReverbere(petit.scale)
+    expect(large.x0).toBeLessThan(CIBLE.x0)
+    expect(quai.reverbereTouche(large.x0, surLeMat.y)).toBe(true)
+    expect(quai.reverbereTouche(large.x0 - 1, surLeMat.y)).toBe(false)
+  })
+
+  /**
+   * C'est un jouet, pas un réglage : la gare quittée, le réverbère est rallumé.
+   * Le retour se fait donc toujours sur une lampe allumée.
+   */
+  it('se rallume quand la gare quitte le champ', () => {
+    const quai = quaiCadre()
+    quai.avancer(0, 0)
+    quai.basculerReverbere()
+    expect(quai.allumeReverbere).toBe(false)
+    quai.avancer(1e6, 0)
+    expect(quai.allumeReverbere).toBe(true)
+  })
+
+  /** `horsChamp` reste une question : la poser ne change rien. */
+  it('laisse `horsChamp` sans effet de bord', () => {
+    const quai = quaiCadre()
+    quai.avancer(0, 0)
+    quai.basculerReverbere()
+    expect(quai.horsChamp(1e6)).toBe(true)
+    expect(quai.allumeReverbere).toBe(false)
   })
 })
