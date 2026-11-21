@@ -34,6 +34,8 @@
  */
 import { Container, Graphics } from 'pixi.js'
 import type { Frame } from './layout'
+import { CouchesQuiTombent } from './NeigeLayer'
+import { floconsDuCone } from './neige'
 import { GRAIN_ECRAN } from './poses'
 import { CADRES, PIECES } from './quai'
 import { alea } from './Sky'
@@ -200,6 +202,19 @@ export class Faisceau {
    */
   private readonly cone = new Graphics()
   private readonly couches: Graphics[] = []
+  /**
+   * La neige du cône : les mêmes couches qui tombent que la neige libre
+   * (`CouchesQuiTombent`), tirées dans le cône et retenues dedans par un
+   * masque. Elle vit sous `racine`, donc **s'éteint avec le réverbère** sans
+   * qu'`allumer` ait à la nommer, et reste dans `lumieres`, hors de toute
+   * teinte de nuit.
+   *
+   * Le conteneur est immobile (ce sont les couches, dedans, qui descendent) :
+   * c'est lui qui porte le masque. PROVISOIRE (§7) : densité et éclat à régler
+   * à vue (voir `floconsDuCone`).
+   */
+  private readonly flocons: Container
+  private readonly neigeDuCone: CouchesQuiTombent
   private horloge = 0
   private echelle = 0
   private mobile: boolean | null = null
@@ -220,7 +235,33 @@ export class Faisceau {
       this.couches.push(g)
       this.racine.addChild(g)
     }
+    const geometrie = coneDuFaisceau(PIECES.reverbere)
+    this.flocons = new Container()
+    // Le masque est le polygone du cône. Il reste dans l'arbre, à côté de ce
+    // qu'il découpe, et ne bouge pas : seules les couches de flocons tombent.
+    const masque = new Graphics()
+      .poly([
+        geometrie.sommet.x, geometrie.sommet.y,
+        geometrie.base[1], geometrie.sommet.y + geometrie.hauteur,
+        geometrie.base[0], geometrie.sommet.y + geometrie.hauteur,
+      ])
+      .fill(0xffffff)
+    this.racine.addChild(masque)
+    this.flocons.mask = masque
+    this.racine.addChild(this.flocons)
+    this.neigeDuCone = new CouchesQuiTombent(this.flocons, reducedMotion)
     parent.addChild(this.racine)
+  }
+
+  /** La neige du cône, pour les tests : son conteneur, ses couches, ses flocons. */
+  get neige() {
+    const n = this.neigeDuCone
+    return {
+      racine: this.flocons,
+      decalages: n.decalages,
+      nombreDeFlocons: n.nombreDeFlocons,
+      hauteurDeBouclage: n.hauteurDeBouclage,
+    }
   }
 
   /** Le conteneur du faisceau, pour les tests de plan. */
@@ -261,10 +302,16 @@ export class Faisceau {
         .circle(grain.x, grain.y, Math.max(grain.r, rMin))
         .fill({ color: 0xffffff, alpha: grain.a })
     })
+    // La neige se boucle sur la hauteur du cône. Tirée en pixels de cadre, elle
+    // ne dépend pas de l'échelle : seul son rayon plancher la suit.
+    const geometrie = coneDuFaisceau(PIECES.reverbere)
+    this.neigeDuCone.poser(floconsDuCone(geometrie, 11, mobile), geometrie.hauteur, rMin)
   }
 
   /** Ça bouge tout seul : chaque couche respire à son rythme, déphasée des autres. */
   animer(dt: number): void {
+    // La neige a son propre mouvement réduit : posée, elle ne tombe pas.
+    this.neigeDuCone.animer(dt)
     if (!this.anime) return
     this.horloge += dt
     this.couches.forEach((g, i) => {

@@ -6,8 +6,12 @@ import {
   COUCHES_NEIGE,
   VITESSES,
   decalageCouche,
+  floconsDuCone,
   floconsLibres,
 } from '@/scene/neige'
+import type { Cone } from '@/scene/Faisceau'
+import { coneDuFaisceau } from '@/scene/Faisceau'
+import { PIECES } from '@/scene/quai'
 
 /**
  * La coupe nombres/dessin du dépôt : `neige.ts` est à `NeigeLayer.ts` ce que
@@ -25,6 +29,12 @@ describe('la coupe nombres / dessin', () => {
       expect(imports, module).not.toContain('./Sky')
       expect(imports, module).not.toContain('./Train')
     }
+  })
+
+  it('`neige.ts` ne touche `Faisceau.ts` (qui charge Pixi) que par un import de type, effacé à la compilation', () => {
+    const source = readFileSync('src/scene/neige.ts', 'utf8')
+    const lignes = source.split('\n').filter((l) => /from '\.\/Faisceau'/.test(l))
+    for (const l of lignes) expect(l).toMatch(/^import type /)
   })
 })
 
@@ -91,5 +101,65 @@ describe('le tirage des flocons', () => {
     const petit = total(floconsLibres(400, 700, 7, true))
     const grand = total(floconsLibres(400, 700, 7, false))
     expect(petit).toBeLessThan(grand)
+  })
+})
+
+function dansLeCone(c: Cone, g: { x: number; y: number }): boolean {
+  const t = (g.y - c.sommet.y) / c.hauteur
+  if (t < -1e-9 || t > 1 + 1e-9) return false
+  const gauche = c.sommet.x + (c.base[0] - c.sommet.x) * t
+  const droite = c.sommet.x + (c.base[1] - c.sommet.x) * t
+  return g.x >= gauche - 1e-9 && g.x <= droite + 1e-9
+}
+
+const mediane = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]
+const total = (couches: { length: number }[]) => couches.reduce((n, c) => n + c.length, 0)
+
+describe('la neige du cône', () => {
+  const cone = coneDuFaisceau(PIECES.reverbere)
+  const aire = ((cone.base[1] - cone.base[0]) * cone.hauteur) / 2
+
+  it('rend exactement COUCHES_NEIGE populations : decalageCouche lit VITESSES par couche', () => {
+    expect(floconsDuCone(cone, 11, false)).toHaveLength(COUCHES_NEIGE)
+    expect(floconsDuCone(cone, 11, true)).toHaveLength(COUCHES_NEIGE)
+  })
+
+  it('les flocons du cône sont tous dans le cône', () => {
+    for (const mobile of [false, true])
+      for (const couche of floconsDuCone(cone, 11, mobile))
+        for (const f of couche) expect(dansLeCone(cone, f)).toBe(true)
+  })
+
+  it('le tirage est stable : même graine, mêmes flocons', () => {
+    expect(floconsDuCone(cone, 11, false)).toEqual(floconsDuCone(cone, 11, false))
+    expect(floconsDuCone(cone, 12, false)).not.toEqual(floconsDuCone(cone, 11, false))
+  })
+
+  it('les flocons du cône sont plus vifs que ceux du fond', () => {
+    const cone_ = floconsDuCone(cone, 11, false).flat().map((f) => f.a)
+    const libres = floconsLibres(1440, 900, 23, false).flat().map((f) => f.a)
+    expect(mediane(cone_)).toBeGreaterThan(mediane(libres))
+  })
+
+  it('ils sont plus denses que la neige libre', () => {
+    const duCone = total(floconsDuCone(cone, 11, false)) / aire
+    const libre = total(floconsLibres(1440, 900, 23, false)) / (1440 * 900)
+    expect(duCone).toBeGreaterThan(libre)
+    // Et sur mobile aussi : on en retire, on ne repasse pas sous le fond.
+    const duConeMobile = total(floconsDuCone(cone, 11, true)) / aire
+    const libreMobile = total(floconsLibres(400, 700, 23, true)) / (400 * 700)
+    expect(duConeMobile).toBeGreaterThan(libreMobile)
+  })
+
+  it('il y a moins de flocons dans le cône sur mobile', () => {
+    expect(total(floconsDuCone(cone, 11, true))).toBeLessThan(total(floconsDuCone(cone, 11, false)))
+  })
+
+  it('le sommet n’est pas plus dense que la base : la profondeur se tire en racine carrée', () => {
+    const tous = floconsDuCone(cone, 11, false).flat()
+    const haut = tous.filter((f) => f.y < cone.sommet.y + cone.hauteur / 2)
+    // Le tiers haut du cône ne porte qu'un quart de son aire : bien moins de la moitié des flocons.
+    expect(haut.length / tous.length).toBeLessThan(0.35)
+    expect(haut.length / tous.length).toBeGreaterThan(0.15)
   })
 })

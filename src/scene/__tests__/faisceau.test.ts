@@ -181,3 +181,80 @@ describe('le faisceau dans la scène', () => {
     expect(f.groupe.children.some((c) => !c.destroyed)).toBe(true)
   })
 })
+
+describe('la neige du faisceau', () => {
+  const cadre: Frame = { scale: 0.5, offsetX: 0, offsetY: 0 }
+
+  function descend(racine: Container, cible: Container): boolean {
+    let c: Container | null = cible
+    while (c) {
+      if (c === racine) return true
+      c = c.parent
+    }
+    return false
+  }
+
+  it('le réverbère éteint, la neige du cône s’éteint avec lui', () => {
+    const f = new Faisceau(new Container())
+    f.cadrer(cadre, false)
+    f.allumer(false)
+    expect(f.groupe.visible).toBe(false)
+    // Sans interrupteur à elle : elle vit sous la racine que `allumer` cache.
+    expect(descend(f.groupe, f.neige.racine)).toBe(true)
+    expect(f.neige.racine.visible).toBe(true)
+  })
+
+  it('est découpée au cône : un masque, sur un conteneur immobile', () => {
+    const f = new Faisceau(new Container())
+    expect(f.neige.racine.mask).toBeTruthy()
+    f.cadrer(cadre, false)
+    f.animer(2)
+    expect(f.neige.racine.y).toBe(0)
+  })
+
+  it('porte des flocons, COUCHES_NEIGE couches, tracés au cadrage', () => {
+    const f = new Faisceau(new Container())
+    expect(f.neige.nombreDeFlocons).toBe(0)
+    f.cadrer(cadre, false)
+    expect(f.neige.nombreDeFlocons).toBeGreaterThan(0)
+    expect(f.neige.decalages).toHaveLength(4)
+  })
+
+  it('tombe : les couches se décalent, chacune à sa vitesse', () => {
+    const f = new Faisceau(new Container())
+    f.cadrer(cadre, false)
+    f.animer(0.5)
+    const d = f.neige.decalages
+    expect(d.every((y) => y > 0)).toBe(true)
+    expect(new Set(d).size).toBe(d.length)
+  })
+
+  it('sous mouvement réduit, les flocons sont posés mais ne tombent pas', () => {
+    const f = new Faisceau(new Container(), true)
+    f.cadrer(cadre, false)
+    f.animer(0.5)
+    f.animer(1.5)
+    expect(f.neige.nombreDeFlocons).toBeGreaterThan(0)
+    expect(f.neige.decalages.every((y) => y === 0)).toBe(true)
+  })
+
+  it('suit le cône quand l’échelle change : même population, même nombre, rien de plus', () => {
+    const f = new Faisceau(new Container())
+    f.cadrer({ scale: 0.5, offsetX: 0, offsetY: 0 }, false)
+    const n = f.neige.nombreDeFlocons
+    const h = f.neige.hauteurDeBouclage
+    f.cadrer({ scale: 1.7, offsetX: 0, offsetY: 0 }, false)
+    expect(f.neige.nombreDeFlocons).toBe(n)
+    // Le bouclage est la hauteur du cône, en pixels de cadre : l'échelle n'y change rien.
+    expect(f.neige.hauteurDeBouclage).toBe(h)
+    expect(h).toBe(cone.hauteur)
+  })
+
+  it('moins de flocons sur mobile', () => {
+    const grand = new Faisceau(new Container())
+    grand.cadrer(cadre, false)
+    const petit = new Faisceau(new Container())
+    petit.cadrer(cadre, true)
+    expect(petit.neige.nombreDeFlocons).toBeLessThan(grand.neige.nombreDeFlocons)
+  })
+})

@@ -23,6 +23,10 @@
  */
 import { alea } from './alea'
 import type { Grain } from './alea'
+// Un import de **type** : effacé à la compilation, il ne charge rien — et
+// `Faisceau.ts` charge Pixi. Le test de la coupe nombres/dessin veille à ce que
+// ce soit le seul lien.
+import type { Cone } from './Faisceau'
 
 /**
  * Un flocon : exactement la matière d'un grain de `Sky` — une place, un rayon,
@@ -148,4 +152,85 @@ export function decalageCouche(i: number, t: number, hauteur: number): number {
   const h = Math.max(hauteur, 1)
   const d = (VITESSES[i % VITESSES.length] * t) % h
   return d < 0 ? d + h : d
+}
+
+/* ---- La neige du faisceau (spec §6, « la neige du cône »). Une seconde
+ *      population, plus dense et plus vive que la libre : celle que la
+ *      propriétaire a demandée, ce pour quoi la neige est dans le canvas. ---- */
+
+/**
+ * Un flocon par ce nombre de pixels de cadre² **du cône** — la densité de la
+ * poussière du faisceau (`1/150`), soit douze fois celle de la neige libre.
+ * PROVISOIRE (§7) : à régler à vue.
+ */
+const DENSITE_CONE = 1 / 150
+
+/** Moins de flocons sur mobile (§11), mais le cône reste plus dense que le fond. */
+const FACTEUR_MOBILE_CONE = 0.6
+
+/** Sous ce nombre, une couche du cône ne se lit plus comme une chute. */
+const PLANCHER_COUCHE_CONE = 6
+
+/** Rayon, par couche, en pixels de cadre : un peu plus gros que la libre. PROVISOIRE (§7). */
+const RAYONS_CONE: readonly (readonly [number, number])[] = [
+  [1.0, 1.6],
+  [1.2, 2.0],
+  [1.5, 2.5],
+  [1.8, 3.0],
+]
+
+/**
+ * Opacité, par couche : toutes plus vives que la libre (`OPACITES`), où la
+ * lointaine ne dépasse pas 0,4. Le flocon est blanc, comme la lanterne qui
+ * l'éclaire — pas de mi-teinte nouvelle (CONCEPT §12.2). PROVISOIRE (§7).
+ */
+const OPACITES_CONE: readonly (readonly [number, number])[] = [
+  [0.55, 0.75],
+  [0.65, 0.85],
+  [0.75, 0.95],
+  [0.85, 1.0],
+]
+
+/** Le plus clair du cône est en bas, comme la poussière (`grainsDuFaisceau`). */
+const PLANCHER_CLARTE = 0.7
+
+/**
+ * La neige du faisceau : une population par couche, **dans** le cône.
+ *
+ * Même échantillonnage que `grainsDuFaisceau` : la profondeur se tire en racine
+ * carrée, sinon le sommet, plus étroit, serait plus dense que la base. Le
+ * nombre vient de l'aire du cône et se répartit entre `COUCHES_NEIGE` couches —
+ * le même nombre de couches que la neige libre, parce que `decalageCouche` lit
+ * `VITESSES` couche par couche et que rien ne doit les désaccorder en silence.
+ *
+ * Le tirage est en pixels de cadre, donc **indifférent à l'échelle** : c'est le
+ * cône qui suit l'échelle, pas la neige. Les flocons tombent ensuite hors du
+ * cône, puisque la chute est un décalage vertical — c'est un masque Pixi sur le
+ * polygone du cône (`Faisceau`) qui les y retient.
+ */
+export function floconsDuCone(cone: Cone, graine: number, mobile: boolean): Flocon[][] {
+  const aire = ((cone.base[1] - cone.base[0]) * cone.hauteur) / 2
+  const brut = aire * DENSITE_CONE * (mobile ? FACTEUR_MOBILE_CONE : 1)
+  const parCouche = Math.max(PLANCHER_COUCHE_CONE, Math.round(brut / COUCHES_NEIGE))
+  const suivant = alea(graine)
+  const couches: Flocon[][] = []
+  for (let i = 0; i < COUCHES_NEIGE; i += 1) {
+    const [rMin, rMax] = RAYONS_CONE[i]
+    const [aMin, aMax] = OPACITES_CONE[i]
+    const flocons: Flocon[] = []
+    for (let n = 0; n < parCouche; n += 1) {
+      const t = Math.sqrt(suivant())
+      const u = suivant()
+      const gauche = cone.sommet.x + (cone.base[0] - cone.sommet.x) * t
+      const droite = cone.sommet.x + (cone.base[1] - cone.sommet.x) * t
+      flocons.push({
+        x: gauche + (droite - gauche) * u,
+        y: cone.sommet.y + cone.hauteur * t,
+        r: rMin + suivant() * (rMax - rMin),
+        a: (aMin + suivant() * (aMax - aMin)) * (PLANCHER_CLARTE + (1 - PLANCHER_CLARTE) * t),
+      })
+    }
+    couches.push(flocons)
+  }
+  return couches
 }
