@@ -1,26 +1,57 @@
 <script setup lang="ts">
 /**
- * Le texte du panneau des prochains départs, posé sur le rideau.
+ * Le panneau des prochains départs : la plaque, ses deux bras, son bandeau et
+ * son texte — **tout** en DOM.
  *
- * Le rideau est du décor, dans le canvas (`rideau.ts`) ; le texte est du DOM
- * parce que c'est du texte, et que trois de ses lignes sont des liens (focus clavier,
- * sélection, lecteur d'écran, mailto: — gratuits).
+ * Il y avait deux rendus, et il n'y en a plus qu'un (spec §4). Le canvas traçait
+ * la plaque sur grand écran, le DOM la redessinait sous le seuil mobile ; mais
+ * **un canvas ne peut jamais passer devant un élément du DOM**, et le panneau
+ * doit passer devant la frise de navigation, qui en est un. Le rendu détaché
+ * devient donc le seul, et `RideauLayer` a disparu : la scène garde l'état et la
+ * position du rideau (`rideau.ts`), le DOM dessine.
+ *
+ * Ce qui s'en va avec la plaque du canvas, sans effort : la fumée de la
+ * locomotive qui lui passait devant, la plaque fantôme derrière le panneau
+ * détaché, et les deux rendus à tenir en accord.
+ *
+ * **La plaque garde la géométrie du cadre.** Elle fait `RIDEAU.largeur ×
+ * RIDEAU.hauteur` pixels de cadre, mis à l'échelle par `transform: scale()`
+ * comme le reste de ce qui se pose sur la scène : tout ce qui est écrit dans le
+ * style est donc en pixels de **cadre**, et grandit avec elle. Promu à sa
+ * hauteur d'écran fixe de 220 px, le rendu du téléphone serait resté un
+ * timbre-poste sur un grand écran et **aurait cessé de couvrir l'horloge** au
+ * delà de 1920 px, qui, elle, grandit avec la scène.
+ *
+ * **Il est centré sur la fenêtre**, et non posé à une abscisse de cadre : le
+ * cadrage « cover » centre la scène, l'horloge est au milieu de la scène, elle
+ * est donc au milieu de la fenêtre à toute taille — un panneau centré la couvre
+ * partout. Sa largeur est bornée par la fenêtre moins deux gouttières : une
+ * seule règle, continue, sans seuil, qui retombe d'elle-même sur la pleine
+ * largeur d'un téléphone.
+ *
+ * Place : celle que la scène **émet**. Le texte ne calcule pas où est la plaque,
+ * il la suit : `top` vient du `y` courant de la ref `RIDEAU_KEY` (animé, pas
+ * posé), converti par le cadre. Ni cadre ni position émise, pas de panneau :
+ * rien n'est inventé en attendant la scène. Et comme la scène interpole une
+ * **fraction** de course et non un `y`, une fenêtre qui se redimensionne en
+ * pleine descente ne fait pas sauter la plaque.
  *
  * Il vit hors des routes, comme `RepliquesOiseaux.vue` : l'URL change à l'instant
  * du clic, et dans une gare il serait détruit avant d'avoir pu s'effacer.
  *
- * Place : celle que la scène **émet**. Le texte ne calcule pas où est la plaque,
- * il la suit : `top` vient du `y` courant de la ref `RIDEAU_KEY` (animé, pas
- * posé), `left` du `RIDEAU.x`, le tout converti par le cadre. Ni cadre ni
- * position émise, pas de texte : rien n'est inventé en attendant la scène.
- *
- * Durée de vie : le texte existe tant que la plaque est **en vue**, pas tant
+ * Durée de vie : le panneau existe tant que la plaque est **en vue**, pas tant
  * que le train est à quai. Le visiteur part rideau baissé, la scène le relève
  * d'elle-même, et le texte doit remonter avec elle — il n'est retiré qu'une
  * fois la plaque sortie de la fenêtre. Il est sinon absent, et ses liens avec
  * lui : un rideau rangé ne laisse aucun lien focalisable hors de l'écran.
- * Pendant la remontée (`remonte`) le panneau est `inert` : ni pointeur, ni
- * tabulation, ni Entrée — `pointer-events: none` seul ne fermerait que le premier.
+ * Pendant la remontée (`remonte`), ce sont les **lignes** qui sont `inert` : ni
+ * pointeur, ni tabulation, ni Entrée — `pointer-events: none` seul ne fermerait
+ * que le premier, et elles portent les trois seuls focalisables du panneau. La
+ * plaque, elle, ne l'est **pas** : un nœud `inert` sort du test de survol du
+ * navigateur comme s'il était `pointer-events: none`, et l'appui serait retombé
+ * pendant 1,45 s sur ce qu'il y a dessous — le réverbère, qui s'éteint même en
+ * marche, et l'horloge, qui rebaisserait le rideau. La plaque reste donc
+ * cliquable, et son `pointerdown` continue d'arrêter ce qui tombe dessus.
  *
  * Le texte se pose **volet par volet** (`VoletTexte`), de haut en bas, comme un
  * tableau de grande gare : c'est l'événement, la descente n'en est que
@@ -30,15 +61,12 @@
  * se jouait pendant la descente et faisait fondre ce que les volets posent.
  * Sous `prefers-reduced-motion`, le texte est posé d'emblée.
  *
- * Le texte rétrécit avec le cadre ; sous `SEUIL_MOBILE` il deviendrait illisible,
- * alors le panneau se **détache** de la scène (classe `detache`) : il se pose sur
- * la fenêtre, entre deux gouttières, à taille d'écran. C'est le même état du
- * rideau (`baisse`, `y`) rendu deux fois, jamais un second état. La commande, elle,
- * se déplace, et c'est le même bouton : panneau rangé, elle se montre en cadran
- * épinglé avec l'heure (en portrait l'horloge est hors champ, mais on ne le teste
- * pas : une fenêtre large et basse la ramène dans le champ) ; panneau posé, elle
- * redevient un disque invisible de 44 px sur l'heure du bandeau, qu'un cadran à elle
- * ferait passer sur les liens.
+ * La commande, elle, est le même bouton partout et ne se dédouble jamais :
+ * panneau rangé, c'est un disque transparent posé sur l'horloge de la gare ;
+ * panneau posé, l'horloge est dessous, et le disque se déplace sur l'heure du
+ * bandeau. (Le cadran épinglé de 52 px est parti avec le seuil mobile : il
+ * n'existait que parce que l'horloge était hors champ sur un téléphone, et la
+ * gare au milieu règle ce manque à la racine.)
  */
 import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import VoletTexte from '@/components/VoletTexte.vue'
@@ -47,9 +75,9 @@ import { FRAME_KEY, RIDEAU_KEY, SCENE_KEY } from '@/composables/useScene'
 import { CV, LINKEDIN, adresseMail } from '@/contenu/liens'
 import { departsEteints, departsReels, formaterHeure } from '@/scene/horaires'
 import type { Depart } from '@/scene/horaires'
-import { ANCRE_FRISE_MOBILE, MARGE_VOIE, SEUIL_MOBILE } from '@/scene/layout'
+import { STAGE } from '@/scene/layout'
 import { HALO_HORLOGE, HORLOGE } from '@/scene/quai'
-import { RIDEAU, yPoseA, yRangeA } from '@/scene/rideau'
+import { BRAS, RIDEAU } from '@/scene/rideau'
 import { useVoyage } from '@/stores/voyage'
 
 const frame = inject(FRAME_KEY, ref(null))
@@ -59,83 +87,62 @@ const voyage = useVoyage()
 
 // Le cadre ne dit pas la largeur de la fenêtre : on la lit là, comme `NavFrise`,
 // et on la relit à chaque cadre émis — la scène en émet un à chaque redimensionnement,
-// et c'est ce qui fait suivre le seuil pendant une animation.
+// et c'est ce qui fait suivre la gouttière pendant une animation.
 const largeur = ref(typeof window === 'undefined' ? 1280 : window.innerWidth)
 const mesurer = () => { largeur.value = window.innerWidth }
 onMounted(() => window.addEventListener('resize', mesurer, { passive: true }))
 onBeforeUnmount(() => window.removeEventListener('resize', mesurer))
 watch(frame, mesurer)
-const detache = computed(() => largeur.value < SEUIL_MOBILE)
-
-// La hauteur du panneau détaché, en pixels d'écran : posée en ligne **et** lue par
-// `horsDeLaFenetre`, pour que la plaque ne soit retirée qu'une fois son vrai bas
-// sorti de la fenêtre. Le CSS de `.detache` additionne la même somme
-// (`--marge + --entete + 5 × --ligne + 2 de filet`), et un test la confronte.
-const HAUTEUR_DETACHE = 220
-
-// Les mesures du CSS de `.detache`, dont la commande a besoin pour se poser sur
-// l'heure du bandeau : gouttière, filet, creux, hauteur du bandeau (`--entete` moins
-// la demi-ligne d'écart), cible tactile (44 px : ce qu'un doigt exige, et en portrait
-// le seul moyen de refermer le panneau) et largeur de l'heure (5 signes × (0,6 + 0,08) em × 13 px).
-const DETACHE = { gouttiere: 12, filet: 1, creux: 14, bandeau: 28, cible: 44, largeurHeure: 5 * (0.6 + 0.08) * 13 } as const
 
 /**
- * Les bras restent (spec §11) : la scène ne trace plus les siens sous le seuil, le
- * panneau détaché porte deux barres.
- *
- * Leur retrait est en pixels d'**écran**, et non repris en pourcentage de la plaque
- * de scène. Les repères de la navigation sont à distance **fixe** des bords de la
- * fenêtre, tandis qu'un pourcentage d'un panneau qui fait la largeur de l'écran
- * grandit avec elle : il finissait par leur tomber dessus — sur l'ancre de la frise
- * à 386 px (44,4 contre 44), en plein dans « ail|leurs » à 663, et sur le bouton de
- * l'œil aux deux tailles. C'est l'anti-but nommé de la spec : « Perdre la
- * navigation. Les bras existent pour ça : s'ils coûtaient la frise, ils ne
- * serviraient à rien. » (Le réglage du rendu **attaché**, lui, est bon : `BRAS.retrait`
- * place les bras entre les libellés, et il n'est pas touché.)
- *
- * Le bras tient donc dans la **bande libre** qui va du bord de la fenêtre au premier
- * repère — l'ancre à gauche (`ANCRE_FRISE_MOBILE`, dont le point de la gare à quai
- * déborde d'un pixel, voir `.point` dans `NavFrise.vue`), l'œil à droite
- * (`MARGE_VOIE`, « exactement là où l'œil commence », voir `DEGAGEMENT_OEIL`) — et il
- * se **centre** dedans : la moitié qui reste de chaque côté dégage aussi leurs
- * anneaux de focus. La plus étroite des deux bandes décide, pour que les deux bras
- * gardent le même retrait. Il est mesuré depuis le bord **intérieur** du panneau —
- * gouttière plus filet — parce que c'est là que `position: absolute` les pose.
- *
- * `PanneauDeparts.test.ts` le confronte aux deux repères, lus dans leurs sources,
- * aux largeurs usuelles.
+ * Ce qu'on laisse entre la plaque et le bord de la fenêtre, en pixels
+ * d'**écran** : la plaque ne touche jamais les bords, même quand l'échelle du
+ * cadre la voudrait plus large que la fenêtre. C'est la seule mesure d'écran
+ * du panneau ; tout le reste est en pixels de cadre.
  */
-const LARGEUR_BRAS = 2
-const DEBORD_POINT = 1
-const BANDE_LIBRE = Math.min(ANCRE_FRISE_MOBILE - DEBORD_POINT, MARGE_VOIE)
-const BORD_PANNEAU = DETACHE.gouttiere + DETACHE.filet
-const retraitBras = `${(BORD_PANNEAU + BANDE_LIBRE - LARGEUR_BRAS) / 2 - BORD_PANNEAU}px`
+const GOUTTIERE = 12
+
+/**
+ * Les mesures du CSS dont le script a besoin, en pixels de **cadre** : le
+ * retrait latéral (`--creux`), le filet du cadre, la hauteur du bandeau
+ * (`--entete` moins la demi-ligne d'écart qui le sépare des départs), le corps
+ * du bandeau et la largeur de l'heure qu'il porte (5 signes × (0,6 + 0,08) em).
+ * Elles servent à poser la commande sur cette heure ; `PanneauDeparts.test.ts`
+ * les confronte à la source du style.
+ */
+const PLAQUE = { creux: 26, filet: 1, entete: 80, ligne: 44, corpsEntete: 22 } as const
+const BANDEAU = PLAQUE.entete - PLAQUE.ligne / 2
+const LARGEUR_HEURE = 5 * (0.6 + 0.08) * PLAQUE.corpsEntete
+
+/** Ce qu'un doigt exige, en pixels d'**écran** (WCAG 2.5.5) : le même nombre que `cibleReverbere`. */
+const CIBLE = 44
+
+/**
+ * La largeur de la plaque, en pixels de **cadre** : la sienne, sauf si la
+ * fenêtre est trop étroite pour la porter — alors c'est la fenêtre, moins ses
+ * deux gouttières, ramenée dans le repère du cadre. Une seule règle, continue,
+ * sans seuil.
+ */
+const largeurCadre = computed(() => {
+  const f = frame.value
+  if (!f) return RIDEAU.largeur
+  return Math.min(RIDEAU.largeur, (largeur.value - 2 * GOUTTIERE) / f.scale)
+})
 
 // Le haut de la plaque, en pixels d'écran. C'est lui, et lui seul, que `place`
 // et la visibilité lisent : ce qu'on place et ce qu'on décide de montrer ne
-// peuvent pas se contredire.
+// peuvent pas se contredire. La scène dit le `y` ; le cadre le convertit.
 const hautEcran = computed(() => {
   const f = frame.value
   const r = rideau.value
   if (!f || !r) return null
-  if (!detache.value) return f.offsetY + r.y * f.scale
-  // Détaché, la plaque de scène n'existe plus : sa course ne dicte pas celle du
-  // panneau. On en garde la **fraction** (0 rangé, 1 posé, un peu plus au rebond) et on
-  // la remet sur la hauteur du panneau. À 0, son bas est à 0 : sorti, exactement, à
-  // toute taille — l'invariant qu'avait la plaque (`hautEcran + hauteur = -8`). À 1,
-  // il se pose là où la plaque se posait.
-  const rangee = yRangeA(f)
-  const course = yPoseA(f) - rangee
-  const fraction = course === 0 ? (r.baisse ? 1 : 0) : (r.y - rangee) / course
-  const posee = f.offsetY + yPoseA(f) * f.scale
-  return -HAUTEUR_DETACHE + fraction * (posee + HAUTEUR_DETACHE)
+  return f.offsetY + r.y * f.scale
 })
 
 // Le bas de la plaque est au-dessus du bord de la fenêtre : rien n'en reste à voir.
 const horsDeLaFenetre = computed(() => {
   const f = frame.value
-  const hauteur = detache.value ? HAUTEUR_DETACHE : RIDEAU.hauteur * (f?.scale ?? 0)
-  return hautEcran.value === null || !f || hautEcran.value + hauteur <= 0
+  return hautEcran.value === null || !f || hautEcran.value + RIDEAU.hauteur * f.scale <= 0
 })
 
 const visible = computed(
@@ -161,16 +168,12 @@ function armer() {
   minuterie = window.setInterval(() => { maintenant.value = new Date() }, 15_000)
 }
 
-// Le cadran épinglé montre l'heure : il la tient juste même panneau rangé, c'est-à-dire
-// précisément quand il est seul à l'écran.
-const cadranMontre = computed(() => detache.value && voyage.gare === 'ailleurs' && frame.value !== null)
-const horlogeVive = computed(() => visible.value || cadranMontre.value)
-
 watch(visible, (v) => {
   if (v) graine.value = Math.floor(Math.random() * 2 ** 31)
 }, { immediate: true })
 
-watch(horlogeVive, (v) => {
+// L'heure n'avance que tant que le bandeau la montre : panneau absent, rien à tenir à jour.
+watch(visible, (v) => {
   if (v) {
     maintenant.value = new Date()
     armer()
@@ -203,73 +206,118 @@ const retardLigne = (i: number) => DEBUT_LIGNES_MS + i * ECART_LIGNES_MS
 const mail = `mailto:${adresseMail()}`
 const HREF = { linkedin: LINKEDIN, cv: CV, ecrire: mail } as const
 
+/**
+ * Le bord gauche de la plaque, en pixels d'écran : elle est **centrée sur la
+ * fenêtre**. `transform-origin: 0 0` fait que l'échelle ne déplace pas ce
+ * bord-là, elle n'étire la plaque que vers la droite et vers le bas.
+ */
+const gaucheEcran = computed(() => {
+  const f = frame.value!
+  return (largeur.value - largeurCadre.value * f.scale) / 2
+})
+
 // Taille de cadre, mise à l'échelle par `transform` : le texte n'est jamais
-// mesuré en pixels d'écran, et `--biseau` ci-dessous reste en pixels de cadre.
+// mesuré en pixels d'écran, et le style du panneau non plus.
 const place = computed<Record<string, string>>((): Record<string, string> => {
   const f = frame.value!
-  // Détaché : le CSS pose gouttières et taille, il ne reste que la descente.
-  if (detache.value) return { top: `${hautEcran.value}px`, height: `${HAUTEUR_DETACHE}px` }
   return {
-    left: `${f.offsetX + RIDEAU.x * f.scale}px`,
+    left: `${gaucheEcran.value}px`,
     top: `${hautEcran.value}px`,
-    width: `${RIDEAU.largeur}px`,
+    width: `${largeurCadre.value}px`,
     height: `${RIDEAU.hauteur}px`,
     transform: `scale(${f.scale})`,
   }
 })
 
 /**
- * La commande clavier du rideau, posée sur l'horloge du canvas : le même geste
- * que le clic sur l'horloge, pour que les trois liens du panneau s'atteignent
- * sans souris. Elle passe par `Scene.basculerRideau()`, qui tient en un seul
- * endroit la règle (se baisse à l'arrêt, se relève toujours) — jamais par le
- * rideau directement.
+ * Les deux bras, en pixels de cadre : ils sont dans la plaque, donc dans son
+ * échelle. Ils n'ont plus à éviter les libellés de la frise — le panneau passe
+ * **devant** elle (spec §5), et deux traits fins la traversent. Ils reprennent
+ * donc le retrait de la scène, `BRAS.retrait`.
  *
- * Elle couvre la même aire que la cible de la souris, `horlogeTouchee` : un
- * disque de `HORLOGE.rayon * HALO_HORLOGE.rayon`, converti en pixels d'écran
- * comme `place`. Le cadre existe et on est « ailleurs » : c'est sa seule
- * condition, car elle sert justement quand le panneau est rangé.
+ * Leur hauteur est celle de la scène entière : le cadrage « cover » garantit
+ * que `STAGE.height × échelle` dépasse la fenêtre, donc qu'ils montent toujours
+ * au-delà de son bord haut. C'est le rognage qui les coupe, pas un calcul — la
+ * plaque peut être n'importe où entre sa rangée et sa pose.
  */
-// Détaché, le panneau passe par-dessus l'horloge dans une fenêtre large et basse.
-// `useScene` écoute `pointerdown` sur `window` et bascule le rideau sur l'horloge :
-// l'appui sur un lien le relèverait avant que le `click` n'arrive. Attaché, la plaque
-// ne croise jamais l'horloge, et on laisse remonter.
+const retraitBras = `${BRAS.retrait}px`
+const hauteurBras = `${STAGE.height}px`
+
+/**
+ * L'appui s'arrête sur le panneau.
+ *
+ * `useScene` écoute `pointerdown` sur `window` : sans cette porte, un appui sur
+ * une ligne éteinte (qui n'a pas de lien, donc rien à prendre) retomberait sur
+ * `Scene.clicPx` et éteindrait le réverbère dont les deux tiers bas sont en
+ * pleine vue sous la plaque. Le panneau est devant : c'est à lui d'arrêter ce
+ * qui tombe dessus, et c'est ce que `pointer-events: auto` et cet arrêt font
+ * ensemble. Les trois liens, eux, reçoivent leur `click` normalement — on
+ * n'arrête que la remontée vers la fenêtre.
+ *
+ * **Le survol, lui, passe.** `useScene` fait voyager `setPointer` sur le même
+ * `pointermove`, et c'est lui qui fait respirer la parallaxe du ciel : l'arrêter
+ * figerait le ciel dès que le pointeur touche le panneau. Le prix est que le
+ * survol atteint encore les étoiles que la plaque recouvre — la bulle est à
+ * `z-index: 5`, donc derrière elle, et seul un débord de bulle peut se voir au
+ * ras du bord de la plaque. Un ciel figé se voit bien davantage.
+ */
 function arreterAppui(e: Event) {
-  if (detache.value) e.stopPropagation()
+  e.stopPropagation()
 }
 
 // L'`id` de la région, que la commande désigne par `aria-controls`. Il n'y a qu'un
 // panneau des départs dans le site : l'identifiant peut être fixe.
 const ID_PANNEAU = 'panneau-departs'
 
-// Le cadran dessiné : sous le seuil, panneau rangé. Posé, c'est le bandeau qui montre l'heure.
-//
-// **Pas en route.** `voyage.gare` reste « ailleurs » jusqu'au premier `finirEtape`
-// (≈ 9 s) ; dès que le panneau est sorti (≈ 1,5 s après le départ) `visible` tombe,
-// et un cadran de 52 px avec l'heure s'épinglait là, sous le pouce, désactivé
-// pendant tout le reste de l'étape. `Scene.basculerRideau` refuse de baisser en
-// route : il ne répondait pas, et rien n'est perdu à ne pas le dessiner.
-const cadranDessine = computed(() => detache.value && !visible.value && !voyage.enRoute)
-
+/**
+ * La commande du rideau : un seul bouton, qui se déplace.
+ *
+ * Panneau rangé, c'est un disque transparent posé sur l'horloge du canvas, de la
+ * taille exacte de la cible de la souris (`horlogeTouchee`) : le même geste au
+ * clavier qu'au pointeur, pour que les trois liens du panneau s'atteignent sans
+ * souris. Elle passe par `Scene.basculerRideau()`, qui tient en un seul endroit
+ * la règle (se baisse à l'arrêt, se relève toujours) — jamais par le rideau.
+ *
+ * Panneau posé, l'horloge est **dessous** : la commande ne reste pas en piège
+ * sous la plaque, elle se déplace sur l'heure du bandeau, qui est le cadran qui
+ * est là. Invisible, mais de 44 px, et dans la bande du bandeau, qui ne porte
+ * aucun lien : un cadran dessiné, lui, tomberait sur les trois liens.
+ *
+ * **44 px dans les deux dimensions, toujours** : c'est le plancher qu'un doigt
+ * exige, et il ne se négocie pas plus en hauteur qu'en largeur — c'est le même
+ * plancher qui a fait élargir la cible du réverbère. Or le bandeau rétrécit avec
+ * le cadre, pas le doigt : sur une fenêtre large et basse (800 × 450, échelle
+ * 0,37) il ne fait que 21 px d'écran de haut. Le disque déborde donc de la
+ * bande, **par le haut**, et jamais par le bas : au-dessus il n'y a que le bord
+ * de la plaque et le ciel, en dessous il y a la première ligne, qui est un des
+ * trois liens du site. Un disque invisible qui mange le haut d'un lien est
+ * exactement le défaut que ce dépôt a déjà corrigé deux fois ; un qui déborde
+ * d'une dizaine de pixels au-dessus de la plaque ne coûte rien.
+ */
 const commande = computed<Record<string, string> | null>(() => {
   // Ni ailleurs ni cadre : pas de commande.
   if (voyage.gare !== 'ailleurs') return null
   const f = frame.value
   if (!f) return null
-  if (detache.value) {
-    // Panneau rangé : il n'y a aucune horloge à l'écran, le CSS épingle un cadran.
-    if (!visible.value) return {} as Record<string, string>
-    // Panneau posé : un disque invisible sur l'heure du bandeau — le même objet que
-    // sur grand écran, posé sur le cadran qui est là. Il suit le panneau, et reste
-    // dans la bande du bandeau, qui n'a pas de lien. Invisible, mais de 44 px.
+  if (visible.value) {
     const haut = hautEcran.value ?? 0
+    const bordInterieur = PLAQUE.filet + PLAQUE.creux
+    const debutLignes = haut + (PLAQUE.filet + PLAQUE.entete) * f.scale
+    // Centré sur la bande du bandeau, puis remonté juste ce qu'il faut pour que
+    // son bas n'entre pas dans les lignes. Il reste donc 44 × 44, et il déborde
+    // vers le haut quand la bande est plus courte que le doigt.
+    const sommet = Math.min(haut + (PLAQUE.filet + BANDEAU / 2) * f.scale - CIBLE / 2, debutLignes - CIBLE)
+    // Et de même en largeur : centré sur l'heure, mais jamais débordant du bord
+    // droit de la plaque. À petite échelle le creux ne fait plus que quelques
+    // pixels d'écran et un disque de 44 px passerait dessus, sur le ciel.
+    const droite = gaucheEcran.value + largeurCadre.value * f.scale
+    const centreHeure =
+      gaucheEcran.value + (largeurCadre.value - bordInterieur - LARGEUR_HEURE / 2) * f.scale
     return {
-      left: `${largeur.value - DETACHE.gouttiere - DETACHE.filet - DETACHE.creux - DETACHE.largeurHeure / 2 - DETACHE.cible / 2}px`,
-      // Centré sur la bande : il déborde de 8 px de part et d'autre du bandeau, et
-      // s'arrête 8 px avant les lignes, qui seules portent des liens.
-      top: `${haut + DETACHE.filet + DETACHE.bandeau / 2 - DETACHE.cible / 2}px`,
-      width: `${DETACHE.cible}px`,
-      height: `${DETACHE.cible}px`,
+      left: `${Math.min(centreHeure - CIBLE / 2, droite - CIBLE)}px`,
+      top: `${sommet}px`,
+      width: `${CIBLE}px`,
+      height: `${CIBLE}px`,
     }
   }
   const r = HORLOGE.rayon * HALO_HORLOGE.rayon * f.scale
@@ -288,32 +336,38 @@ const commande = computed<Record<string, string> | null>(() => {
        à Entrée et à Espace par un `click`, et les deux gestionnaires feraient deux
        bascules. Même faute au pointeur : `useScene` écoute `pointerdown` sur `window` et
        `clicPx` bascule déjà le rideau sur l'aire de l'horloge — que ce bouton couvre.
-       `@pointerdown.stop` laisse le `click` seul faire la bascule. `aria-label` fixe, sauf le cadran dessiné (sous le seuil, panneau rangé), dont le nom reprend l'heure vue (WCAG 2.5.3). `aria-expanded` dit l'état, `aria-controls` dit de quoi : le bouton et la région portent le même nom, et rien ne disait que l'un commande l'autre. Il n'est posé que quand la région existe — rangé, le panneau est retiré du DOM, et un renvoi dans le vide ne renseigne personne. -->
+       `@pointerdown.stop` laisse le `click` seul faire la bascule. `aria-label` fixe :
+       le bouton ne porte aucun texte. `aria-expanded` dit l'état, `aria-controls` dit de
+       quoi : le bouton et la région portent le même nom, et rien ne disait que l'un
+       commande l'autre. Il n'est posé que quand la région existe — rangé, le panneau est
+       retiré du DOM, et un renvoi dans le vide ne renseigne personne. -->
   <button
     v-if="commande"
     class="commande"
-    :class="{ visible: cadranDessine, 'sur-bandeau': detache && visible }"
+    :class="{ 'sur-bandeau': visible }"
     data-commande
     type="button"
-    :aria-label="cadranDessine ? `${heure} Prochains départs` : 'Prochains départs'"
+    aria-label="Prochains départs"
     :aria-expanded="rideau?.baisse ?? false"
     :aria-controls="visible ? ID_PANNEAU : undefined"
     :disabled="voyage.enRoute"
     :style="commande"
     @pointerdown.stop
     @click="scene?.basculerRideau()"
-  >{{ cadranDessine ? heure : '' }}</button>
+  ></button>
   <Transition name="dissoudre">
-    <div v-if="visible" :id="ID_PANNEAU" class="panneau" :class="{ remonte, detache }" :inert="remonte || undefined" :style="place" role="region" aria-label="Prochains départs" @pointerdown="arreterAppui">
-      <template v-if="detache">
-        <span class="bras" aria-hidden="true" :style="{ left: retraitBras, height: `${Math.max(0, hautEcran ?? 0)}px` }" />
-        <span class="bras" aria-hidden="true" :style="{ right: retraitBras, height: `${Math.max(0, hautEcran ?? 0)}px` }" />
-      </template>
+    <div v-if="visible" :id="ID_PANNEAU" class="panneau" :class="{ remonte }" :style="place" role="region" aria-label="Prochains départs" @pointerdown="arreterAppui">
+      <span class="bras" aria-hidden="true" :style="{ left: retraitBras, height: hauteurBras }" />
+      <span class="bras" aria-hidden="true" :style="{ right: retraitBras, height: hauteurBras }" />
       <p class="entete">
         <span><VoletTexte texte="PROCHAINS DÉPARTS" :retard="DEBUT_ENTETE_MS" :fige="fige" /></span>
         <span class="heure"><VoletTexte :texte="heure" :retard="DEBUT_ENTETE_MS" :fige="fige" /></span>
       </p>
-      <ul class="lignes">
+      <!-- `inert` ici et pas sur la plaque : les trois liens sont les seuls
+           focalisables du panneau, et un nœud `inert` cesse d'être visé par le
+           pointeur — la plaque doit, elle, rester dans le chemin du pointeur
+           pendant toute la remontée. -->
+      <ul class="lignes" :inert="remonte || undefined">
         <li v-for="(d, i) in lignes" :key="i">
           <RouterLink
             v-if="d.lien === 'cv'"
@@ -343,7 +397,13 @@ const commande = computed<Record<string, string> | null>(() => {
 <style scoped>
 /* Transparente, jamais retirée : ni `display: none` ni `visibility: hidden`, qui
    la sortiraient de la tabulation. Le curseur est le seul indice, pour la souris,
-   que l'horloge se clique. */
+   que l'horloge se clique.
+
+   **Pas de `z-index` ici.** Posée sur l'horloge — panneau rangé — elle est un
+   disque invisible de ~103 px en plein milieu du ciel : le monter au-dessus de
+   la bulle d'étoile (5) lui ferait manger les clics qui y tombent, le défaut
+   même que le `disabled` plus bas corrige pour la gare qui défile. Elle n'a
+   besoin de passer devant que lorsqu'il y a un panneau devant lequel passer. */
 .commande {
   position: fixed;
   box-sizing: border-box;
@@ -355,11 +415,11 @@ const commande = computed<Record<string, string> | null>(() => {
 }
 
 /* Un bouton `disabled` reste touché par le test de survol et **avale** l'événement
-   sans le laisser remonter. En rendu attaché la commande est un disque invisible de
-   ~103 px posé à la **place d'arrêt** de l'horloge ; le train parti, la gare défile
-   mais le disque reste, et pendant toute l'étape un trou invisible mangeait les
-   clics — donc les bulles des étoiles qui y tombaient. Aucune des règles qui suivent
-   ne parle du pointeur : rien ne vient l'écraser. */
+   sans le laisser remonter. La commande est un disque invisible de ~103 px posé à la
+   **place d'arrêt** de l'horloge ; le train parti, la gare défile mais le disque
+   reste, et pendant toute l'étape un trou invisible mangeait les clics — donc les
+   bulles des étoiles qui y tombaient. Aucune des règles qui suivent ne parle du
+   pointeur : rien ne vient l'écraser. */
 .commande:disabled {
   cursor: default;
   pointer-events: none;
@@ -370,54 +430,51 @@ const commande = computed<Record<string, string> | null>(() => {
   outline-offset: 2px;
 }
 
-/* Sous le seuil : un petit cadran épinglé en bas à droite, qui montre l'heure du
-   tableau. Le même bouton, déplacé — pas un second. */
-.commande.visible {
-  /* Une marge basse choisie à l'œil. Ce n'est pas un dégagement de frise : la
-     frise est collée en haut de la fenêtre, il n'y a rien en bas. */
-  right: 12px;
-  bottom: 108px;
-  /* Au-dessus du panneau, qui le recouvrirait sinon : même `z-index: auto`, et il
-     vient après le bouton dans le gabarit. Rien d'autre ne flotte à 1. */
-  z-index: 1;
-  width: 52px;
-  height: 52px;
-  border: 2px solid var(--texte);
-  background: var(--fond);
-  color: var(--texte);
-  font-family: var(--police-mono);
-  font-size: 13px;
-}
-
-/* Posée sur l'heure du bandeau (panneau posé) : le disque invisible de la gare, sur
-   le cadran qui est là. Au-dessus du panneau, qui la recouvrirait sinon. */
+/* Posée sur l'heure du bandeau : le panneau est à 15, elle doit passer devant
+   lui, sans quoi il la recouvrirait. C'est la pile de la spec — frise 2,
+   panneau 15, commande 16, CV 20. */
 .commande.sur-bandeau {
-  z-index: 1;
+  z-index: 16;
 }
 
+/* La plaque. Tout ce qui est écrit ici est en pixels de **cadre** : le
+   `transform: scale()` les met à l'échelle de la fenêtre, texte compris.
+
+   `z-index: 15` : devant la frise de navigation (2), l'œil (3), les bulles
+   d'étoiles (5) et la liste (10) — c'est toute la raison pour laquelle la
+   plaque a quitté le canvas, qui ne pouvait pas passer devant eux. Et sous le
+   CV (20), qui reste au-dessus de tout.
+
+   Le fond et le filet sont les siens : la plaque du canvas n'est plus là pour
+   les porter. Le DOM n'est pas tenu à « blanc ou absent ». */
 .panneau {
   position: fixed;
+  z-index: 15;
   transform-origin: 0 0;
   box-sizing: border-box;
+  background: var(--fond);
+  border: 1px solid var(--texte);
   /* Le retrait latéral, déclaré une seule fois : le bandeau d'en-tête
-     l'annule pour aller d'un bord intérieur à l'autre du cadre. */
-  --creux: 32px;
-  /* La coupe des coins de la plaque. Le panneau est mis à l'échelle par
-     `transform`, donc ce nombre est en pixels de **cadre** comme le `BISEAU` du
-     canvas — mais à l'écran, les deux valent `12 × échelle`. Le bandeau
-     d'en-tête s'y coupe aussi, sinon il peint deux triangles **hors de la
-     plaque**. `PanneauDeparts.test.ts` les confronte en pixels d'écran. */
-  --biseau: 12px;
+     l'annule pour aller d'un bord intérieur à l'autre du cadre.
+
+     32 px de cadre à l'origine, descendu à 26. La plaque est bornée par la
+     gouttière sur une fenêtre étroite tandis que le texte garde l'échelle du
+     cadre : à 390 px de large la piste des points de conduite se refermait de
+     12 px de cadre, et les points — qui existent à toute autre largeur —
+     disparaissaient. Les 12 px que ce retrait rend sont exactement ce qui
+     manquait. */
+  --creux: 26px;
   /* Le budget de place du panneau, en pixels de cadre. La plaque fait
      `RIDEAU.hauteur` (329 px) et doit tenir un bandeau et cinq lignes : c'est
      **ici** que la mise en page se décide, et `PanneauDeparts.test.ts` fait
      l'addition pour que personne n'ajoute une sixième ligne en silence.
      `--entete` compte l'écart qui sépare le bandeau des départs. Le corps du
-     texte est doublé par rapport à l'ancienne plaque (13 px devenus 26 px) : à
-     cette taille ce n'est pas le nombre de lignes qui grandit (spec, non-buts).
-     Ce n'est pas une homothétie de la plaque — 1127 × 329 contre 440 × 166, soit
-     ×2,56 en largeur pour ×1,98 en hauteur : la hauteur fixe le corps, la
-     largeur laisse de la place aux points de conduite. */
+     texte est doublé par rapport à l'ancienne plaque murale (13 px devenus
+     26 px) : à cette taille ce n'est pas le nombre de lignes qui grandit
+     (spec, non-buts). Ce n'est pas une homothétie de cette plaque-là —
+     1127 × 329 contre 440 × 166, soit ×2,56 en largeur pour ×1,98 en hauteur :
+     la hauteur fixe le corps, la largeur laisse de la place aux points de
+     conduite. */
   --entete: 80px;
   --ligne: 44px;
   --marge: 29px;
@@ -426,8 +483,10 @@ const commande = computed<Record<string, string> | null>(() => {
   font-weight: 300;
   font-size: 26px;
   color: var(--texte);
-  /* Le texte ne bloque rien : seuls les liens reçoivent le pointeur. */
-  pointer-events: none;
+  /* Le panneau est devant tout : c'est lui qui arrête ce qui tombe dessus, et
+     non plus une boîte de couverture calculée dans le canvas. `auto` couvre
+     aussi le fond et les lignes éteintes, qui ne portent aucun lien. */
+  pointer-events: auto;
 }
 
 /* L'en-tête est un **bandeau plein** : le fond prend la couleur du texte et le
@@ -438,7 +497,10 @@ const commande = computed<Record<string, string> | null>(() => {
 
    C'est lui, et non plus un filet tracé au canvas, qui sépare l'en-tête des
    départs. Sa hauteur est le **réglage de luminosité du panneau** : il est la
-   chose la plus claire de la gare après la lanterne. */
+   chose la plus claire de la gare après la lanterne.
+
+   Plus de coupe aux coins : la plaque est à coins droits (spec §4), le bandeau
+   affleure donc ses deux coins du haut sans rien déborder. */
 .entete {
   display: flex;
   justify-content: space-between;
@@ -457,18 +519,6 @@ const commande = computed<Record<string, string> | null>(() => {
   padding-left: var(--creux);
   background: var(--texte);
   color: var(--fond);
-  /* Les deux coins du haut suivent le biseau du cadre ; ceux du bas sont
-     droits, le bandeau ne les touche pas. Sans cette coupe, le bandeau peint
-     deux triangles de 12 px de cadre **hors de la plaque** — le fond
-     opaque, lui, est un octogone. */
-  clip-path: polygon(
-    var(--biseau) 0,
-    calc(100% - var(--biseau)) 0,
-    100% var(--biseau),
-    100% 100%,
-    0 100%,
-    0 var(--biseau)
-  );
   /* Plein, pas à mi-teinte : l'opacité `--moyen` d'avant en ferait un gris. */
   opacity: 1;
   font-size: 22px;
@@ -481,11 +531,17 @@ const commande = computed<Record<string, string> | null>(() => {
   list-style: none;
 }
 
+/* Trois liens, trois lignes : aucune ne passe à la suivante. Sur une fenêtre
+   étroite la plaque est bornée par la gouttière tandis que le texte garde
+   l'échelle du cadre : la piste des points de conduite se referme alors la
+   première, et c'est elle qui doit céder — pas la ligne, qui se couperait en
+   deux et déborderait sa hauteur. */
 .ligne {
   display: grid;
   grid-template-columns: 3.4em 1fr auto;
   align-items: center;
   gap: 20px;
+  white-space: nowrap;
   /* La hauteur vient du budget, pas d'un rembourrage : c'est elle que le garde
      de débordement multiplie par cinq. */
   box-sizing: border-box;
@@ -528,7 +584,6 @@ const commande = computed<Record<string, string> | null>(() => {
 
 .reel {
   opacity: var(--fort);
-  pointer-events: auto;
 }
 
 .eteint {
@@ -543,52 +598,17 @@ const commande = computed<Record<string, string> | null>(() => {
   outline: none;
 }
 
-/* Posé sur la fenêtre, à taille lisible : le budget de place est redéclaré en
-   pixels d'écran, et la plaque a son propre fond puisque celle du canvas n'est
-   pas là où le texte se pose. Le DOM n'est pas tenu à « blanc ou absent ». */
-.detache {
-  left: 12px;
-  right: 12px;
-  transform: none;
-  /* Un appui sur un lien traverse déjà (`.reel` est `auto`) et c'est `arreterAppui`
-     qui le ferme. `auto` protège le reste du panneau — bandeau, lignes éteintes,
-     fond — que `.panneau: none` laisserait passer jusqu'à l'horloge. */
-  pointer-events: auto;
-  --creux: 14px;
-  /* Pas de biseau ici : détaché, le panneau ne redéclare ni `clip-path` ni
-     `border-radius`, son cadre est un rectangle à filet. Un biseau sur le seul
-     bandeau y creusait deux encoches de `--fond` entre le filet et le bandeau
-     inversé, dans les deux coins du haut. À zéro, le `polygon` dégénère en
-     rectangle — comme `pointsBiseau` côté canvas. `0px` et non `0` : sans unité,
-     `calc(100% - var(--biseau))` est invalide et le `clip-path` tombe en entier. */
-  --biseau: 0px;
-  --entete: 44px;
-  --ligne: 32px;
-  --marge: 14px;
-  font-size: 14px;
-  background: var(--fond);
-  border: 1px solid var(--texte);
-}
-
-/* Les deux bras montent du haut de la plaque jusqu'au bord de la fenêtre. */
+/* Les deux bras montent du haut de la plaque jusqu'au bord de la fenêtre, et
+   **par-dessus la frise** : c'est le seul endroit où le panneau la traverse.
+   Deux traits fins, et la navigation reste lisible. */
 .bras {
   position: absolute;
-  bottom: calc(100% + 1px);
+  bottom: 100%;
   width: 2px;
   background: var(--texte);
-  /* Hérité de `.detache`, `auto` leur ferait avaler les appuis sur deux bandes de
-     2 px qui montent jusqu'en haut de la fenêtre. */
+  /* `auto` leur ferait avaler les appuis sur deux bandes qui montent jusqu'en
+     haut de la fenêtre, frise comprise. */
   pointer-events: none;
-}
-
-.detache .entete {
-  font-size: 13px;
-}
-
-/* Trois liens, trois lignes : aucun ne passe à la suivante. */
-.detache .ligne {
-  gap: 10px;
-  white-space: nowrap;
 }
 
 .dissoudre-leave-active {
@@ -611,8 +631,7 @@ const commande = computed<Record<string, string> | null>(() => {
 }
 
 /* Pendant la remontée, la plaque s'en va avec ses liens : la même coupe que le
-   fondu ci-dessus, sur toute la durée où la plaque est encore en vue. Plus
-   spécifique que `.reel`, qui rend le pointeur aux liens. */
+   fondu ci-dessus, sur toute la durée où la plaque est encore en vue. */
 .remonte .reel {
   pointer-events: none;
 }

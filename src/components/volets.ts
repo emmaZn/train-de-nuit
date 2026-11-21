@@ -34,7 +34,7 @@ export const DECALAGE_CARACTERE = 1
 
 /**
  * Où commence la première ligne des départs, en ms. Réglage raisonné, pas
- * encore réglé à l'œil. Il est calé sur la descente de `RideauLayer.ts` (1,45 s,
+ * encore réglé à l'œil. Il est calé sur la descente de `rideau.ts` (1,45 s,
  * `back.out(1.1)`) : la plaque atteint sa pose vers 0,69 s, la dépasse un peu
  * vers 0,94 s et finit de se rasseoir ensuite — les lignes partent donc
  * pendant ce dernier rebond. Si la descente change, celui-ci doit suivre.

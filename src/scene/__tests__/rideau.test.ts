@@ -1,15 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import gsap from 'gsap'
+import { afterEach, describe, expect, it } from 'vitest'
 
-import { HAUTEUR_FRISE, HORIZON, cadrageScene } from '@/scene/layout'
+import { HAUTEUR_FRISE, HORIZON, cadrageScene, fitStage } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
 import { HALO_HORLOGE, HORLOGE } from '@/scene/quai'
 import {
   BRAS,
   DEGAGEMENT_ECRAN,
   RIDEAU,
+  Rideau,
   horlogeTouchee,
-  pointDansRideau,
-  pointsBiseau,
   yPoseA,
   yRangeA,
 } from '@/scene/rideau'
@@ -54,11 +55,17 @@ describe('la géométrie du rideau', () => {
     }
   })
 
+  /**
+   * Les bras sont symétriques et dans la largeur de la plaque. Le repère est
+   * celui de la plaque elle-même (0 à `largeur`) : `RIDEAU` n'a plus d'abscisse
+   * depuis que le panneau se centre sur la fenêtre au lieu de se poser à un `x`
+   * de cadre.
+   */
   it('pose deux bras symétriques, dans la largeur de la plaque', () => {
-    const g = RIDEAU.x + BRAS.retrait
-    const d = RIDEAU.x + RIDEAU.largeur - BRAS.retrait
-    expect(g).toBeGreaterThan(RIDEAU.x)
-    expect(d).toBeLessThan(RIDEAU.x + RIDEAU.largeur)
+    const g = BRAS.retrait
+    const d = RIDEAU.largeur - BRAS.retrait
+    expect(g).toBeGreaterThan(0)
+    expect(d).toBeLessThan(RIDEAU.largeur)
     expect(d - g).toBeCloseTo(RIDEAU.largeur - 2 * BRAS.retrait, 6)
   })
 
@@ -77,10 +84,9 @@ describe('la géométrie du rideau', () => {
    *
    * On mesure donc le **diamètre à l'écran**, par l'échelle que la scène applique
    * vraiment, aux fenêtres éprouvées ici. C'est tout ce que ce test établit : il ne
-   * promet pas 44 px à **toute** fenêtre. Le plancher d'échelle du rendu attaché
-   * (`SEUIL_MOBILE / STAGE.width`, c'est-à-dire une fenêtre de 720 px de large et de
-   * moins de 378 de haut) donnerait 43,4 px, et sous le seuil ce n'est de toute
-   * façon plus l'horloge qu'on vise mais le cadran épinglé de `PanneauDeparts`.
+   * promet pas 44 px à **toute** fenêtre. Panneau posé, de toute façon, ce n'est
+   * plus l'horloge qu'on vise mais le disque posé sur l'heure du bandeau, que
+   * `PanneauDeparts.test.ts` garde à 44 px.
    */
   it.each(FENETRES)('fait du halo de l’horloge une cible de 44 px d’écran à %i×%i', (w, h) => {
     const { frame } = cadrageScene(w, h)
@@ -88,59 +94,140 @@ describe('la géométrie du rideau', () => {
   })
 })
 
-describe('pointsBiseau', () => {
-  it('coupe les quatre coins et garde les extrêmes du rectangle', () => {
-    const p = pointsBiseau(0, 0, 100, 60, 10)
-    expect(p).toHaveLength(16)
-    expect(p.slice(0, 4)).toEqual([10, 0, 90, 0])
-    const xs = p.filter((_, i) => i % 2 === 0)
-    const ys = p.filter((_, i) => i % 2 === 1)
-    expect(Math.min(...xs)).toBe(0)
-    expect(Math.max(...xs)).toBe(100)
-    expect(Math.min(...ys)).toBe(0)
-    expect(Math.max(...ys)).toBe(60)
-    // Aucun sommet dans un coin : c'est ce que « biseauté » veut dire.
-    for (const coin of [[0, 0], [100, 0], [100, 60], [0, 60]]) {
-      for (let i = 0; i < 16; i += 2) {
-        expect([p[i], p[i + 1]]).not.toEqual(coin)
-      }
-    }
+/**
+ * L'état du rideau. Il ne dessine plus rien — la plaque est en DOM (spec §4) —,
+ * il tient une **fraction** de course et la relit sur le cadre courant.
+ */
+describe('Rideau', () => {
+  const CADRE = fitStage(1440, 900)
+
+  /**
+   * Avance la timeline globale de GSAP sans attendre le temps réel. `time()`
+   * laisse passer les `onUpdate` ; c'est `seek()` qui les supprime par défaut.
+   */
+  function avancerGsap(secondes: number): void {
+    gsap.globalTimeline.time(gsap.globalTimeline.time() + secondes)
+  }
+
+  const vivants: Rideau[] = []
+  function nouveau(reducedMotion?: boolean): Rideau {
+    const r = new Rideau(reducedMotion)
+    vivants.push(r)
+    return r
+  }
+  afterEach(() => {
+    for (const r of vivants.splice(0)) r.destroy()
   })
 
-  it('rend le rectangle quand le biseau est nul', () => {
-    const p = pointsBiseau(0, 0, 100, 60, 0)
-    expect(new Set(p.filter((_, i) => i % 2 === 0))).toEqual(new Set([0, 100]))
-    expect(new Set(p.filter((_, i) => i % 2 === 1))).toEqual(new Set([0, 60]))
-  })
-})
-
-describe('pointDansRideau', () => {
-  const { x, largeur, hauteur } = RIDEAU
-  const y = 100
-
-  it('est dedans à l’intérieur de la plaque, quel que soit son y', () => {
-    expect(pointDansRideau(x + largeur / 2, y + hauteur / 2, y)).toBe(true)
-    // Le même point, la plaque ailleurs : la boîte suit `y`, elle ne reste pas posée.
-    expect(pointDansRideau(x + largeur / 2, y + hauteur / 2, y + 500)).toBe(false)
+  it('n’est nulle part avant son premier cadrage', () => {
+    expect(Number.isNaN(nouveau().y)).toBe(true)
   })
 
-  it('est dehors dès qu’on franchit l’un des quatre bords', () => {
-    const milieuX = x + largeur / 2
-    const milieuY = y + hauteur / 2
-    expect(pointDansRideau(x - 1, milieuY, y)).toBe(false)
-    expect(pointDansRideau(x + largeur + 1, milieuY, y)).toBe(false)
-    expect(pointDansRideau(milieuX, y - 1, y)).toBe(false)
-    expect(pointDansRideau(milieuX, y + hauteur + 1, y)).toBe(false)
+  it('démarre rangé, hors de la fenêtre', () => {
+    const r = nouveau()
+    r.cadrer(CADRE)
+    expect(r.baisse).toBe(false)
+    expect(r.y).toBe(yRangeA(CADRE))
   })
 
-  it('compte les bords dans la plaque', () => {
-    expect(pointDansRideau(x, y, y)).toBe(true)
-    expect(pointDansRideau(x + largeur, y + hauteur, y)).toBe(true)
+  it('baisse jusqu’à sa position posée, et relève jusqu’à la rangée', () => {
+    const r = nouveau()
+    r.cadrer(CADRE)
+    r.baisser()
+    expect(r.baisse).toBe(true)
+    avancerGsap(2)
+    expect(r.y).toBeCloseTo(yPoseA(CADRE), 1)
+    r.relever()
+    expect(r.baisse).toBe(false)
+    avancerGsap(2)
+    expect(r.y).toBeCloseTo(yRangeA(CADRE), 1)
   })
 
-  it('ne trouve rien sous une plaque dont la position n’est pas un nombre', () => {
-    // Avant le premier cadrage, `Rideau.y` vaut NaN : toute comparaison est
-    // fausse, et c'est le bon réflexe — mais il vaut mieux qu'il soit écrit.
-    expect(pointDansRideau(x + 10, y + 10, Number.NaN)).toBe(false)
+  it('bascule d’un état à l’autre', () => {
+    const r = nouveau(true)
+    r.cadrer(CADRE)
+    r.basculer()
+    expect(r.baisse).toBe(true)
+    r.basculer()
+    expect(r.baisse).toBe(false)
+  })
+
+  /** Deux clics rapides : la seconde timeline repart d'où la première en était. */
+  it('ne laisse pas deux timelines se disputer la plaque', () => {
+    const r = nouveau()
+    r.cadrer(CADRE)
+    r.baisser()
+    avancerGsap(0.4)
+    const aMiCourse = r.y
+    expect(aMiCourse).toBeGreaterThan(yRangeA(CADRE))
+    r.relever()
+    avancerGsap(0.05)
+    expect(r.y).toBeLessThan(aMiCourse)
+    avancerGsap(2)
+    expect(r.y).toBeCloseTo(yRangeA(CADRE), 1)
+  })
+
+  it('sans animations, se pose d’un coup', () => {
+    const r = nouveau(true)
+    r.cadrer(CADRE)
+    r.baisser()
+    expect(r.y).toBe(yPoseA(CADRE))
+    r.relever()
+    expect(r.y).toBe(yRangeA(CADRE))
+  })
+
+  /**
+   * **Review Focus nº 1**, côté scène : la fenêtre change en pleine descente. On
+   * interpole une fraction et non un `y`, donc la plaque reste exactement à sa
+   * fraction de course dans le nouveau cadre — elle ne vise jamais un `y` périmé
+   * et ne saute pas.
+   */
+  it('suit le cadre quand la fenêtre change en pleine descente', () => {
+    // Deux fenêtres dont `yPoseA` diffère : sur 1440×900 le plancher de 340
+    // s'applique, sur 2560×720 non — sinon le test comparerait 340 à 340.
+    const large = fitStage(2560, 720)
+    expect(yPoseA(large)).not.toBeCloseTo(yPoseA(CADRE), 0)
+    const r = nouveau()
+    r.cadrer(CADRE)
+    r.baisser()
+    avancerGsap(0.4)
+    const p = (r.y - yRangeA(CADRE)) / (yPoseA(CADRE) - yRangeA(CADRE))
+    expect(p).toBeGreaterThan(0.2)
+    expect(p).toBeLessThan(0.95)
+    r.cadrer(large)
+    expect(r.y).toBeCloseTo(yRangeA(large) * (1 - p) + yPoseA(large) * p, 6)
+    avancerGsap(2)
+    expect(r.y).toBeCloseTo(yPoseA(large), 1)
+  })
+
+  it('ne laisse plus de tween derrière lui une fois détruit', () => {
+    const r = new Rideau()
+    r.cadrer(CADRE)
+    r.baisser()
+    const etat = (r as unknown as { etat: object }).etat
+    expect(gsap.getTweensOf(etat)).toHaveLength(1)
+    r.destroy()
+    expect(gsap.getTweensOf(etat)).toHaveLength(0)
+  })
+
+  it('est construit par la scène avant le manifeste, donc toujours cadré', () => {
+    const src = readFileSync('src/scene/Scene.ts', 'utf8')
+    const debut = src.indexOf('this.sky = new Sky')
+    const cadrage = src.indexOf('this.cadrer()', debut)
+    const pose = src.indexOf('new Rideau(')
+    expect(debut).toBeGreaterThan(0)
+    expect(pose).toBeGreaterThan(debut)
+    expect(pose).toBeLessThan(cadrage)
+  })
+
+  /**
+   * Il ne dessine plus : plus de `Container`, plus de `Graphics`, plus de Pixi
+   * du tout. C'est ce qui permet au panneau de passer devant la frise, et ce qui
+   * fait que la scène ne peut plus prétendre savoir ce que la plaque couvre.
+   */
+  it('n’importe plus le moteur de rendu', () => {
+    const src = readFileSync('src/scene/rideau.ts', 'utf8')
+    expect(src).not.toMatch(/from 'pixi\.js'/)
+    expect(src).not.toMatch(/Graphics|Container/)
   })
 })

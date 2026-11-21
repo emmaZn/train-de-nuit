@@ -3,11 +3,10 @@ import { readFileSync } from 'node:fs'
 import gsap from 'gsap'
 import { Application, Container } from 'pixi.js'
 import { Quai } from '@/scene/QuaiLayer'
-import { Rideau } from '@/scene/RideauLayer'
 import { Scene, plansDuDecor, poserCiel, poserMonde } from '@/scene/Scene'
 import { cadrageScene, HORIZON, SEUIL_MOBILE } from '@/scene/layout'
 import { HORLOGE, PIECES, cibleReverbere } from '@/scene/quai'
-import { RIDEAU, yPoseA } from '@/scene/rideau'
+import { Rideau, yPoseA } from '@/scene/rideau'
 import type { Trace } from '@/scene/types'
 
 function sceneSansRendu(reducedMotion = false) {
@@ -287,7 +286,13 @@ describe('le rideau, commandé par l’horloge', () => {
       expect(cliquer).not.toHaveBeenCalled()
     })
 
-    it('laisse l’oiseau répondre sous la plaque : il est dessiné devant elle', async () => {
+    /**
+     * La plaque a quitté le canvas : la scène ne sait plus ce qu'elle couvre, et
+     * n'a plus à le savoir — c'est le panneau du DOM, devant tout, qui arrête ce
+     * qui tombe sur lui. Un clic qui parvient jusqu'ici est donc un clic qui est
+     * tombé **à côté** de la plaque, et l'oiseau répond.
+     */
+    it('laisse l’oiseau répondre, plaque posée : elle n’est plus dans le canvas', async () => {
       const { scene, interne } = await sceneDeTest()
       const cliquer = vi.fn(() => true)
       interne.oiseaux = { cliquer }
@@ -295,8 +300,8 @@ describe('le rideau, commandé par l’horloge', () => {
       scene.setVoyage(false, 0)
       scene.basculerRideau()
       avancerGsap(2)
-      const dedans = enPixelsEcran(RIDEAU.x + 40, yPoseA(CADRE) + 40)
-      expect(scene.clicPx(dedans.x, dedans.y)).toBe(true)
+      const quelquePart = enPixelsEcran(600, yPoseA(CADRE) + 40)
+      expect(scene.clicPx(quelquePart.x, quelquePart.y)).toBe(true)
       expect(cliquer).toHaveBeenCalledTimes(1)
       expect(scene.rideauBaisse).toBe(true)
     })
@@ -358,14 +363,16 @@ describe('le rideau, commandé par l’horloge', () => {
       expect(emis.at(-1)![0]).not.toBeCloseTo(avant, 1)
     })
 
-    it('ne trace pas la plaque sous le seuil mobile, mais continue d’émettre', async () => {
+    /**
+     * Le rideau n'a plus de tracé du tout : il n'est qu'un état et une position,
+     * et il les tient quelle que soit la fenêtre. Le seuil mobile ne le regarde
+     * plus — il n'y a plus qu'un rendu, celui du DOM.
+     */
+    it('émet sa position quelle que soit la largeur de la fenêtre', async () => {
       const { scene, emis, interne } = await sceneDeTest()
-      const racine = (scene as unknown as { plans: ReturnType<typeof plansDuDecor> }).plans.rideau.children[0]
-      expect(racine.visible).toBe(true)
       ECRAN.width = SEUIL_MOBILE - 1
       try {
         scene.resize()
-        expect(racine.visible).toBe(false)
         emis.length = 0
         scene.basculerRideau()
         expect(emis).toHaveLength(1)
@@ -373,15 +380,13 @@ describe('le rideau, commandé par l’horloge', () => {
       } finally {
         ECRAN.width = 1440
       }
-      scene.resize()
-      expect(racine.visible).toBe(true)
     })
 
     it('n’émet jamais un y qui ne soit pas un nombre', async () => {
       // La tâche suivante pose le texte du DOM — les liens du site — sur ce
       // qu'on émet. Un rideau jamais cadré rend NaN : il ne doit pas sortir.
       const { scene, interne, emis } = await sceneDeTest()
-      interne.rideau = new Rideau(new Container(), false)
+      interne.rideau = new Rideau(false)
       emis.length = 0
       scene.basculerRideau()
       expect(emis).toHaveLength(0)
@@ -403,28 +408,28 @@ describe('le rideau, commandé par l’horloge', () => {
       interne.stars = { hit: () => trace }
       const vues: Array<Trace | null> = []
       scene.on('starHover', (t) => vues.push(t))
-      const dedans = enPixelsEcran(RIDEAU.x + 40, yPoseA(CADRE) + 40)
+      const dedans = enPixelsEcran(600, yPoseA(CADRE) + 40)
       scene.setPointerPx(dedans.x, dedans.y)
       expect(vues.at(-1)).toBe(trace)
     })
 
     /**
-     * Le rideau baissé couvre environ 40 % du ciel des visiteurs. Le pointeur ne
-     * doit pas le traverser : sans ça, survoler la plaque ouvre la bulle d'une
-     * étoile qu'on ne voit pas.
+     * La garde de couverture est levée, et pas déplacée. Elle était ici — « ce
+     * que la plaque couvre ne répond pas » — tant que la plaque était dans le
+     * canvas ; la scène ne sait plus où elle est, et le panneau n'arrête que
+     * l'**appui**, pas le survol : `setPointer`, la parallaxe du ciel, voyage
+     * sur le même `pointermove`, et la figer au survol du panneau se verrait
+     * bien davantage qu'une bulle ouverte derrière une plaque opaque.
      */
-    it('ne traverse pas le rideau baissé, mais passe à côté', async () => {
+    it('ne connaît plus de zone couverte : il n’y a plus de plaque dans le canvas', async () => {
       const { scene, interne } = await sceneDeTest()
       interne.stars = { hit: () => trace }
       const vues: Array<Trace | null> = []
       scene.on('starHover', (t) => vues.push(t))
       scene.basculerRideau()
       avancerGsap(2)
-      const dedans = enPixelsEcran(RIDEAU.x + 40, yPoseA(CADRE) + 40)
-      scene.setPointerPx(dedans.x, dedans.y)
-      expect(vues.at(-1)).toBeNull()
-      const a_cote = enPixelsEcran(RIDEAU.x - 40, yPoseA(CADRE) + 40)
-      scene.setPointerPx(a_cote.x, a_cote.y)
+      const sousLaPlaque = enPixelsEcran(600, yPoseA(CADRE) + 40)
+      scene.setPointerPx(sousLaPlaque.x, sousLaPlaque.y)
       expect(vues.at(-1)).toBe(trace)
     })
 
@@ -436,19 +441,6 @@ describe('le rideau, commandé par l’horloge', () => {
       const loin = enPixelsEcran(HORLOGE.x, HORIZON - 10)
       scene.setPointerPx(loin.x, loin.y)
       expect(interne.quai!.eclat.alpha).toBe(0)
-    })
-
-    it('n’éclaire pas l’horloge qu’un rideau baissé recouvre', async () => {
-      const { scene, interne } = await sceneDeTest()
-      // L'île a défilé : l'horloge passe derrière la plaque, qui est devant elle.
-      interne.quai!.avancer(RIDEAU.x + 100 - HORLOGE.x, 0)
-      scene.basculerRideau()
-      avancerGsap(2)
-      const sous = enPixelsEcran(RIDEAU.x + 100, HORLOGE.y)
-      scene.setPointerPx(sous.x, sous.y)
-      expect(interne.quai!.eclat.alpha).toBe(0)
-      expect(scene.clicPx(sous.x, sous.y)).toBe(false)
-      expect(scene.rideauBaisse).toBe(true)
     })
   })
 

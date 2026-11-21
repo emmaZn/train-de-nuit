@@ -33,10 +33,13 @@ const cvOuvert = computed(() => route.name === 'cv')
   <RouterView />
   <div class="dessous" :inert="cvOuvert || undefined">
     <RepliquesOiseaux />
-    <!-- Avant le panneau des départs : les deux boîtes `fixed` sont au même
-         `z-index`, et c'est l'ordre du gabarit qui décide qui est au-dessus.
-         La plaque posée croise le mât ; montée après, elle garde ses trois
-         liens au-dessus de la commande du réverbère. -->
+    <!-- Avant le panneau des départs, et sans `z-index` : la plaque est à 15,
+         elle passe donc devant ce bouton quoi qu'il arrive dans le gabarit. La
+         plaque posée couvre le haut du mât ; les deux tiers bas restent
+         dégagés, et c'est par là qu'on éteint la lampe panneau baissé
+         (spec §5). Ce que la plaque recouvre, elle le prend : un appui qui
+         tombe dessus s'arrête sur elle et n'atteint ni ce bouton ni la
+         fenêtre. -->
     <CommandeReverbere />
     <!-- Hors des routes : il doit pouvoir s'effacer après le changement d'URL. -->
     <PanneauDeparts />

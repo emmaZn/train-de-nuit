@@ -13,8 +13,7 @@ import { loadManifest } from './assets'
 import { Birds } from './Birds'
 import { Cables } from './CableLayer'
 import { Quai } from './QuaiLayer'
-import { Rideau } from './RideauLayer'
-import { pointDansRideau } from './rideau'
+import { Rideau } from './rideau'
 import { ancreSuivante, legsDeLIle, solRestant } from './cables'
 import { Terre } from './Terre'
 import { Vitres } from './Vitres'
@@ -112,7 +111,6 @@ export type Plans = {
   ciel: Container
   plateauFond: Container
   lumieres: Container
-  rideau: Container
   plateau: Container
   nuit: Nuit
 }
@@ -148,15 +146,13 @@ export function plansDuDecor(decor: Container): Plans {
   const ciel = plan('ciel')
   const plateauFond = plan('plateau-fond')
   const lumieres = plan('lumieres')
-  const rideau = plan('rideau')
   const plateau = plan('plateau')
-  decor.addChild(massif, ciel, plateauFond, lumieres, rideau, plateau)
+  decor.addChild(massif, ciel, plateauFond, lumieres, plateau)
   return {
     massif,
     ciel,
     plateauFond,
     lumieres,
-    rideau,
     plateau,
     // Le plateau n'est pas là : ses porteurs s'inscrivent dans `peupler`,
     // un par un (`planSombre`), parce que les vitres sont au milieu.
@@ -290,9 +286,10 @@ export class Scene {
   /** Le quai d'« ailleurs » : la seconde île. */
   private quai: Quai | null = null
   /**
-   * Le rideau des départs : à la scène, pas à la gare. Son plan est dans `decor`
-   * (pour le filtre de recoloration) et hors du plan du quai — rien ne doit
-   * jamais lui poser d'abscisse, sans quoi il voyagerait avec l'île.
+   * Le rideau des départs : à la scène, pas à la gare. Il ne dessine plus rien
+   * — la plaque est en DOM (spec §4) — et ne tient qu'un état et une position,
+   * que la scène émet. La gare qui défile ne l'emporte donc pas : il n'a pas
+   * d'abscisse du tout.
    */
   private rideau: Rideau | null = null
   /** Ce que le rideau a dit en dernier : on ne répète pas une position qui n'a pas changé. */
@@ -408,7 +405,7 @@ export class Scene {
     this.stars = new Stars(this.plans.ciel, { reducedMotion: this.reducedMotion })
     // Il n'attend pas le manifeste : construit ici, il est cadré par le
     // `cadrer()` qui suit, et sa position n'est jamais indéfinie.
-    this.rideau = new Rideau(this.plans.rideau, this.reducedMotion)
+    this.rideau = new Rideau(this.reducedMotion)
     this.app.stage.addChild(this.monde, this.dissous)
 
     this.refletSprite.scale.y = -1
@@ -556,7 +553,7 @@ export class Scene {
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
     this.cables?.cadrer(frame, this.app.renderer.resolution)
     this.quai?.cadrer(frame, this.app.renderer.resolution, width < SEUIL_MOBILE)
-    this.rideau?.cadrer(frame, this.app.renderer.resolution, width < SEUIL_MOBILE)
+    this.rideau?.cadrer(frame)
     // Le cadre change `y` sans que le rideau ait bougé : le texte doit le savoir.
     this.emettreRideau()
     this.oiseaux?.cadrer(frame, this.app.renderer.resolution, width)
@@ -604,29 +601,25 @@ export class Scene {
    * qu'il ne doit pas aussi ouvrir la bulle d'une étoile.
    *
    * L'horloge passe avant le réverbère, qui passe avant les oiseaux : chacun
-   * rend la main au suivant quand il n'est pas visé. Un point sous la plaque ne
-   * prend **pas** l'horloge : la plaque est devant elle, comme devant le ciel.
-   * Les oiseaux, eux, sont dans `plateau`, dessinés devant la plaque : on les
-   * voit par-dessus et ils répondent — leurs fils passent en pleine boîte de la
-   * plaque posée.
+   * rend la main au suivant quand il n'est pas visé.
    *
-   * **Le réverbère, lui, ignore délibérément la plaque**, et ce n'est pas un
-   * oubli. La plaque le recouvre pourtant : elle occupe x 551–1678, y 340–669
-   * en pixels de cadre, et le cône du faisceau descend de 598 à 885 — un clic
-   * sur une ligne éteinte du panneau (elles sont `pointer-events: none`, il
-   * tombe donc jusqu'ici) éteint un faisceau dont les deux tiers du bas sont en
-   * pleine vue, sous la plaque. La garde `sousLeRideau` n'est pas posée parce
-   * qu'elle serait du code mort : la plaque quitte le canvas pour le DOM, et
-   * son `pointerdown` qui arrête la propagation, avec le `pointer-events: auto`
-   * du panneau, ferme les deux routes d'un seul geste. C'est une décision
-   * datée, pas une omission : celui qui sort la plaque du canvas hérite de ce
-   * défaut et de sa fin.
+   * **Plus aucune garde de couverture ici**, et c'est la fin d'un défaut daté.
+   * La plaque a quitté le canvas : elle est en DOM, à `z-index: 15`, devant tout
+   * ce que la scène dessine. Un appui qui tombe dessus ne parvient donc plus
+   * jusqu'à `window`, parce que le panneau est `pointer-events: auto` et que son
+   * `pointerdown` arrête la propagation — un seul geste qui ferme les deux
+   * routes : celle de ce `clicPx`, et celle du bouton transparent du réverbère,
+   * que la pile du DOM met désormais **sous** le panneau. (Le `pointermove`, lui,
+   * passe : voir `setPointerPx`.) Cliquer sur une ligne
+   * éteinte du tableau n'éteint plus un faisceau dont les deux tiers sont en
+   * pleine vue. Une boîte de couverture côté canvas, elle, serait fausse : le
+   * panneau se centre sur la fenêtre, il n'est plus à une abscisse de cadre.
    */
   clicPx(px: number, py: number): boolean {
     const f = this.frameCourante
     if (!f) return false
     const cadre = versCadre(px, py, f)
-    if (!this.sousLeRideau(cadre.x, cadre.y) && this.quai?.horlogeTouchee(cadre.x, cadre.y)) {
+    if (this.quai?.horlogeTouchee(cadre.x, cadre.y)) {
       this.basculerRideau()
       return true
     }
@@ -702,11 +695,6 @@ export class Scene {
   /** Le battement de l'horloge est-il en cours ? */
   get horlogeBat(): boolean {
     return this.quai?.bat ?? false
-  }
-
-  /** Ce point, en pixels de cadre, est-il sous la plaque telle qu'elle est maintenant ? */
-  private sousLeRideau(x: number, y: number): boolean {
-    return this.rideau !== null && pointDansRideau(x, y, this.rideau.y)
   }
 
   /**
@@ -857,13 +845,15 @@ export class Scene {
   setPointerPx(px: number, py: number): void {
     const f = this.frameCourante
     const cadre = f ? versCadre(px, py, f) : null
-    // La plaque est devant le ciel et devant l'horloge : ce qu'elle couvre ne
-    // répond pas. Sans cela, survoler la plaque ouvre la bulle d'une étoile
-    // qu'on ne voit pas.
-    const couvert = cadre !== null && this.sousLeRideau(cadre.x, cadre.y)
-    this.quai?.eclairer(cadre !== null && !couvert && this.quai.horlogeTouchee(cadre.x, cadre.y))
-    const trace = couvert ? null : (this.stars?.hit(px, py) ?? null)
-    this.emitter.emit('starHover', trace, px, py)
+    // Plus de garde de couverture : la plaque est en DOM, et une boîte calculée
+    // ici serait fausse — le panneau se centre sur la fenêtre, il n'est plus à
+    // une abscisse de cadre. Le survol traverse donc : la bulle d'une étoile
+    // recouverte peut s'ouvrir derrière la plaque, qui est à `z-index: 15` et la
+    // cache. C'est assumé — le panneau n'arrête que l'**appui**, parce que
+    // `setPointer` (la parallaxe du ciel) voyage sur le même `pointermove` et
+    // qu'un ciel figé au survol du panneau se verrait bien davantage.
+    this.quai?.eclairer(cadre !== null && this.quai.horlogeTouchee(cadre.x, cadre.y))
+    this.emitter.emit('starHover', this.stars?.hit(px, py) ?? null, px, py)
   }
 
   /**

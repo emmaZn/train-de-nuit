@@ -9,16 +9,25 @@ import PanneauDeparts from '@/components/PanneauDeparts.vue'
 import { ALPHABET, DEBUT_ENTETE_MS, DEBUT_LIGNES_MS, ECART_LIGNES_MS, PAS_MS } from '@/components/volets'
 import { FRAME_KEY, RIDEAU_KEY, SCENE_KEY } from '@/composables/useScene'
 import type { EtatRideau } from '@/composables/useScene'
-import { ANCRE_FRISE_MOBILE, SEUIL_MOBILE, cadrageScene } from '@/scene/layout'
+import { HAUTEUR_FRISE, cadrageScene } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
-import { HALO_HORLOGE, HORLOGE } from '@/scene/quai'
-import { BISEAU, RIDEAU, horlogeTouchee, yPoseA, yRangeA } from '@/scene/rideau'
+import { HALO_HORLOGE, HORLOGE, cibleReverbere } from '@/scene/quai'
+import { BRAS, RIDEAU, horlogeTouchee, yPoseA, yRangeA } from '@/scene/rideau'
 import { VIVIER, departsReels } from '@/scene/horaires'
 import { createAppRouter } from '@/router'
 import { CV } from '@/contenu/liens'
 import { useVoyage } from '@/stores/voyage'
 
 const ADRESSE = /[\w.]+@[\w.]+\.\w+/
+
+/**
+ * La gouttière du panneau, en pixels d'écran, lue dans la source du composant :
+ * c'est la seule mesure d'écran de la plaque, et un nombre recopié ici
+ * laisserait le panneau toucher les bords sans que rien ne le dise.
+ */
+const GOUTTIERE = Number(
+  /const GOUTTIERE = (\d+)/.exec(readFileSync('src/components/PanneauDeparts.vue', 'utf8'))![1],
+)
 
 /**
  * jsdom n'a pas `matchMedia` : le réglage du visiteur est un stub, dont on
@@ -426,7 +435,9 @@ describe('PanneauDeparts', () => {
     expect(f1.offsetY).toBeGreaterThan(0)
     const { wrapper, cadre, rideau } = monter()
     const y = (rideau.value as EtatRideau).y
-    expect(place(wrapper).left).toBeCloseTo(f1.offsetX + RIDEAU.x * f1.scale)
+    // Centré sur la **fenêtre**, pas posé à une abscisse de cadre : c'est ce qui
+    // le fait tomber sur l'horloge, qui est au milieu de la scène.
+    expect(place(wrapper).left).toBeCloseTo((1440 - RIDEAU.largeur * f1.scale) / 2)
     expect(place(wrapper).top).toBeCloseTo(f1.offsetY + y * f1.scale)
     expect(place(wrapper).transform).toBe(`scale(${f1.scale})`)
     // Le texte garde sa taille de cadre et c'est la transformation qui l'échelonne :
@@ -434,13 +445,18 @@ describe('PanneauDeparts', () => {
     expect(place(wrapper).width).toBe(`${RIDEAU.largeur}px`)
     expect(place(wrapper).height).toBe(`${RIDEAU.hauteur}px`)
 
+    // Une fenêtre trop étroite pour la plaque à cette échelle : c'est la fenêtre
+    // moins ses deux gouttières qui décide, et la plaque reste centrée dessus.
     const f2 = cadreDe(800, 1000)
     expect(f2.offsetY).toBeGreaterThan(0)
+    expect(RIDEAU.largeur * f2.scale).toBeGreaterThan(800 - 2 * GOUTTIERE)
     cadre.value = f2
+    window.innerWidth = 800
     // La scène recadre le rideau dans la foulée : `y` suit le nouveau cadre.
     rideau.value = { y: yPoseA(f2), baisse: true }
     await nextTick()
-    expect(place(wrapper).left).toBeCloseTo(f2.offsetX + RIDEAU.x * f2.scale)
+    expect(place(wrapper).left).toBeCloseTo(GOUTTIERE)
+    expect(parseFloat(place(wrapper).width) * f2.scale).toBeCloseTo(800 - 2 * GOUTTIERE)
     expect(place(wrapper).top).toBeCloseTo(f2.offsetY + yPoseA(f2) * f2.scale)
     expect(place(wrapper).transform).toBe(`scale(${f2.scale})`)
     expect(f2.scale).not.toBeCloseTo(f1.scale)
@@ -509,15 +525,29 @@ describe('PanneauDeparts', () => {
     expect(wrapper.get('.panneau').classes()).toContain('remonte')
   })
 
-  // `pointer-events: none` ne ferme ni la tabulation ni l'Entrée : pendant la
-  // remontée les liens sont retirés du parcours, pas seulement du pointeur.
-  it('rend le panneau inerte pendant la remontée, et lui seul', async () => {
+  /**
+   * `pointer-events: none` ne ferme ni la tabulation ni l'Entrée : pendant la
+   * remontée les liens sont retirés du parcours, pas seulement du pointeur.
+   *
+   * Mais `inert` est posé sur les **lignes**, qui portent les trois seuls
+   * focalisables, et **jamais sur la plaque** : un nœud `inert` cesse d'être visé
+   * par le pointeur, exactement comme `pointer-events: none`. Une plaque inerte
+   * aurait laissé, pendant les 1,45 s de la remontée, tout appui qui tombe
+   * dessus filer jusqu'à `window` — donc jusqu'à `Scene.clicPx`, qui aurait
+   * éteint le réverbère qu'elle recouvre encore (la lampe n'a pas de règle
+   * d'arrêt) ou rebaissé le rideau sur l'horloge. jsdom ne modélise ni le test
+   * de survol ni `inert` : cette garde est **structurelle**, elle tient la place
+   * de l'attribut, pas son effet.
+   */
+  it('rend les lignes inertes pendant la remontée, et laisse la plaque dans le chemin du pointeur', async () => {
     const f = cadreDe(1440, 900)
     const { wrapper, rideau } = monter('ailleurs', { rideau: { y: yPoseA(f), baisse: true } })
+    expect(wrapper.get('.lignes').attributes('inert')).toBeUndefined()
     expect(wrapper.get('.panneau').attributes('inert')).toBeUndefined()
     rideau.value = { y: (yPoseA(f) + yRangeA(f)) / 2, baisse: false }
     await nextTick()
-    expect(wrapper.get('.panneau').attributes('inert')).toBeDefined()
+    expect(wrapper.get('.lignes').attributes('inert')).toBeDefined()
+    expect(wrapper.get('.panneau').attributes('inert')).toBeUndefined()
   })
 
   it('s’efface une fois que la plaque est sortie de la fenêtre', async () => {
@@ -598,38 +628,6 @@ describe('PanneauDeparts', () => {
     expect(source()).not.toMatch(/dotted/)
   })
 
-  /**
-   * Le bandeau annule les retraits du panneau pour affleurer ses bords — mais
-   * le fond opaque est un **octogone** : à sa première ligne il ne va que de
-   * `BISEAU` à `largeur − BISEAU`. Sans coupe, le bandeau peint deux triangles
-   * **hors de la plaque**, et le haut du cadre se lit à coins carrés. Les deux
-   * coins qu'on regarde en premier.
-   *
-   * `BISEAU` est en pixels de **cadre**, le `--biseau` du CSS en pixels **du
-   * panneau** : un repère que `transform: scale()` met à l'échelle de la
-   * fenêtre. C'est donc la **même longueur**, `12 × échelle` à l'écran des deux
-   * côtés, et 12 contre 12 serait déjà la bonne comparaison. On passe pourtant
-   * par l'écran, avec l'échelle lue dans le style : le test tombe aussi si le
-   * `transform` disparaît, ce qu'un 12 contre 12 ne verrait pas.
-   */
-  it('coupe son bandeau au même biseau que le cadre', () => {
-    const f = cadreDe(1440, 900)
-    const m = /--biseau:\s*([\d.]+)px/.exec(source())
-    expect(m, 'pas de --biseau en pixels').not.toBeNull()
-    const { wrapper } = monter('ailleurs', { frame: f })
-    const echelle = /^scale\(([\d.]+)\)$/.exec(place(wrapper).transform)
-    expect(echelle, 'le panneau n’est pas mis à l’échelle du cadre').not.toBeNull()
-    // Le biseau, tel qu'il tombe à l'écran : celui du panneau, mis à l'échelle…
-    const dansLeDom = Number(m![1]) * Number(echelle![1])
-    // … et celui que le canvas trace pour la plaque, converti de la même façon.
-    const dansLeCanvas = BISEAU * f.scale
-    expect(dansLeDom).toBeCloseTo(dansLeCanvas)
-    // Si l'échelle valait 1 les deux repères seraient confondus et ce test ne
-    // distinguerait plus rien : à cette fenêtre, 12 px de cadre font ~9 px à l'écran.
-    expect(Math.abs(BISEAU - dansLeCanvas)).toBeGreaterThan(2)
-    expect(regle('.entete')).toContain('clip-path: polygon(')
-    expect(regle('.entete')).toContain('var(--biseau)')
-  })
 
   /**
    * Pendant la remontée, les trois liens ne reçoivent plus le pointeur. Même
@@ -864,9 +862,9 @@ describe('PanneauDeparts — la commande du rideau', () => {
    * celle de `horlogeTouchee`, vue par l'écran. On remonte du style du bouton
    * au repère du cadre, et on interroge la fonction du canvas au ras du bord.
    */
-  it('couvre exactement la cible de l’horloge du canvas', () => {
+  it('couvre exactement la cible de l’horloge du canvas, panneau rangé', () => {
     const f = cadreDe(1440, 900)
-    const { wrapper } = monter('ailleurs', { frame: f })
+    const { wrapper } = monter('ailleurs', { frame: f, rideau: { y: yRangeA(f), baisse: false } })
     const s = (commande(wrapper).element as HTMLElement).style
     const largeur = parseFloat(s.width)
     expect(parseFloat(s.height)).toBeCloseTo(largeur)
@@ -890,8 +888,9 @@ describe('PanneauDeparts — la commande du rideau', () => {
     expect(regle('.commande')).toMatch(/border-radius:\s*50%/)
   })
 
-  it('suit le cadre quand la fenêtre change', async () => {
-    const { wrapper, cadre } = monter()
+  it('suit le cadre quand la fenêtre change, posée sur l’horloge', async () => {
+    const f = cadreDe(1440, 900)
+    const { wrapper, cadre } = monter('ailleurs', { frame: f, rideau: { y: yRangeA(f), baisse: false } })
     const avant = parseFloat((commande(wrapper).element as HTMLElement).style.width)
     cadre.value = cadreDe(900, 700)
     await nextTick()
@@ -911,15 +910,16 @@ describe('PanneauDeparts — la commande du rideau', () => {
   })
 })
 
+
 /**
- * Le second rendu, sous `SEUIL_MOBILE` : le même état du rideau, rendu deux fois.
- * Le panneau se détache de la scène (il se pose sur la fenêtre, à taille
- * lisible) et la commande bouge : dessinée en cadran quand le panneau est rangé,
- * disque invisible sur l'heure du bandeau quand il est posé. jsdom ne met rien en page :
- * ces tests gardent les classes, le style émis et le source des règles — pas le
- * rendu réel, que personne n'a regardé.
+ * Le panneau a quitté le canvas : il n'y a plus qu'un rendu, celui du DOM, et
+ * c'est lui qui porte la plaque — à l'échelle du cadre, centré sur la fenêtre,
+ * devant la frise et sous le CV.
+ *
+ * Les quatre premières gardes sont celles de la spec §4 ; la cinquième est le
+ * Review Focus nº 1, le redimensionnement en pleine descente.
  */
-describe('PanneauDeparts — le rendu petit écran', () => {
+describe('PanneauDeparts — la plaque est le panneau', () => {
   const source = () => readFileSync('src/components/PanneauDeparts.vue', 'utf8')
   const regle = (nom: string) => {
     const texte = source()
@@ -927,586 +927,561 @@ describe('PanneauDeparts — le rendu petit écran', () => {
     expect(i, `pas de règle ${nom}`).toBeGreaterThanOrEqual(0)
     return texte.slice(i, texte.indexOf('}', i))
   }
-  const variable = (nom: string) => parseFloat(regle('.detache').match(new RegExp(`--${nom}:\\s*([\\d.]+)px`))![1])
-  const filet = () => parseFloat(regle('.detache').match(/border:\s*([\d.]+)px/)![1])
-  /** La hauteur que le CSS du panneau détaché additionne : marge basse, bandeau + écart (= `--entete`), cinq lignes, deux filets. */
-  const hauteurCss = () => variable('marge') + variable('entete') + 5 * variable('ligne') + 2 * filet()
-  /** Où le panneau détaché se pose : exactement l'endroit où la plaque se posait. */
-  const posePx = (f: Frame) => f.offsetY + yPoseA(f) * f.scale
-  /** Le haut du panneau détaché pour un `y` de scène : sa propre course, de `-hauteur` (bas à 0) à la pose. */
-  const hautDetache = (f: Frame, y: number) => {
-    const fraction = (y - yRangeA(f)) / (yPoseA(f) - yRangeA(f))
-    return -hauteurCss() + fraction * (posePx(f) + hauteurCss())
+  /** Les déclarations d'une règle, commentaires retirés. */
+  const declarations = (nom: string) => regle(nom).replace(/\/\*[\s\S]*?\*\//g, '')
+
+  /** La boîte du panneau **à l'écran** : le style en ligne est en pixels de cadre, l'échelle est dans le `transform`. */
+  const boite = (wrapper: ReturnType<typeof monter>['wrapper']) => {
+    const s = (wrapper.get('.panneau').element as HTMLElement).style
+    const echelle = /^scale\(([\d.]+)\)$/.exec(s.transform)
+    expect(echelle, `le panneau n’est pas mis à l’échelle du cadre : « ${s.transform} »`).not.toBeNull()
+    const e = Number(echelle![1])
+    const gauche = parseFloat(s.left)
+    const haut = parseFloat(s.top)
+    return {
+      echelle: e,
+      gauche,
+      haut,
+      droite: gauche + parseFloat(s.width) * e,
+      bas: haut + parseFloat(s.height) * e,
+    }
   }
-  /** Le `y` de scène qui donne ce haut de panneau détaché. */
-  const yPourHaut = (f: Frame, haut: number) =>
-    yRangeA(f) + ((haut + hauteurCss()) / (posePx(f) + hauteurCss())) * (yPoseA(f) - yRangeA(f))
-  const TAILLES: Array<[number, number]> = [[386, 676], [663, 371], [320, 568]]
 
-  it('se détache de la scène sous le seuil et se pose sur la fenêtre', () => {
-    const { wrapper } = monter('ailleurs', { largeur: SEUIL_MOBILE - 1 })
-    const panneau = wrapper.get('.panneau')
-    expect(panneau.classes()).toContain('detache')
-    // Posé sur la fenêtre : ni largeur ni échelle de scène dans son style.
-    const style = panneau.attributes('style')!
-    expect(style).not.toContain(`${RIDEAU.largeur}px`)
-    expect(style).not.toContain('scale(')
-  })
-
-  it('reste attaché à la scène au seuil et au-dessus', () => {
-    for (const largeur of [SEUIL_MOBILE, 1440]) {
-      const { wrapper } = monter('ailleurs', { largeur })
-      expect(wrapper.get('.panneau').classes()).not.toContain('detache')
-      expect(wrapper.get('.panneau').attributes('style')).toContain(`${RIDEAU.largeur}px`)
+  /** La cible de l'horloge, en pixels d'écran : le halo, celui que `horlogeTouchee` teste. */
+  const cibleHorloge = (f: Frame) => {
+    const r = HORLOGE.rayon * HALO_HORLOGE.rayon * f.scale
+    return {
+      gauche: f.offsetX + HORLOGE.x * f.scale - r,
+      droite: f.offsetX + HORLOGE.x * f.scale + r,
+      haut: f.offsetY + HORLOGE.y * f.scale - r,
+      bas: f.offsetY + HORLOGE.y * f.scale + r,
     }
+  }
+
+  /**
+   * Toutes les tailles, et pas seulement les trois du bureau : c'est sous le
+   * seuil mobile que l'ancien rendu de 220 px cessait de couvrir l'horloge, et
+   * au-delà de 1920 qu'il y aurait cessé s'il avait été promu tel quel.
+   */
+  const TOUTES: ReadonlyArray<readonly [number, number]> = [
+    [320, 568], [390, 844], [430, 932], [719, 500], [1024, 768],
+    [1512, 771], [1920, 1080], [2560, 1440], [3440, 800],
+  ]
+
+  it.each(TOUTES)('le panneau couvre la cible de l’horloge à %i × %i', (w, h) => {
+    const f = cadreDe(w, h)
+    const { wrapper } = monter('ailleurs', { frame: f, largeur: w, rideau: { y: yPoseA(f), baisse: true } })
+    const p = boite(wrapper)
+    const c = cibleHorloge(f)
+    expect(p.gauche, 'bord gauche').toBeLessThanOrEqual(c.gauche)
+    expect(p.droite, 'bord droit').toBeGreaterThanOrEqual(c.droite)
+    expect(p.haut, 'bord haut').toBeLessThanOrEqual(c.haut)
+    expect(p.bas, 'bord bas').toBeGreaterThanOrEqual(c.bas)
   })
 
-  // Détaché, le panneau descend encore comme un rideau, mais sur **sa** course : la
-  // fraction d'avancement de la plaque de scène, remise sur sa propre hauteur.
-  it('suit le rideau par sa fraction d’avancement, sur sa propre course', async () => {
-    const f = cadreDe(SEUIL_MOBILE - 1, 844)
-    const { wrapper, rideau } = monter('ailleurs', { frame: f, largeur: SEUIL_MOBILE - 1, rideau: { y: 100, baisse: true } })
-    const haut = () => parseFloat(wrapper.get<HTMLElement>('.panneau').element.style.top)
-    expect(haut()).toBeCloseTo(hautDetache(f, 100))
-    rideau.value = { y: 160, baisse: true }
-    await nextTick()
-    expect(haut()).toBeCloseTo(hautDetache(f, 160))
-    // Au repos, rien ne change : il se pose là où il se posait.
-    rideau.value = { y: yPoseA(f), baisse: true }
-    await nextTick()
-    expect(haut()).toBeCloseTo(posePx(f))
-    // Rangé, son bas est à 0 : sorti, exactement.
-    rideau.value = { y: yRangeA(f), baisse: true }
-    await nextTick()
-    expect(haut() + hauteurCss()).toBeCloseTo(0)
-  })
-
-  // L'identité qui retire le panneau rangé doit tenir à **toute** taille de fenêtre.
-  it.each(TAILLES)('n’affiche rien, rangé, à %i × %i', (l, h) => {
-    const f = cadreDe(l, h)
-    const { wrapper } = monter('ailleurs', { frame: f, largeur: l, rideau: { y: yRangeA(f), baisse: false } })
-    expect(wrapper.find('.panneau').exists()).toBe(false)
-  })
-
-  it('garde les trois départs réels comme liens du DOM', () => {
-    const { wrapper } = monter('ailleurs', { largeur: SEUIL_MOBILE - 1 })
-    expect(wrapper.findAll('a')).toHaveLength(3)
-    expect(lien(wrapper, 'LINKEDIN').attributes('href')).toMatch(/linkedin/i)
-    expect(lien(wrapper, 'ÉCRIRE').attributes('href')).toMatch(/^mailto:/)
-    expect(lien(wrapper, 'CV').attributes('href')).toBe(CV)
-  })
-
-  /** Pas un commentaire sur l'horloge : portrait la cache, une fenêtre large et basse non. */
-  it('dessine un cadran sous le seuil quand le panneau est rangé, sans regarder où est l’horloge', () => {
-    // 719 × 500 : large et basse, l'horloge est dans le champ — le cadran se dessine quand même.
-    const f = cadreDe(SEUIL_MOBILE - 1, 500)
-    const { wrapper } = monter('ailleurs', { frame: f, largeur: SEUIL_MOBILE - 1, rideau: { y: yRangeA(f), baisse: false } })
-    expect(wrapper.get('[data-commande]').classes()).toContain('visible')
-    expect(wrapper.get('[data-commande]').classes()).not.toContain('sur-bandeau')
-  })
-
-  it('ne montre pas sa commande au seuil et au-dessus : elle y est invisible sur l’horloge', () => {
-    for (const largeur of [SEUIL_MOBILE, 1440]) {
-      const { wrapper } = monter('ailleurs', { largeur })
-      expect(wrapper.get('[data-commande]').classes()).not.toContain('visible')
-    }
-  })
-
-  it('déplace la commande au lieu de la dédoubler', () => {
-    for (const largeur of [SEUIL_MOBILE - 1, 1440]) {
-      const { wrapper } = monter('ailleurs', { largeur })
-      expect(wrapper.findAll('[data-commande]')).toHaveLength(1)
-    }
-    // Panneau rangé : elle ne porte plus les coordonnées de l'horloge, le CSS l'épingle.
-    const f = cadreDe(SEUIL_MOBILE - 1, 844)
-    const { wrapper } = monter('ailleurs', { frame: f, largeur: SEUIL_MOBILE - 1, rideau: { y: yRangeA(f), baisse: false } })
-    const bouton = wrapper.get<HTMLElement>('[data-commande]').element
-    expect(bouton.style.left).toBe('')
-    expect(bouton.style.top).toBe('')
-    expect(bouton.style.width).toBe('')
-  })
-
-  // Un cadran qui ne dirait rien serait un rond vide : il porte l'heure du tableau.
-  it('porte l’heure sur le cadran dessiné, et rien sur l’horloge transparente', () => {
-    const f = cadreDe(SEUIL_MOBILE - 1, 844)
-    const rangee = { frame: f, largeur: SEUIL_MOBILE - 1, rideau: { y: yRangeA(f), baisse: false } }
-    expect(monter('ailleurs', rangee).wrapper.get('[data-commande]').text()).toMatch(/^\d{2}:\d{2}$/)
-    expect(monter('ailleurs', { largeur: 1440 }).wrapper.get('[data-commande]').text()).toBe('')
-  })
-
-  it('garde à la commande son contrat de bouton, dessinée ou posée sur le bandeau', async () => {
-    const f = cadreDe(SEUIL_MOBILE - 1, 844)
-    for (const baisse of [false, true]) {
-      const rideau = { y: baisse ? yPoseA(f) : yRangeA(f), baisse }
-      const { wrapper, scene } = monter('ailleurs', { frame: f, largeur: SEUIL_MOBILE - 1, rideau })
-      const bouton = wrapper.get('[data-commande]')
-      expect(bouton.element.tagName).toBe('BUTTON')
-      // Le nom contient toujours le texte vu (WCAG 2.5.3) : l'heure quand le cadran la montre, rien sinon.
-      expect(bouton.attributes('aria-label')).toContain('Prochains départs')
-      expect(bouton.text() === '' || bouton.attributes('aria-label')!.includes(bouton.text())).toBe(true)
-      expect(bouton.attributes('aria-label')!.includes(':')).toBe(!baisse)
-      expect(bouton.attributes('aria-expanded')).toBe(String(baisse))
-      await bouton.trigger('click')
-      expect(scene.basculerRideau).toHaveBeenCalledTimes(1)
-    }
+  it.each(TOUTES)('le panneau tient entre deux gouttières à %i × %i', (w, h) => {
+    const f = cadreDe(w, h)
+    const { wrapper } = monter('ailleurs', { frame: f, largeur: w, rideau: { y: yPoseA(f), baisse: true } })
+    const p = boite(wrapper)
+    expect(p.gauche).toBeGreaterThanOrEqual(0)
+    expect(w - p.droite).toBeGreaterThanOrEqual(0)
+    // Centré sur la fenêtre : c'est ce qui le fait tomber sur l'horloge, qui est
+    // au milieu de la scène, donc au milieu de la fenêtre à toute taille.
+    expect(p.gauche).toBeCloseTo(w - p.droite, 6)
   })
 
   /**
-   * Panneau posé, la commande se pose sur l'heure du bandeau et redevient un disque
-   * invisible : un cadran à elle croiserait les liens (fenêtre large et basse). En
-   * portrait c'est aussi le seul moyen tactile de refermer le panneau : le disque
-   * fait 44 px, la cible qu'un doigt exige (voir `HALO_HORLOGE`). jsdom ne met rien
-   * en page, on garde donc la structure : il est centré sur la bande du bandeau et
-   * s'arrête avant le début des lignes, qui seules portent des liens.
+   * « Un canvas ne peut jamais passer devant un élément du DOM » : la frise en
+   * est un, et c'est toute la raison de cette tâche. Les deux nombres sont lus
+   * dans leurs sources, jamais recopiés.
    */
-  describe.each([[719, 500], [386, 676], [663, 371]])('posée sur le bandeau à %i × %i', (l, h) => {
-    const monte = () => {
-      const f = cadreDe(l, h)
-      return { f, ...monter('ailleurs', { frame: f, largeur: l, rideau: { y: yPoseA(f), baisse: true } }) }
-    }
+  it('le panneau passe devant la frise', () => {
+    const frise = /z-index:\s*(\d+)/.exec(readFileSync('src/components/NavFrise.vue', 'utf8'))
+    expect(frise, 'pas de z-index dans NavFrise').not.toBeNull()
+    const panneau = /z-index:\s*(\d+)/.exec(declarations('.panneau'))
+    expect(panneau, 'le panneau ne déclare pas de z-index').not.toBeNull()
+    expect(Number(panneau![1])).toBeGreaterThan(Number(frise![1]))
+  })
 
-    it('est une cible de 44 px, centrée sur l’heure du bandeau, qui dégage les lignes', () => {
-      const { wrapper, f } = monte()
-      const bouton = wrapper.get('[data-commande]')
-      expect(bouton.classes()).toContain('sur-bandeau')
-      expect(bouton.classes()).not.toContain('visible')
-      const s = (bouton.element as HTMLElement).style
-      const [gauche, haut, large, hauteur] = [s.left, s.top, s.width, s.height].map(parseFloat)
-      expect(large).toBe(44)
-      expect(hauteur).toBe(44)
-      const panneau = parseFloat(wrapper.get<HTMLElement>('.panneau').element.style.top)
-      expect(panneau).toBeCloseTo(posePx(f))
-      // Centré sur la bande : le filet, puis la moitié du bandeau (`--entete` moins la demi-ligne d'écart).
-      const bandeau = variable('entete') - variable('ligne') / 2
-      expect(haut + hauteur / 2).toBeCloseTo(panneau + filet() + bandeau / 2)
-      // Les lignes commencent à `filet + --entete` : le disque s'arrête avant, il ne touche aucun lien.
-      expect(haut + hauteur).toBeLessThanOrEqual(panneau + filet() + variable('entete'))
-      // Centré sur l'heure : à droite, après la gouttière, le filet, le creux et la moitié du texte.
-      const regleEntete = regle('.detache .entete')
-      const corpsEntete = parseFloat(regleEntete.match(/font-size:\s*([\d.]+)px/)![1])
-      const espacement = parseFloat(regle('.entete').match(/letter-spacing:\s*([\d.]+)em/)![1])
-      const largeurHeure = '00:00'.length * (0.6 + espacement) * corpsEntete
-      const droite = parseFloat(regle('.detache').match(/right:\s*([\d.]+)px/)![1])
-      expect(gauche + large / 2).toBeCloseTo(l - droite - filet() - variable('creux') - largeurHeure / 2)
+  it('le panneau reste sous le CV', () => {
+    const cv = /z-index:\s*(\d+)/.exec(readFileSync('src/components/CvLigne.vue', 'utf8'))
+    expect(cv, 'pas de z-index dans CvLigne').not.toBeNull()
+    const panneau = /z-index:\s*(\d+)/.exec(declarations('.panneau'))
+    expect(Number(panneau![1])).toBeLessThan(Number(cv![1]))
+  })
+
+  /** Et sa commande passe devant lui, sinon le panneau la recouvrirait. */
+  it('la commande du panneau passe devant le panneau, et reste sous le CV', () => {
+    const cv = Number(/z-index:\s*(\d+)/.exec(readFileSync('src/components/CvLigne.vue', 'utf8'))![1])
+    const panneau = Number(/z-index:\s*(\d+)/.exec(declarations('.panneau'))![1])
+    // Sur le bandeau, et là seulement : posée sur l'horloge elle est un disque
+    // invisible en plein ciel, qu'un `z-index` ferait passer devant les bulles.
+    expect(declarations('.commande')).not.toMatch(/z-index/)
+    const commande = /z-index:\s*(\d+)/.exec(declarations('.commande.sur-bandeau'))
+    expect(commande, 'la commande posée sur le bandeau ne déclare pas de z-index').not.toBeNull()
+    expect(Number(commande![1])).toBeGreaterThan(panneau)
+    expect(Number(commande![1])).toBeLessThan(cv)
+  })
+
+  /**
+   * Coins droits (spec §4, but nº 4) : plus de biseau, nulle part. Le
+   * `clip-path` du bandeau s'en va avec lui — laissé avec un `--biseau`
+   * indéfini il tomberait en silence, et une garde qui ne regarderait que
+   * `.panneau` passerait quand même.
+   */
+  it('les coins sont droits', () => {
+    expect(declarations('.panneau')).not.toMatch(/--biseau/)
+    expect(declarations('.panneau')).not.toMatch(/clip-path|border-radius/)
+    const sansCommentaires = source().replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '')
+    expect(sansCommentaires).not.toMatch(/--biseau/)
+    expect(declarations('.entete')).not.toMatch(/clip-path/)
+  })
+
+  /**
+   * **Review Focus nº 1.** La fenêtre change pendant que le panneau descend : il
+   * suit sa **fraction** de course et ne vise pas un `y` périmé. À fraction
+   * égale, le haut du panneau est à la même fraction de sa course d'écran —
+   * c'est la propriété, et elle vaut pour les deux cadres.
+   */
+  it('un redimensionnement en pleine descente ne fait pas sauter le panneau', async () => {
+    const f1 = cadreDe(1512, 771)
+    const f2 = cadreDe(800, 1000)
+    expect(f2.scale).not.toBeCloseTo(f1.scale)
+    // La course du haut du panneau à l'écran, d'un cadre donné.
+    const course = (f: Frame) => ({
+      range: f.offsetY + yRangeA(f) * f.scale,
+      pose: f.offsetY + yPoseA(f) * f.scale,
+    })
+    // Le `y` que la scène émet à cette fraction : `Rideau.y` interpole la
+    // fraction entre la rangée et la pose **du cadre courant**.
+    const yA = (f: Frame, p: number) => yRangeA(f) * (1 - p) + yPoseA(f) * p
+    const P = 0.4
+    const { wrapper, cadre, rideau } = monter('ailleurs', {
+      frame: f1,
+      largeur: 1512,
+      rideau: { y: yA(f1, P), baisse: true },
+    })
+    const haut = () => parseFloat(wrapper.get<HTMLElement>('.panneau').element.style.top)
+    const fraction = (f: Frame) => {
+      const c = course(f)
+      return (haut() - c.range) / (c.pose - c.range)
+    }
+    expect(fraction(f1)).toBeCloseTo(P, 6)
+    // La fenêtre change : la scène recadre et réémet, à la même fraction.
+    window.innerWidth = 800
+    cadre.value = f2
+    rideau.value = { y: yA(f2, P), baisse: true }
+    await nextTick()
+    expect(fraction(f2)).toBeCloseTo(P, 6)
+    // Et ce n'est pas la même place à l'écran : le test verrait un panneau figé.
+    expect(haut()).not.toBeCloseTo(course(f1).range * (1 - P) + course(f1).pose * P, 1)
+  })
+})
+
+/**
+ * Ce que le DOM dessine maintenant qu'il dessine tout : les deux bras, le disque
+ * de la commande posé sur l'heure du bandeau, et la largeur d'une ligne une fois
+ * la plaque bornée par la fenêtre.
+ *
+ * jsdom ne met rien en page : ces tests gardent le style émis et le source des
+ * règles — pas le rendu réel, que personne n'a regardé. Les mesures du style
+ * sont en pixels de **cadre** (le `transform` les met à l'échelle) ; celles du
+ * bouton, qui vit hors de la plaque, en pixels d'écran.
+ */
+describe('PanneauDeparts — ce que le DOM dessine', () => {
+  const source = () => readFileSync('src/components/PanneauDeparts.vue', 'utf8')
+  const regle = (nom: string) => {
+    const texte = source()
+    const i = texte.indexOf(`${nom} {`)
+    expect(i, `pas de règle ${nom}`).toBeGreaterThanOrEqual(0)
+    return texte.slice(i, texte.indexOf('}', i))
+  }
+  const nb = (re: RegExp, texte: string, quoi: string) => {
+    const m = re.exec(texte)
+    expect(m, `pas de ${quoi}`).not.toBeNull()
+    return Number(m![1])
+  }
+  /** Une mesure de `.panneau`, en pixels de cadre. */
+  const mesure = (nom: string) => nb(new RegExp(`--${nom}:\\s*([\\d.]+)px`), regle('.panneau'), `--${nom}`)
+  const filet = () => nb(/border:\s*([\d.]+)px/, regle('.panneau'), 'le filet du cadre')
+
+  const plaque = (wrapper: ReturnType<typeof monter>['wrapper']) => {
+    const s = (wrapper.get('.panneau').element as HTMLElement).style
+    return {
+      echelle: Number(/^scale\(([\d.]+)\)$/.exec(s.transform)![1]),
+      gauche: parseFloat(s.left),
+      haut: parseFloat(s.top),
+      largeur: parseFloat(s.width),
+    }
+  }
+  const posee = (l: number, h: number) => {
+    const f = cadreDe(l, h)
+    return { f, ...monter('ailleurs', { frame: f, largeur: l, rideau: { y: yPoseA(f), baisse: true } }) }
+  }
+
+  /**
+   * Les deux bras passent **devant** la frise (spec §5) : ils ne l'évitent plus,
+   * et reprennent le retrait de la scène, `BRAS.retrait`, en pixels de cadre
+   * comme le reste de la plaque. La vague de correction qui les écartait des
+   * libellés de la navigation (`retraitBras`, `BANDE_LIBRE`) a perdu sa raison
+   * d'être avec le seuil mobile.
+   */
+  describe('les bras', () => {
+    it('sont deux barres du DOM, symétriques, au retrait de la scène', () => {
+      const { wrapper } = posee(1512, 771)
+      const bras = wrapper.findAll<HTMLElement>('.bras')
+      expect(bras).toHaveLength(2)
+      const [g, d] = bras.map((b) => b.element.style)
+      expect(g.left).toBe(`${BRAS.retrait}px`)
+      expect(d.right).toBe(`${BRAS.retrait}px`)
+      for (const b of bras) expect(b.attributes('aria-hidden')).toBe('true')
     })
 
-    it('est un disque invisible : ni texte, ni anneau, et le nom reste fixe', () => {
-      const bouton = monte().wrapper.get('[data-commande]')
+    /**
+     * Ils montent **au-delà** du bord haut de la fenêtre : c'est le rognage qui
+     * les coupe, pas un calcul, puisque la plaque peut être n'importe où entre
+     * sa rangée et sa pose. Le cadrage « cover » garantit que la hauteur de la
+     * scène, mise à l'échelle, dépasse celle de la fenêtre.
+     */
+    it.each([[320, 568], [390, 844], [1512, 771], [2560, 1440], [3440, 800]] as const)(
+      'montent jusqu’au-dessus de la fenêtre à %i × %i',
+      (l, h) => {
+        const { wrapper } = posee(l, h)
+        const p = plaque(wrapper)
+        const hauteur = parseFloat(wrapper.get<HTMLElement>('.bras').element.style.height)
+        expect(p.haut - hauteur * p.echelle).toBeLessThanOrEqual(0)
+      },
+    )
+
+    // `auto` leur ferait avaler les appuis sur deux bandes qui montent jusqu'en
+    // haut de la fenêtre, frise comprise.
+    it('laissent passer le pointeur', () => {
+      expect(regle('.bras')).toMatch(/pointer-events:\s*none/)
+    })
+  })
+
+  /**
+   * L'horloge est **sous** la plaque dès qu'elle est posée : la commande ne
+   * reste pas en piège dessous, elle se déplace sur l'heure du bandeau. C'est le
+   * même bouton, jamais un second.
+   */
+  describe('la commande posée sur le bandeau', () => {
+    // 800 × 450 et 719 × 500 sont les fenêtres larges et basses où la bande du
+    // bandeau ne fait que 21 et 24 px d'écran : c'est là que la cible tombait
+    // sous les 44 px de haut. 720 × 400 pousse l'échelle plus bas encore.
+    const TAILLES = [[1512, 771], [1920, 1080], [2560, 1440], [800, 450], [720, 400], [719, 500], [320, 568], [390, 844]] as const
+
+    it('ne se dédouble jamais', () => {
+      for (const [l, h] of TAILLES) {
+        expect(posee(l, h).wrapper.findAll('[data-commande]'), `${l}×${h}`).toHaveLength(1)
+      }
+    })
+
+    it.each(TAILLES)('est un disque de 44 px sur l’heure du bandeau à %i × %i', (l, h) => {
+      const { wrapper } = posee(l, h)
+      const bouton = wrapper.get('[data-commande]')
+      expect(bouton.classes()).toContain('sur-bandeau')
+      const s = (bouton.element as HTMLElement).style
+      const [gauche, haut, large, hauteur] = [s.left, s.top, s.width, s.height].map(parseFloat)
+      const p = plaque(wrapper)
+      expect(large).toBe(44)
+      // 44 px dans les deux dimensions : le plancher du doigt ne se négocie pas
+      // plus en hauteur qu'en largeur (c'est celui de `cibleReverbere`).
+      expect(hauteur).toBe(44)
+      // Centré sur l'heure : à droite, après le filet, le creux et la moitié du texte.
+      const espacement = nb(/letter-spacing:\s*([\d.]+)em/, regle('.entete'), 'l’espacement du bandeau')
+      const corpsEntete = nb(/font-size:\s*([\d.]+)px/, regle('.entete'), 'le corps du bandeau')
+      const largeurHeure = '00:00'.length * (0.6 + espacement) * corpsEntete
+      const centreHeure = p.gauche + (p.largeur - filet() - mesure('creux') - largeurHeure / 2) * p.echelle
+      const droite = p.gauche + p.largeur * p.echelle
+      // Centré sur l'heure, sauf quand l'échelle est si basse que 44 px le
+      // feraient déborder du bord droit : il se cale alors dessus, comme en
+      // hauteur il se cale sur le début des lignes.
+      expect(gauche + large / 2).toBeCloseTo(Math.min(centreHeure, droite - large / 2))
+      // Il reste **dans** la plaque : ni au-dessus, où il mangerait des clics sur
+      // le ciel, ni sur la première ligne, qui porte un lien.
+      expect(gauche).toBeGreaterThanOrEqual(p.gauche)
+      expect(gauche + large).toBeLessThanOrEqual(p.gauche + p.largeur * p.echelle)
+      // Il ne descend **jamais** sur la première ligne, qui est un lien : quand la
+      // bande du bandeau est plus courte que 44 px d'écran, c'est par le haut
+      // qu'il déborde, au-dessus de la plaque, où il n'y a que le ciel.
+      const debutLignes = p.haut + (filet() + mesure('entete')) * p.echelle
+      expect(haut + hauteur).toBeLessThanOrEqual(debutLignes + 1e-6)
+      // Et il ne monte pas dans la frise, qui reste lisible sous le panneau.
+      expect(haut).toBeGreaterThanOrEqual(HAUTEUR_FRISE)
+      // Centré sur la bande partout où elle est assez haute pour le porter.
+      const bandeau = (mesure('entete') - mesure('ligne') / 2) * p.echelle
+      if (bandeau >= 44) {
+        expect(haut + hauteur / 2).toBeCloseTo(p.haut + (filet() + bandeau / p.echelle / 2) * p.echelle)
+      }
+    })
+
+    it('est un disque invisible : ni texte, ni cadran, et le nom reste fixe', () => {
+      const bouton = posee(1512, 771).wrapper.get('[data-commande]')
       expect(bouton.text()).toBe('')
       expect(bouton.attributes('aria-label')).toBe('Prochains départs')
-      // L'anneau est celui de `.commande.visible` : sans cette classe, rien ne se voit.
+      // Le cadran épinglé de 52 px s'en est allé avec le seuil mobile : l'horloge
+      // de la gare est désormais visible sur tout écran (spec §4).
       expect(bouton.classes()).not.toContain('visible')
+      const sansCommentaires = source().replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '')
+      expect(sansCommentaires).not.toMatch(/cadranDessine|cadranMontre|\.commande\.visible/)
     })
 
     it('suit le panneau dans sa course', async () => {
-      const { wrapper, f, rideau } = monte()
+      const { wrapper, f, rideau } = posee(1512, 771)
+      const ecart = () =>
+        parseFloat(wrapper.get<HTMLElement>('[data-commande]').element.style.top) - plaque(wrapper).haut
+      const avant = ecart()
       rideau.value = { y: yPoseA(f) - 40, baisse: true }
       await nextTick()
-      const panneau = parseFloat(wrapper.get<HTMLElement>('.panneau').element.style.top)
-      const haut = parseFloat(wrapper.get<HTMLElement>('[data-commande]').element.style.top)
-      // Même distance au haut du panneau qu'au repos : elle le suit, elle ne reste pas en route.
-      expect(haut).toBeCloseTo(panneau + filet() + (variable('entete') - variable('ligne') / 2) / 2 - 22)
+      expect(plaque(wrapper).haut).toBeLessThan(f.offsetY + yPoseA(f) * f.scale)
+      // Même distance au haut de la plaque : elle le suit, elle ne reste pas en route.
+      expect(ecart()).toBeCloseTo(avant)
+    })
+
+    it('revient sur l’horloge dès que le panneau est rangé', async () => {
+      const f = cadreDe(1512, 771)
+      const { wrapper, rideau } = monter('ailleurs', { frame: f, largeur: 1512, rideau: { y: yPoseA(f), baisse: true } })
+      expect(wrapper.get('[data-commande]').classes()).toContain('sur-bandeau')
+      rideau.value = { y: yRangeA(f), baisse: false }
+      await nextTick()
+      const bouton = wrapper.get('[data-commande]')
+      expect(bouton.classes()).not.toContain('sur-bandeau')
+      const s = (bouton.element as HTMLElement).style
+      expect((parseFloat(s.left) + parseFloat(s.width) / 2 - f.offsetX) / f.scale).toBeCloseTo(HORLOGE.x)
     })
   })
 
-  // La frise est en haut de la fenêtre (`top: 0`) : rien en bas dont il faille se
-  // dégager. La marge basse est un choix d'œil, pas un dégagement de frise.
-  it('épingle la commande en bas à droite, avec une marge basse choisie à l’œil', () => {
-    const r = regle('.commande.visible')
-    expect(r).not.toMatch(/96px|safe-area/)
-    // Elle est peinte au-dessus du panneau, qui la recouvrirait sinon (même
-    // `z-index: auto`, et le panneau vient après dans le gabarit).
-    expect(r).toMatch(/z-index:\s*[1-9]/)
-    // Posée sur le bandeau, elle doit aussi passer au-dessus du panneau.
-    expect(regle('.commande.sur-bandeau')).toMatch(/z-index:\s*[1-9]/)
-    // `position: fixed` vient de `.commande`, gardé plus haut.
-    expect(r).toMatch(/bottom:[^;]*\d/)
-    expect(r).toMatch(/width:\s*\d+px/)
-    // Une fois visible, elle n'est plus transparente.
-    expect(r).toMatch(/background:\s*var\(--fond\)/)
-  })
-
-  it('garde les trois liens chacun sur une ligne', () => {
-    expect(regle('.detache .ligne')).toContain('white-space: nowrap')
-  })
-
-  it('se pose entre deux gouttières, à pleine largeur, sans échelle', () => {
-    const r = regle('.detache')
-    expect(r).toMatch(/left:\s*\d+px/)
-    expect(r).toMatch(/right:\s*\d+px/)
-    expect(r).toMatch(/transform:\s*none/)
-    // Un corps lisible : en pixels d'écran, pas ceux d'un cadre rétréci.
-    expect(parseFloat(r.match(/font-size:\s*([\d.]+)px/)![1])).toBeGreaterThanOrEqual(13)
-  })
-
   /**
-   * `.detache` ne redéclare ni `clip-path` ni `border-radius` : la plaque y est un
-   * **rectangle**, avec son propre filet. Un biseau sur le seul bandeau y creusait
-   * deux encoches de `--fond` entre le filet du cadre et le bandeau inversé, en haut
-   * à gauche et en haut à droite. À zéro le `polygon` dégénère en rectangle — le même
-   * choix que `pointsBiseau` côté canvas, « un biseau nul rend le rectangle ».
-   *
-   * `0px` et non `0` : dans `calc(100% - var(--biseau))` un zéro sans unité est
-   * invalide, et c'est toute la déclaration `clip-path` qui tomberait — même résultat
-   * à l'œil, mais pour une raison qu'on n'aurait pas écrite.
+   * Le vrai geste : `useScene` écoute `pointerdown` et `pointermove` sur
+   * `window`. Le panneau est devant tout ; ce qui tombe dessus s'arrête sur lui.
    */
-  it('n’a plus de biseau une fois détaché : son cadre est à coins droits', () => {
-    const r = regle('.detache')
-    expect(r).toMatch(/--biseau:\s*0px/)
-    // Les déclarations seules : la règle porte un commentaire qui nomme les deux.
-    expect(r.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/clip-path|border-radius/)
-    // Le biseau du cadre, lui, ne bouge pas : le test qui le confronte au canvas lit
-    // le **premier** `--biseau` du fichier, celui de `.panneau`, qui vient avant.
-    expect(Number(/--biseau:\s*([\d.]+)px/.exec(source())![1])).toBe(BISEAU)
-  })
-
-  /** Le passage du seuil pendant l'animation ne doit pas perdre l'état. */
-  it('reste baissé quand la fenêtre franchit le seuil', async () => {
-    const { wrapper, cadre } = monter('ailleurs', { largeur: SEUIL_MOBILE + 1, rideau: { y: yPoseA(cadreDe(SEUIL_MOBILE + 1, 900)), baisse: true } })
-    expect(wrapper.get('.panneau').classes()).not.toContain('detache')
-    const avant = wrapper.get('.panneau').element
-    expect(wrapper.get<HTMLElement>('.panneau').element.style.width).toBe(`${RIDEAU.largeur}px`)
-    // La scène émet un nouveau cadre ; la fenêtre a changé de largeur avec lui.
-    window.innerWidth = SEUIL_MOBILE - 1
-    cadre.value = cadreDe(SEUIL_MOBILE - 1, 844)
-    await nextTick()
-    expect(wrapper.get('.panneau').classes()).toContain('detache')
-    // Le même nœud : pas de remontage, donc les volets ne repartent pas.
-    expect(wrapper.get('.panneau').element).toBe(avant)
-    // Les mesures de la scène sont effacées du style en ligne, pas laissées par-dessous.
-    const style = wrapper.get<HTMLElement>('.panneau').element.style
-    expect(style.width).toBe('')
-    expect(style.left).toBe('')
-    expect(style.transform).toBe('')
-    expect(style.height).not.toBe(`${RIDEAU.hauteur}px`)
-    // Panneau posé : la commande se pose sur le bandeau, elle ne se dessine pas.
-    expect(wrapper.get('[data-commande]').classes()).toContain('sur-bandeau')
-  })
-
-  it('suit aussi le redimensionnement, quand le cadre ne bouge pas', async () => {
-    const { wrapper } = monter('ailleurs', { largeur: 1440 })
-    window.innerWidth = SEUIL_MOBILE - 1
-    window.dispatchEvent(new Event('resize'))
-    await nextTick()
-    expect(wrapper.get('.panneau').classes()).toContain('detache')
-  })
-
-  it('cesse d’écouter la fenêtre au démontage', () => {
-    const ajout = vi.spyOn(window, 'addEventListener')
-    const retrait = vi.spyOn(window, 'removeEventListener')
-    try {
-      const { wrapper } = monter('ailleurs')
-      const ajoutee = ajout.mock.calls.find(([type]) => type === 'resize')![1]
-      wrapper.unmount()
-      // Retirer la fonction qui a été ajoutée : une autre ne retirerait rien.
-      expect(retrait.mock.calls.some(([type, f]) => type === 'resize' && f === ajoutee)).toBe(true)
-    } finally {
-      ajout.mockRestore()
-      retrait.mockRestore()
-    }
-  })
-
-  /**
-   * Le vrai geste : `useScene` écoute `pointerdown` sur `window` et bascule le
-   * rideau si l'appui tombe sur l'horloge. Détaché, le panneau passe par-dessus
-   * l'horloge dans une fenêtre large et basse : un appui sur un lien ne doit pas
-   * remonter jusque-là.
-   */
-  describe('l’appui sur un lien détaché', () => {
-    const appuyer = (largeur: number, hauteur: number) => {
-      const f = cadreDe(largeur, hauteur)
-      const { wrapper } = monter('ailleurs', { frame: f, largeur })
-      const surAppui = vi.fn()
-      window.addEventListener('pointerdown', surAppui)
+  describe('ce qui tombe sur le panneau', () => {
+    const envoyer = (type: string, cible: Element) => {
+      const vu = vi.fn()
+      window.addEventListener(type, vu)
       try {
-        lien(wrapper, 'LINKEDIN').element.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+        cible.dispatchEvent(new Event(type, { bubbles: true }))
       } finally {
-        window.removeEventListener('pointerdown', surAppui)
+        window.removeEventListener(type, vu)
       }
-      return surAppui
+      return vu
     }
 
-    it('n’atteint pas la fenêtre', () => {
-      expect(appuyer(SEUIL_MOBILE - 1, 500)).not.toHaveBeenCalled()
+    it('un appui sur un lien n’atteint pas la fenêtre', () => {
+      const { wrapper } = posee(1512, 771)
+      expect(envoyer('pointerdown', lien(wrapper, 'LINKEDIN').element)).not.toHaveBeenCalled()
     })
 
-    it('atteint toujours la fenêtre en rendu attaché : on n’y touche pas', () => {
-      expect(appuyer(1440, 900)).toHaveBeenCalledTimes(1)
+    /**
+     * **Le défaut que la tâche 3 a mesuré et laissé.** Une ligne éteinte ne porte
+     * pas de lien ; l'appui tombait jusqu'à `Scene.clicPx`, qui éteignait le
+     * réverbère dont les deux tiers bas sont en pleine vue sous la plaque. Le
+     * panneau est `pointer-events: auto` et arrête l'appui : les deux routes —
+     * celle de `window` et celle du bouton transparent de la lampe, que la pile
+     * du DOM met sous le panneau — se ferment du même geste.
+     */
+    it('un appui sur une ligne éteinte n’atteint pas la fenêtre non plus', () => {
+      const { wrapper } = posee(1512, 771)
+      const eteinte = wrapper.findAll('.ligne.eteint')
+      expect(eteinte.length).toBeGreaterThan(0)
+      expect(envoyer('pointerdown', eteinte[0].element)).not.toHaveBeenCalled()
+      // Ni le fond de la plaque, qui ne porte rien du tout.
+      expect(envoyer('pointerdown', wrapper.get('.panneau').element)).not.toHaveBeenCalled()
     })
 
-    it('met le panneau détaché dans le chemin du pointeur', () => {
-      // Un appui sur un lien traverse déjà par bulle (`.reel` est `auto`) : c'est le gestionnaire
-      // qui le ferme. `auto` protège le reste du panneau — bandeau, lignes éteintes, fond.
-      expect(regle('.detache')).toMatch(/pointer-events:\s*auto/)
+    /**
+     * Le survol, lui, **passe**, et c'est voulu : `useScene` fait voyager
+     * `setPointer` — la parallaxe du ciel — sur le même `pointermove`, et
+     * l'arrêter figerait le ciel dès que le pointeur touche le panneau. La bulle
+     * d'une étoile recouverte s'ouvre donc encore, mais à `z-index: 5`, derrière
+     * une plaque opaque qui est à 15.
+     */
+    it('un survol du panneau atteint la fenêtre : la parallaxe du ciel en vit', () => {
+      const { wrapper } = posee(1512, 771)
+      expect(envoyer('pointermove', wrapper.get('.panneau').element)).toHaveBeenCalledTimes(1)
     })
+
+    it('met le panneau dans le chemin du pointeur', () => {
+      expect(regle('.panneau')).toMatch(/pointer-events:\s*auto/)
+    })
+
+    /**
+     * La lampe, elle, **reste atteignable** panneau baissé (spec §5) : la plaque
+     * couvre le haut du mât, les deux tiers bas sont dégagés. Son bouton ne
+     * déclare aucun `z-index`, donc le panneau (15) passe devant lui et prend ce
+     * qui tombe sur la partie couverte — il n'est pas retiré, il est dessous.
+     */
+    it('laisse la commande du réverbère sous le panneau, sans la retirer', () => {
+      const lampe = readFileSync('src/components/CommandeReverbere.vue', 'utf8')
+      expect(lampe).not.toMatch(/z-index/)
+      expect(lampe).not.toMatch(/RIDEAU_KEY/)
+    })
+
+    /**
+     * Et c'est ce qui rend ce choix tenable : la plaque posée couvre le haut du
+     * mât, pas tout le mât. Ce qui reste **sous** elle — la part du bouton de la
+     * lampe qu'on voit et qu'on vise encore — ne descend jamais sous les 44 px
+     * qu'un doigt exige. Le retirer du DOM contredirait la spec §5 ; le laisser
+     * n'est pas le laisser inatteignable.
+     */
+    it.each([[320, 568], [390, 844], [719, 500], [800, 450], [1512, 771], [2560, 1440], [3440, 800]] as const)(
+      'laisse au moins 44 px du mât dégagés sous la plaque à %i × %i',
+      (l, h) => {
+        const { wrapper, f } = posee(l, h)
+        const p = plaque(wrapper)
+        const bas = p.haut + RIDEAU.hauteur * p.echelle
+        const cible = cibleReverbere(f.scale)
+        const basCible = f.offsetY + cible.y1 * f.scale
+        // La plaque coupe bien le mât — sans quoi le test ne prouverait rien.
+        expect(f.offsetY + cible.y0 * f.scale, `la plaque ne couvre pas le mât à ${l}×${h}`).toBeLessThan(bas)
+        expect(basCible - bas, `dégagement à ${l}×${h}`).toBeGreaterThanOrEqual(44)
+      },
+    )
   })
 
-  describe('la hauteur du panneau détaché', () => {
-    const f = () => cadreDe(SEUIL_MOBILE - 1, 844)
-    const hauteurDe = (wrapper: ReturnType<typeof monter>['wrapper']) => parseFloat(wrapper.get<HTMLElement>('.panneau').element.style.height)
+  /**
+   * Le panneau est retiré quand son bas sort de la fenêtre, avec sa vraie
+   * hauteur — celle de la plaque mise à l'échelle du cadre, et plus une constante
+   * d'écran.
+   */
+  describe('la hauteur de la plaque', () => {
+    const TAILLES = [[390, 844], [719, 500], [1512, 771], [2560, 1440]] as const
 
-    it('est celle que le CSS additionne : un bandeau, cinq lignes, les marges et les filets', () => {
-      expect(hauteurDe(monter('ailleurs', { frame: f(), largeur: SEUIL_MOBILE - 1 }).wrapper)).toBe(hauteurCss())
+    it.each(TAILLES)('est celle du cadre à %i × %i', (l, h) => {
+      const { wrapper } = posee(l, h)
+      const p = plaque(wrapper)
+      expect(parseFloat(wrapper.get<HTMLElement>('.panneau').element.style.height)).toBe(RIDEAU.hauteur)
+      expect(RIDEAU.hauteur * p.echelle).toBeCloseTo(RIDEAU.hauteur * cadreDe(l, h).scale)
     })
 
-    // Retiré quand son bas sort de la fenêtre, avec sa vraie hauteur, à toute taille.
     it.each(TAILLES)('ne retire pas le panneau tant que son bas est dans la fenêtre, à %i × %i', async (l, h) => {
-      const cadre = cadreDe(l, h)
-      const { wrapper, rideau } = monter('ailleurs', { frame: cadre, largeur: l, rideau: { y: yPoseA(cadre), baisse: true } })
+      const f = cadreDe(l, h)
+      const { wrapper, rideau } = posee(l, h)
+      // Le `y` de scène dont le bas de la plaque tombe exactement sur `bas` px d'écran.
+      const yPourBas = (bas: number) => (bas - f.offsetY) / f.scale - RIDEAU.hauteur
       for (const [bas, attendu] of [[1, true], [0, false]] as const) {
-        rideau.value = { y: yPourHaut(cadre, bas - hauteurCss()), baisse: false }
+        rideau.value = { y: yPourBas(bas), baisse: false }
         await nextTick()
         expect(wrapper.find('.panneau').exists(), `bas à ${bas} à ${l} × ${h}`).toBe(attendu)
       }
     })
   })
 
-  describe('le cadran épinglé', () => {
-    it('avance son heure même panneau rangé', async () => {
-      vi.useFakeTimers()
-      vi.setSystemTime(new Date(2026, 10, 21, 22, 0, 0))
-      const cadre = cadreDe(SEUIL_MOBILE - 1, 844)
-      const { wrapper } = monter('ailleurs', { frame: cadre, largeur: SEUIL_MOBILE - 1, rideau: { y: yRangeA(cadre), baisse: false } })
-      expect(wrapper.find('.panneau').exists()).toBe(false)
-      expect(wrapper.get('[data-commande]').text()).toBe('22:00')
-      vi.setSystemTime(new Date(2026, 10, 21, 22, 20, 0))
-      await vi.advanceTimersByTimeAsync(15_000)
-      expect(wrapper.get('[data-commande]').text()).toBe('22:20')
-      wrapper.unmount()
-    })
-
-    it('n’arme aucune minuterie quand ni le panneau ni le cadran ne sont là', () => {
-      vi.useFakeTimers()
-      const cadre = cadreDe(1440, 900)
-      const { wrapper } = monter('ailleurs', { frame: cadre, rideau: { y: yRangeA(cadre), baisse: false } })
-      expect(vi.getTimerCount()).toBe(0)
-      wrapper.unmount()
-    })
-
-    it('dit en rendu attaché le nom fixe, sans heure', () => {
-      expect(monter('ailleurs', { largeur: 1440 }).wrapper.get('[data-commande]').attributes('aria-label')).toBe('Prochains départs')
-    })
-
-    /**
-     * Le train s'ébranle, la scène relève le rideau, le panneau sort du champ
-     * (≈ 1,5 s) : `visible` tombait, le cadran se dessinait, et un vrai cadran de
-     * 52 px avec l'heure s'épinglait en bas à droite — **désactivé**, à portée du
-     * pouce, pendant toute l'étape. `voyage.gare` reste « ailleurs » jusqu'au
-     * premier `finirEtape` (≈ 9 s), et `Scene.basculerRideau` refuse de baisser en
-     * route : il ne répondait pas. Un cadran qu'on touche et qui ne fait rien est
-     * une fausse promesse ; rien n'est perdu à ne pas le dessiner.
-     */
-    it('ne se dessine plus une fois le train parti, et revient à l’arrivée', async () => {
-      const f = cadreDe(SEUIL_MOBILE - 1, 844)
-      const petit = { frame: f, largeur: SEUIL_MOBILE - 1 }
-      const { wrapper, voyage, rideau } = monter('ailleurs', { ...petit, rideau: { y: yPoseA(f), baisse: true } })
-      expect(wrapper.find('.panneau').exists()).toBe(true)
-
-      voyage.partirVers('ici')
-      // La scène relève le rideau et le sort du champ : le panneau s'en va.
-      rideau.value = { y: yRangeA(f), baisse: false }
+  /** La gouttière se relit à chaque redimensionnement, cadre inchangé ou non. */
+  describe('la gouttière', () => {
+    it('suit le redimensionnement, quand le cadre ne bouge pas', async () => {
+      const f = cadreDe(1512, 771)
+      const { wrapper } = monter('ailleurs', { frame: f, largeur: 1512, rideau: { y: yPoseA(f), baisse: true } })
+      const avant = plaque(wrapper).gauche
+      window.innerWidth = 1000
+      window.dispatchEvent(new Event('resize'))
       await nextTick()
-      expect(wrapper.find('.panneau').exists()).toBe(false)
-      // On est encore « ailleurs » : c'est tout l'intervalle où le cadran restait.
-      expect(voyage.gare).toBe('ailleurs')
-      expect(wrapper.get('[data-commande]').classes()).not.toContain('visible')
-      expect(wrapper.get('[data-commande]').text()).toBe('')
-
-      // Le tour de la boucle, jusqu'à revenir à quai : le cadran reprend sa place.
-      voyage.finirEtape()
-      voyage.partirVers('ailleurs')
-      for (let i = 0; i < 3; i++) voyage.finirEtape()
-      await nextTick()
-      expect([voyage.gare, voyage.enRoute]).toEqual(['ailleurs', false])
-      expect(wrapper.get('[data-commande]').classes()).toContain('visible')
-      expect(wrapper.get('[data-commande]').text()).toMatch(/^\d{2}:\d{2}$/)
-    })
-  })
-
-  describe('les bras', () => {
-    it('sont deux barres du DOM, du haut du panneau au bord de la fenêtre, symétriques', () => {
-      const cadre = cadreDe(SEUIL_MOBILE - 1, 844)
-      const { wrapper } = monter('ailleurs', { frame: cadre, largeur: SEUIL_MOBILE - 1, rideau: { y: 80, baisse: true } })
-      const bras = wrapper.findAll<HTMLElement>('.bras')
-      expect(bras).toHaveLength(2)
-      const [g, d] = bras.map((b) => b.element.style)
-      // Le même retrait des deux bords : c'est ce que « deux bras » veut dire.
-      // Où il tombe, et contre quoi, est gardé juste en dessous.
-      expect(g.left).toBe(d.right)
-      expect(g.left).not.toBe('')
-      for (const b of bras) {
-        expect(parseFloat(b.element.style.height)).toBeCloseTo(hautDetache(cadre, 80))
-        expect(b.attributes('aria-hidden')).toBe('true')
-      }
+      expect(plaque(wrapper).gauche).not.toBeCloseTo(avant)
+      expect(plaque(wrapper).gauche).toBeCloseTo((1000 - RIDEAU.largeur * f.scale) / 2)
     })
 
-    // Hérité de `.detache`, `auto` leur ferait avaler les appuis sur 2 px de large.
-    it('laissent passer le pointeur', () => {
-      expect(regle('.bras')).toMatch(/pointer-events:\s*none/)
-    })
-
-    it('n’existent pas en rendu attaché : le canvas les trace', () => {
-      expect(monter('ailleurs', { largeur: 1440 }).wrapper.findAll('.bras')).toHaveLength(0)
-    })
-
-    /**
-     * **L'anti-but nommé de la spec** : « Perdre la navigation. Les bras existent
-     * pour ça : s'ils coûtaient la frise, ils ne serviraient à rien. »
-     *
-     * Le retrait était repris de la plaque de scène **en pourcentage** (8,96 % de
-     * `RIDEAU.largeur`) et appliqué à un panneau qui fait la largeur de la
-     * fenêtre : il grandissait avec elle, tandis que les repères de la navigation
-     * sont à distance **fixe** des bords. À 386 le bras gauche tombait sur l'ancre
-     * (44,4 contre 44) ; à 663 il traversait « ail|leurs » (69,3). Et le bras
-     * droit, que personne n'avait mesuré, traversait le bouton de l'œil aux deux
-     * tailles.
-     *
-     * Les repères sont lus **dans leurs sources** — `ANCRE_FRISE_MOBILE` ici,
-     * `--marge-ecran` dans `base.css`, le point et les anneaux de focus dans les
-     * deux composants — et jamais recopiés : un test qui porterait les nombres en
-     * clair laisserait la frise bouger toute seule.
-     *
-     * Il compare des **pixels d'écran**, quelle que soit l'unité du style émis :
-     * `parseFloat('8,96%')` rend 8,96, et une comparaison posée dessus laisserait
-     * passer le pourcentage qu'elle est là pour attraper.
-     */
-    describe('ne tombent ni sur la frise ni sur l’œil', () => {
-      const nb = (re: RegExp, texte: string, quoi: string) => {
-        const m = re.exec(texte)
-        expect(m, `pas de ${quoi}`).not.toBeNull()
-        return Number(m![1])
+    it('cesse d’écouter la fenêtre au démontage', () => {
+      const ajout = vi.spyOn(window, 'addEventListener')
+      const retrait = vi.spyOn(window, 'removeEventListener')
+      try {
+        const { wrapper } = monter('ailleurs')
+        const ajoutee = ajout.mock.calls.find(([type]) => type === 'resize')![1]
+        wrapper.unmount()
+        // Retirer la fonction qui a été ajoutée : une autre ne retirerait rien.
+        expect(retrait.mock.calls.some(([type, f]) => type === 'resize' && f === ajoutee)).toBe(true)
+      } finally {
+        ajout.mockRestore()
+        retrait.mockRestore()
       }
-      const navCss = () => readFileSync('src/components/NavFrise.vue', 'utf8')
-      const oeilCss = () => readFileSync('src/components/EyeButton.vue', 'utf8')
-      const baseCss = () => readFileSync('src/styles/base.css', 'utf8')
-
-      /**
-       * Le premier repère à gauche, en pixels depuis le bord **gauche** de la
-       * fenêtre : le point de la gare à quai, qui déborde de l'ancre, ou l'anneau
-       * de focus de son lien, selon lequel sort le plus.
-       */
-      const repereGauche = () => {
-        const css = navCss()
-        const debord = nb(/\.point\s*\{[^}]*margin-left:\s*-([\d.]+)px/, css, 'débord du point')
-        const trait = nb(/\.gare:focus-visible\s*\{[^}]*outline:\s*([\d.]+)px/, css, 'anneau de la gare')
-        const ecart = nb(/\.gare:focus-visible\s*\{[^}]*outline-offset:\s*([\d.]+)px/, css, 'écart de l’anneau')
-        return ANCRE_FRISE_MOBILE - Math.max(debord, trait + ecart)
-      }
-
-      /**
-       * Le premier repère à droite, en pixels depuis le bord **droit** : le bouton
-       * de l'œil, anneau de focus compris. Il se pose à `--marge-ecran` du bord et
-       * fait 36 px de large (24 d'icône, 6 de rembourrage de chaque côté) : le bras
-       * ne passe donc qu'**avant** lui, entre lui et le bord de la fenêtre.
-       */
-      const repereDroit = () => {
-        const css = oeilCss()
-        expect(css, 'l’œil ne se pose plus sur --marge-ecran').toMatch(/right:\s*var\(--marge-ecran\)/)
-        const marge = nb(/--marge-ecran:\s*([\d.]+)px/, baseCss(), '--marge-ecran')
-        const trait = nb(/\.oeil:focus-visible\s*\{[^}]*outline:\s*([\d.]+)px/, css, 'anneau de l’œil')
-        const ecart = nb(/\.oeil:focus-visible\s*\{[^}]*outline-offset:\s*([\d.]+)px/, css, 'écart de l’anneau')
-        return marge - (trait + ecart)
-      }
-
-      /** Un retrait de `.bras`, quelle que soit son unité, en pixels d'écran. */
-      const enPixels = (valeur: string, largeurInterieure: number) => {
-        const m = /^(-?[\d.]+)(px|%)$/.exec(valeur)
-        expect(m, `retrait illisible : « ${valeur} »`).not.toBeNull()
-        return m![2] === '%' ? (Number(m![1]) / 100) * largeurInterieure : Number(m![1])
-      }
-
-      /** Le bord **intérieur** du panneau : la gouttière, puis le filet. */
-      const bordPanneau = () =>
-        parseFloat(regle('.detache').match(/left:\s*([\d.]+)px/)![1]) + filet()
-
-      /** Les deux bras, en pixels d'écran depuis le bord de fenêtre qui les porte. */
-      const poser = (l: number) => {
-        const f = cadreDe(l, 844)
-        const { wrapper } = monter('ailleurs', { frame: f, largeur: l, rideau: { y: yPoseA(f), baisse: true } })
-        const bras = wrapper.findAll<HTMLElement>('.bras')
-        expect(bras, `pas de bras à ${l}`).toHaveLength(2)
-        const bord = bordPanneau()
-        const interieur = l - 2 * bord
-        return {
-          bord,
-          large: parseFloat(regle('.bras').match(/width:\s*([\d.]+)px/)![1]),
-          gauche: bord + enPixels(bras[0].element.style.left, interieur),
-          droit: bord + enPixels(bras[1].element.style.right, interieur),
-        }
-      }
-
-      it.each([320, 386, 414, 663, 719])('dégagent les deux repères à %i px de large', (l) => {
-        const { bord, large, gauche, droit } = poser(l)
-        // À gauche : tout le bras tient avant le premier repère de la frise.
-        expect(gauche + large, `bras gauche à ${l}`).toBeLessThanOrEqual(repereGauche())
-        // À droite, mesuré depuis le bord droit : tout le bras tient avant l'œil.
-        expect(droit + large, `bras droit à ${l}`).toBeLessThanOrEqual(repereDroit())
-        // Et les deux restent **dans** la largeur du panneau, pas débordants.
-        expect(gauche, `bras gauche hors du panneau à ${l}`).toBeGreaterThanOrEqual(bord)
-        expect(droit, `bras droit hors du panneau à ${l}`).toBeGreaterThanOrEqual(bord)
-        expect(2 * (gauche + large), `les deux bras se croisent à ${l}`).toBeLessThan(l)
-      })
-
-      // Le cœur de la correction : les repères ne bougent pas avec la fenêtre, le
-      // retrait non plus. Un pourcentage, lui, les rattrape.
-      it('gardent le même retrait d’un bout à l’autre du seuil', () => {
-        const etroit = poser(320)
-        const large = poser(SEUIL_MOBILE - 1)
-        expect(large.gauche).toBeCloseTo(etroit.gauche)
-        expect(large.droit).toBeCloseTo(etroit.droit)
-      })
     })
   })
 
   /**
-   * jsdom ne met rien en page : ce test est un **modèle** de la grille d'une ligne,
-   * `3.4em 1fr auto` avec un `gap`. Les trois pistes couvrent toujours `contenu - 2 gap`,
-   * quel que soit le texte : leur somme ne mesure rien. Seule la piste `1fr` (la
-   * destination et ses points) peut manquer de place. À 320 px, avec la pire paire
-   * (`LE PRINTEMPS` / `À L'HEURE`) : contenu 266, moins deux gaps (20), moins l'heure
-   * (3,4 em = 47,6), moins le statut (9 × 8,40 = 75,6) = **122,8 px disponibles** ;
-   * la destination demande 12 × 8,40 + le retrait des points (0,7 em = 9,8) =
-   * **110,6 px nécessaires**. Marge : 12,2 px. Mesure faite dans un vrai 320 × 568 :
-   * chasse 8,40 px (0,6 em à 14 px), ligne de 290 px de boîte, 266 de contenu.
+   * La largeur d'une ligne, une fois la plaque bornée par la fenêtre.
+   *
+   * jsdom ne met rien en page : c'est un **modèle** de la grille `3.4em 1fr auto`
+   * avec son `gap`, en pixels de **cadre** — le repère dans lequel tout le style
+   * du panneau est écrit. Seule la piste `1fr`, la destination et ses points de
+   * conduite, peut manquer de place.
+   *
+   * Sur un téléphone la plaque est bornée par la gouttière (366 px à 390 de
+   * large) tandis que le texte garde l'échelle du cadre : la piste s'y refermait
+   * de 12,4 px de cadre, et les points de conduite — qui existent à toute autre
+   * largeur — disparaissaient. `--creux` est descendu de 32 à 26 et rend
+   * exactement ces 12 px : le déficit tombe à 0,4 px de cadre à 390 × 844 et
+   * repasse positif au-delà. **La destination tient donc partout** ; la piste
+   * des points, elle, ne fait plus que 0 à 2 px de cadre entre 390 et 430, soit
+   * moins qu'une cellule du motif (12 px) : voir le rapport, qui dit ce qu'il
+   * faudrait pour les voir vraiment.
+   *
+   * Les deux gardes sont donc : la destination tient dans sa piste à un pixel de
+   * cadre près, et la ligne reste **dans la plaque** avec au moins 20 px de
+   * cadre de franc — la part qui déborde est reprise sur le creux, jamais sur le
+   * filet du cadre.
    */
-  describe('le débordement à 320 px', () => {
-    const r = regle('.detache')
-    const px = (re: RegExp) => parseFloat(r.match(re)![1])
-    const ligne = regle('.ligne')
-    const corps = px(/font-size:\s*([\d.]+)px/)
-    const creux = px(/--creux:\s*([\d.]+)px/)
-    const ecart = parseFloat(regle('.detache .ligne').match(/gap:\s*([\d.]+)px/)![1])
-    const gouttiere = px(/left:\s*([\d.]+)px/)
-    const colonneHeure = parseFloat(ligne.match(/grid-template-columns:\s*([\d.]+)em/)![1])
-    const padding = parseFloat(ligne.match(/padding:\s*0 ([\d.]+)px/)![1])
-    const margeNegative = parseFloat(ligne.match(/margin:\s*0 -([\d.]+)px/)![1])
-    const retraitPoints = parseFloat(regle('.ligne > span:nth-child(2)::after').match(/margin:[^;]*\s([\d.]+)em;/)![1])
+  describe('la largeur d’une ligne', () => {
+    const ligne = () => regle('.ligne')
+    const corps = () => nb(/font-size:\s*([\d.]+)px/, regle('.panneau'), 'le corps du texte')
+    const ecart = () => nb(/gap:\s*([\d.]+)px/, ligne(), 'l’écart des colonnes')
+    const colonneHeure = () => nb(/grid-template-columns:\s*([\d.]+)em/, ligne(), 'la colonne de l’heure')
+    const padding = () => nb(/padding:\s*0 ([\d.]+)px/, ligne(), 'le rembourrage de la ligne')
+    const margeNegative = () => nb(/margin:\s*0 -([\d.]+)px/, ligne(), 'la marge négative de la ligne')
+    const retraitPoints = () =>
+      nb(/margin:[^;]*\s([\d.]+)em;/, regle('.ligne > span:nth-child(2)::after'), 'le retrait des points')
     const CHASSE = 0.6
 
-    /** Contenu d'une ligne : l'intérieur du panneau, élargi par la marge négative, rétréci par le padding. */
-    const contenu = 320 - 2 * gouttiere - 2 * filet() - 2 * creux + 2 * margeNegative - 2 * padding
+    /** Le contenu d'une ligne, en pixels de cadre, pour une plaque de `largeur`. */
+    const contenu = (largeur: number) =>
+      largeur - 2 * filet() - 2 * mesure('creux') + 2 * margeNegative() - 2 * padding()
 
-    it('lit un contenu de 266 px, la mesure faite dans un vrai 320 × 568', () => {
-      expect(contenu).toBe(266)
+    /** Ce qui déborde de la piste `1fr`, en pixels de cadre, pour la pire paire du vivier. */
+    const debordement = (largeur: number) => {
+      const paires = [...VIVIER, ...departsReels(new Date())]
+      return Math.max(
+        ...paires.map((d) => {
+          const piste =
+            contenu(largeur) - 2 * ecart() - colonneHeure() * corps() - d.statut.length * CHASSE * corps()
+          const besoin = d.destination.length * CHASSE * corps() + retraitPoints() * corps()
+          return besoin - piste
+        }),
+      )
+    }
+
+    const TAILLES = [[320, 568], [390, 844], [414, 896], [430, 932], [1512, 771]] as const
+
+    it.each(TAILLES)('tient dans la plaque à %i × %i', (l, h) => {
+      const { wrapper } = posee(l, h)
+      const trop = Math.max(0, debordement(plaque(wrapper).largeur))
+      // Ce qui déborde est repris sur le creux : au-delà, la ligne mordrait le filet.
+      const franc = filet() + mesure('creux') - trop
+      expect(franc, `il ne reste que ${franc}px de cadre de franc`).toBeGreaterThanOrEqual(20)
     })
 
-    it('laisse à la destination la place qu’elle demande, avec la pire paire', () => {
-      const paires = [...VIVIER, ...departsReels(new Date())]
-      const marges = paires.map((d) => {
-        const piste = contenu - 2 * ecart - colonneHeure * corps - d.statut.length * CHASSE * corps
-        const besoin = d.destination.length * CHASSE * corps + retraitPoints * corps
-        return piste - besoin
-      })
-      const pire = Math.min(...marges)
-      expect(pire, `la piste 1fr manque de ${-pire}px`).toBeGreaterThanOrEqual(0)
+    /** La destination et son retrait de points tiennent dans la piste `1fr`. */
+    it.each(TAILLES)('laisse la destination tenir dans sa piste à %i × %i', (l, h) => {
+      const { wrapper } = posee(l, h)
+      const trop = debordement(plaque(wrapper).largeur)
+      expect(trop, `la destination déborde de ${trop}px de cadre`).toBeLessThanOrEqual(1)
+    })
+
+    /** Sur un écran de bureau, la plaque fait sa pleine largeur : les points sont là. */
+    it('laisse la place aux points de conduite dès que la plaque est entière', () => {
+      const { wrapper } = posee(1512, 771)
+      expect(plaque(wrapper).largeur).toBe(RIDEAU.largeur)
+      expect(debordement(RIDEAU.largeur)).toBeLessThanOrEqual(0)
     })
 
     it('tient dans le bandeau, d’après la source', () => {
       const titre = source().match(/texte="(PROCHAINS DÉPARTS)"/)![1]
-      const corpsEntete = parseFloat(regle('.detache .entete').match(/font-size:\s*([\d.]+)px/)![1])
-      const espacement = parseFloat(regle('.entete').match(/letter-spacing:\s*([\d.]+)em/)![1])
+      const corpsEntete = nb(/font-size:\s*([\d.]+)px/, regle('.entete'), 'le corps du bandeau')
+      const espacement = nb(/letter-spacing:\s*([\d.]+)em/, regle('.entete'), 'l’espacement du bandeau')
       const lettres = (titre.length + '00:00'.length) * (CHASSE + espacement) * corpsEntete
-      expect(lettres, `bandeau ${lettres}px pour ${contenu}px`).toBeLessThanOrEqual(contenu)
+      for (const [l, h] of TAILLES) {
+        const { wrapper } = posee(l, h)
+        const place = plaque(wrapper).largeur - 2 * filet()
+        expect(lettres, `bandeau ${lettres}px pour ${place}px à ${l}×${h}`).toBeLessThanOrEqual(place)
+      }
     })
   })
 })

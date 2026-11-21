@@ -371,7 +371,7 @@ describe('anglesHorloge', () => {
   })
 })
 
-/** Avance la timeline globale de GSAP sans attendre le temps réel (voir `RideauLayer.test.ts`). */
+/** Avance la timeline globale de GSAP sans attendre le temps réel (voir `rideau.test.ts`). */
 function avancerGsap(secondes: number): void {
   gsap.globalTimeline.time(gsap.globalTimeline.time() + secondes)
 }
