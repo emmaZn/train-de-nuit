@@ -325,7 +325,8 @@ describe('PanneauDeparts', () => {
     it('pose l’en-tête avant les lignes, titre et heure ensemble', async () => {
       const { wrapper } = posee()
       await avancer(DEBUT_ENTETE_MS + 3 * PAS_MS)
-      const entete = [...wrapper.get('.entete').element.children].map(etat)
+      // Le titre et l'heure : la croix, qui ferme le bandeau, n'est pas un tambour.
+      const entete = [...wrapper.get('.entete').element.children].filter((c) => c.tagName === 'SPAN').map(etat)
       expect(entete).toHaveLength(2)
       expect(entete.every((e) => e === 'tourne')).toBe(true)
       for (let i = 0; i < 5; i++) expect(ligne(wrapper, i)).toEqual(['blanche', 'blanche', 'blanche'])
@@ -1189,16 +1190,19 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
       // 44 px dans les deux dimensions : le plancher du doigt ne se négocie pas
       // plus en hauteur qu'en largeur (c'est celui de `cibleReverbere`).
       expect(hauteur).toBe(44)
-      // Centré sur l'heure : à droite, après le filet, le creux et la moitié du texte.
+      // Centré sur l'heure : à droite, après le filet, la croix (44 px d'écran,
+      // collée au bord) et son écart, puis la moitié du texte.
       const espacement = nb(/letter-spacing:\s*([\d.]+)em/, regle('.entete'), 'l’espacement du bandeau')
       const corpsEntete = nb(/font-size:\s*([\d.]+)px/, regle('.entete'), 'le corps du bandeau')
       const largeurHeure = '00:00'.length * (0.6 + espacement) * corpsEntete
-      const centreHeure = p.gauche + (p.largeur - filet() - mesure('creux') - largeurHeure / 2) * p.echelle
-      const droite = p.gauche + p.largeur * p.echelle
-      // Centré sur l'heure, sauf quand l'échelle est si basse que 44 px le
-      // feraient déborder du bord droit : il se cale alors dessus, comme en
-      // hauteur il se cale sur le début des lignes.
-      expect(gauche + large / 2).toBeCloseTo(Math.min(centreHeure, droite - large / 2))
+      const ecart = nb(/margin-left:\s*([\d.]+)px/, regle('.croix'), 'l’écart de la croix')
+      const croix = 44 / p.echelle
+      const centreHeure = p.gauche + (p.largeur - filet() - croix - ecart - largeurHeure / 2) * p.echelle
+      const gaucheCroix = p.gauche + (p.largeur - filet() - croix) * p.echelle
+      // Centré sur l'heure, sauf quand l'échelle est si basse que 44 px
+      // toucheraient la croix : il se cale alors sur son bord gauche, comme en
+      // hauteur il se cale sur le début des lignes. Il ne la recouvre jamais.
+      expect(gauche + large / 2).toBeCloseTo(Math.min(centreHeure, gaucheCroix - large / 2))
       // Il reste **dans** la plaque : ni au-dessus, où il mangerait des clics sur
       // le ciel, ni sur la première ligne, qui porte un lien.
       expect(gauche).toBeGreaterThanOrEqual(p.gauche)
@@ -1516,9 +1520,269 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
       const lettres = (titre.length + '00:00'.length) * (CHASSE + espacement) * corpsEntete
       for (const [l, h] of TAILLES) {
         const { wrapper } = posee(l, h)
-        const place = plaque(wrapper).largeur - 2 * filet()
+        // Moins la croix et son écart : le titre et l'heure se partagent le reste.
+        const croix = 44 / plaque(wrapper).echelle + nb(/margin-left:\s*([\d.]+)px/, regle('.croix'), 'l’écart de la croix')
+        const place = plaque(wrapper).largeur - 2 * filet() - croix
         expect(lettres, `bandeau ${lettres}px pour ${place}px à ${l}×${h}`).toBeLessThanOrEqual(place)
       }
+    })
+  })
+})
+
+/**
+ * Fermer le panneau (spec §5) : une croix visible dans le bandeau, Échap tant
+ * que la plaque est baissée, et un focus qui entre puis qui revient.
+ *
+ * **Ce n'est pas une boîte de dialogue modale**, et ces tests le disent aussi :
+ * ni `aria-modal`, ni `inert` sur autre chose que la liste, ni piège de focus.
+ */
+describe('PanneauDeparts — fermer le panneau', () => {
+  const source = () => readFileSync('src/components/PanneauDeparts.vue', 'utf8')
+  const regle = (nom: string) => {
+    const texte = source()
+    const i = texte.indexOf(`${nom} {`)
+    expect(i, `pas de règle ${nom}`).toBeGreaterThanOrEqual(0)
+    return texte.slice(i, texte.indexOf('}', i))
+  }
+  const nb = (re: RegExp, texte: string, quoi: string) => {
+    const m = re.exec(texte)
+    expect(m, `pas de ${quoi}`).not.toBeNull()
+    return Number(m![1])
+  }
+  const filet = () => nb(/border:\s*([\d.]+)px/, regle('.panneau'), 'le filet du cadre')
+  const creux = () => nb(/--creux:\s*([\d.]+)px/, regle('.panneau'), '--creux')
+
+  type Monte = ReturnType<typeof monter>
+  const montes: Monte['wrapper'][] = []
+  afterEach(() => {
+    while (montes.length) montes.pop()!.unmount()
+  })
+  const suivre = (m: Monte) => {
+    montes.push(m.wrapper)
+    return m
+  }
+  const posee = (l: number, h: number) => {
+    const f = cadreDe(l, h)
+    return { f, ...suivre(monter('ailleurs', { frame: f, largeur: l, rideau: { y: yPoseA(f), baisse: true } })) }
+  }
+  /** Le panneau rangé, prêt à être baissé : la scène n'a émis que la position de repos. */
+  const rangee = () => {
+    const f = cadreDe(1440, 900)
+    return { f, ...suivre(monter('ailleurs', { frame: f, rideau: { y: yRangeA(f), baisse: false } })) }
+  }
+  const baisser = async (rideau: Monte['rideau'], f: Frame) => {
+    rideau.value = { y: yPoseA(f), baisse: true }
+    await nextTick()
+    await nextTick()
+  }
+  const ranger = async (rideau: Monte['rideau'], f: Frame) => {
+    rideau.value = { y: yRangeA(f), baisse: false }
+    await nextTick()
+    await nextTick()
+  }
+  const echap = (cible: EventTarget = document.body) =>
+    cible.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+
+  const TAILLES = [[1512, 771], [1920, 1080], [2560, 1440], [800, 450], [720, 400], [719, 500], [320, 568], [390, 844]] as const
+
+  describe('la croix', () => {
+    it('vit dans le bandeau, nommée, et c’est un vrai bouton', () => {
+      const { wrapper } = posee(1512, 771)
+      const croix = wrapper.get('.entete .croix')
+      expect(croix.element.tagName).toBe('BUTTON')
+      expect(croix.attributes('type')).toBe('button')
+      expect(croix.attributes('aria-label')).toMatch(/fermer/i)
+      expect(croix.attributes('aria-hidden')).toBeUndefined()
+      expect(croix.attributes('tabindex')).toBeUndefined()
+    })
+
+    it('est visible : elle a un fond et un dessin, pas un disque transparent', () => {
+      const { wrapper } = posee(1512, 771)
+      const croix = wrapper.get('.croix')
+      // Un dessin (la croix elle-même), masqué au lecteur d'écran : le nom est celui du bouton.
+      expect(croix.find('svg').exists()).toBe(true)
+      expect(croix.find('svg').attributes('aria-hidden')).toBe('true')
+      const css = regle('.croix')
+      expect(css).toMatch(/background:\s*var\(--texte\)/)
+      expect(css).not.toMatch(/background:\s*transparent/)
+      expect(css).not.toMatch(/opacity:\s*0\b/)
+      expect(css).not.toMatch(/visibility:\s*hidden|display:\s*none/)
+    })
+
+    it.each(TAILLES)('fait au moins 44 × 44 px d’écran à %i × %i', (l, h) => {
+      const { wrapper, f } = posee(l, h)
+      const s = (wrapper.get('.croix').element as HTMLElement).style
+      expect(parseFloat(s.width) * f.scale).toBeGreaterThanOrEqual(44 - 1e-6)
+      expect(parseFloat(s.height) * f.scale).toBeGreaterThanOrEqual(44 - 1e-6)
+    })
+
+    it.each(TAILLES)('ne descend jamais sur la première ligne, qui est un lien, à %i × %i', (l, h) => {
+      const { wrapper } = posee(l, h)
+      const s = (wrapper.get('.croix').element as HTMLElement).style
+      // Le haut de la croix, par rapport au haut du bandeau, en pixels de cadre :
+      // le bas du bandeau est à `entete - ligne / 2` du haut de la plaque.
+      const bandeau = nb(/--entete:\s*([\d.]+)px/, regle('.panneau'), '--entete') -
+        nb(/--ligne:\s*([\d.]+)px/, regle('.panneau'), '--ligne') / 2
+      const haut = parseFloat(s.marginTop)
+      expect(haut + parseFloat(s.height)).toBeLessThanOrEqual(bandeau + 1e-6)
+    })
+
+    it('ne touche pas au retrait du panneau, que la largeur des lignes consomme', () => {
+      expect(creux()).toBeGreaterThanOrEqual(26)
+    })
+
+    it('un clic ferme le panneau, par la scène', async () => {
+      const { wrapper, scene } = posee(1512, 771)
+      await wrapper.get('.croix').trigger('click')
+      expect(scene.basculerRideau).toHaveBeenCalledTimes(1)
+    })
+
+    it('un appui sur la croix ne tombe pas sur la scène : l’arrêt du panneau tient', () => {
+      const { wrapper, scene } = posee(1512, 771)
+      const surFenetre = vi.fn()
+      window.addEventListener('pointerdown', surFenetre)
+      wrapper.get('.croix').element.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+      window.removeEventListener('pointerdown', surFenetre)
+      expect(surFenetre).not.toHaveBeenCalled()
+      expect(scene.fermerBulleEtoile).toHaveBeenCalledTimes(1)
+    })
+
+    it.each(TAILLES)('ne se superpose pas à la commande posée sur l’heure, à %i × %i', (l, h) => {
+      const { wrapper, f } = posee(l, h)
+      const croix = (wrapper.get('.croix').element as HTMLElement).style
+      const cmd = (wrapper.get('[data-commande]').element as HTMLElement).style
+      const p = (wrapper.get('.panneau').element as HTMLElement).style
+      const droiteInterieure = parseFloat(p.left) + (parseFloat(p.width) - filet()) * f.scale
+      const gaucheCroix = droiteInterieure - parseFloat(croix.width) * f.scale
+      // La commande est au-dessus de la croix dans la pile (16 contre 15) : si
+      // elles se recouvraient, c'est elle qui mangerait le clic de la croix.
+      expect(parseFloat(cmd.left) + parseFloat(cmd.width)).toBeLessThanOrEqual(gaucheCroix + 1e-6)
+    })
+
+    it('l’écart du script est celui du style', () => {
+      const dansLeScript = nb(/const ECART_CROIX = (\d+)/, source(), 'ECART_CROIX')
+      expect(nb(/margin-left:\s*([\d.]+)px/, regle('.croix'), 'le margin-left')).toBe(dansLeScript)
+    })
+
+    it.each(TAILLES)('ne monte pas dans la frise de navigation, à %i × %i', (l, h) => {
+      const { wrapper, f } = posee(l, h)
+      const p = (wrapper.get('.panneau').element as HTMLElement).style
+      const haut = parseFloat(p.top) + (filet() + parseFloat((wrapper.get('.croix').element as HTMLElement).style.marginTop)) * f.scale
+      expect(haut).toBeGreaterThanOrEqual(HAUTEUR_FRISE)
+    })
+
+    it('reste sous le CV, qui est au-dessus de tout', () => {
+      // La croix est dans la plaque (15) : elle n'a pas de `z-index` à elle.
+      expect(regle('.croix')).not.toMatch(/z-index/)
+    })
+  })
+
+  describe('ce n’est pas une boîte de dialogue', () => {
+    it('la région reste une région : ni aria-modal, ni inert sur la plaque', () => {
+      const { wrapper } = posee(1512, 771)
+      const plaque = wrapper.get('.panneau')
+      expect(plaque.attributes('role')).toBe('region')
+      expect(plaque.attributes('aria-label')).toBe('Prochains départs')
+      expect(plaque.attributes('aria-modal')).toBeUndefined()
+      expect(plaque.attributes('inert')).toBeUndefined()
+      expect(plaque.attributes('tabindex')).toBeUndefined()
+      expect(source().replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '').replace(/^\s*\*.*$/gm, '')).not.toMatch(/aria-modal|role="dialog"|showModal|focus-trap/)
+    })
+
+    it('la croix reste atteignable pendant la remontée, comme la plaque', async () => {
+      const { wrapper, voyage } = posee(1512, 771)
+      voyage.partirVers('ici')
+      await nextTick()
+      expect(wrapper.get('.lignes').attributes('inert')).toBeDefined()
+      expect(wrapper.get('.croix').element.closest('[inert]')).toBeNull()
+    })
+
+    it('Tab n’est pas capturé : aucun gestionnaire de touche ne le retient', async () => {
+      const { wrapper } = posee(1512, 771)
+      const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+      wrapper.get('.croix').element.dispatchEvent(tab)
+      expect(tab.defaultPrevented).toBe(false)
+    })
+  })
+
+  describe('Échap', () => {
+    it('ferme le panneau baissé', () => {
+      const { scene } = posee(1512, 771)
+      echap()
+      expect(scene.basculerRideau).toHaveBeenCalledTimes(1)
+    })
+
+    it('ne fait rien quand le panneau est rangé', () => {
+      const { scene } = rangee()
+      echap()
+      expect(scene.basculerRideau).not.toHaveBeenCalled()
+    })
+
+    it('ne fait rien une fois le panneau rangé de nouveau', async () => {
+      const { scene, rideau, f } = rangee()
+      await baisser(rideau, f)
+      await ranger(rideau, f)
+      echap()
+      expect(scene.basculerRideau).not.toHaveBeenCalled()
+    })
+
+    it('ne ferme pas le panneau quand c’est le CV qu’Échap referme', async () => {
+      const { scene, wrapper } = posee(1512, 771)
+      const router = wrapper.vm.$router
+      await router.push('/ailleurs/cv')
+      echap()
+      expect(scene.basculerRideau).not.toHaveBeenCalled()
+      await router.push('/ailleurs')
+      echap()
+      expect(scene.basculerRideau).toHaveBeenCalledTimes(1)
+    })
+
+    it('ne laisse plus d’écouteur une fois démonté', () => {
+      const { wrapper, scene } = posee(1512, 771)
+      wrapper.unmount()
+      montes.pop()
+      echap()
+      expect(scene.basculerRideau).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('le focus', () => {
+    it('entre dans le panneau à l’ouverture', async () => {
+      const { wrapper, rideau, f } = rangee()
+      await baisser(rideau, f)
+      const region = wrapper.get('#panneau-departs').element
+      expect(region.contains(document.activeElement)).toBe(true)
+      // Sur la croix : c'est le chemin de sortie, et il est avant les liens.
+      expect(document.activeElement).toBe(wrapper.get('.croix').element)
+    })
+
+    it('revient sur l’horloge à la fermeture', async () => {
+      const { wrapper, rideau, f } = rangee()
+      await baisser(rideau, f)
+      await ranger(rideau, f)
+      expect(document.activeElement).toBe(wrapper.get('[data-commande]').element)
+    })
+
+    it('au départ du train, le focus ne va pas sur une commande désactivée', async () => {
+      const { wrapper, rideau, voyage, f } = rangee()
+      await baisser(rideau, f)
+      voyage.partirVers('ici')
+      await ranger(rideau, f)
+      const commande = wrapper.get('[data-commande]').element as HTMLButtonElement
+      expect(commande.disabled).toBe(true)
+      expect(document.activeElement).not.toBe(commande)
+      expect(document.activeElement).toBe(document.body)
+    })
+
+    it('ne vole pas le focus à ce qui l’a pris ailleurs', async () => {
+      const { rideau, f } = rangee()
+      await baisser(rideau, f)
+      const ailleurs = document.createElement('button')
+      document.body.appendChild(ailleurs)
+      ailleurs.focus()
+      await ranger(rideau, f)
+      expect(document.activeElement).toBe(ailleurs)
+      ailleurs.remove()
     })
   })
 })

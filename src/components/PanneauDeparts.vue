@@ -68,7 +68,8 @@
  * n'existait que parce que l'horloge était hors champ sur un téléphone, et la
  * gare au milieu règle ce manque à la racine.)
  */
-import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import VoletTexte from '@/components/VoletTexte.vue'
 import { DEBUT_ENTETE_MS, DEBUT_LIGNES_MS, ECART_LIGNES_MS } from '@/components/volets'
 import { FRAME_KEY, RIDEAU_KEY, SCENE_KEY } from '@/composables/useScene'
@@ -116,6 +117,31 @@ const LARGEUR_HEURE = 5 * (0.6 + 0.08) * PLAQUE.corpsEntete
 
 /** Ce qu'un doigt exige, en pixels d'**écran** (WCAG 2.5.5) : le même nombre que `cibleReverbere`. */
 const CIBLE = 44
+
+/**
+ * La croix de fermeture, en pixels de **cadre** : un carré de 44 px d'**écran**,
+ * donc de `CIBLE / échelle` ici — le bandeau rétrécit avec le cadre, pas le
+ * doigt. Elle est collée au bord intérieur droit du bandeau, et l'heure s'arrête
+ * `ECART_CROIX` avant elle (le `margin-left` de `.croix`, que le test confronte).
+ */
+const ECART_CROIX = 12
+const cote = computed(() => CIBLE / (frame.value?.scale ?? 1))
+
+/**
+ * Où elle est dans la hauteur du bandeau : centrée quand la bande est assez
+ * haute pour la porter, et sinon calée sur le **bas** de la bande, donc
+ * débordant par le haut — au-dessus il n'y a que le bord de la plaque et le
+ * ciel, en dessous il y a la première ligne, qui est un des trois liens. C'est
+ * le même parti que la commande posée sur l'heure.
+ */
+const styleCroix = computed(() => {
+  const t = cote.value
+  return {
+    width: `${t}px`,
+    height: `${t}px`,
+    marginTop: `${t <= BANDEAU ? (BANDEAU - t) / 2 : BANDEAU - t}px`,
+  }
+})
 
 /**
  * La largeur de la plaque, en pixels de **cadre** : la sienne, sauf si la
@@ -310,20 +336,21 @@ const commande = computed<Record<string, string> | null>(() => {
   if (!f) return null
   if (visible.value) {
     const haut = hautEcran.value ?? 0
-    const bordInterieur = PLAQUE.filet + PLAQUE.creux
     const debutLignes = haut + (PLAQUE.filet + PLAQUE.entete) * f.scale
     // Centré sur la bande du bandeau, puis remonté juste ce qu'il faut pour que
     // son bas n'entre pas dans les lignes. Il reste donc 44 × 44, et il déborde
     // vers le haut quand la bande est plus courte que le doigt.
     const sommet = Math.min(haut + (PLAQUE.filet + BANDEAU / 2) * f.scale - CIBLE / 2, debutLignes - CIBLE)
-    // Et de même en largeur : centré sur l'heure, mais jamais débordant du bord
-    // droit de la plaque. À petite échelle le creux ne fait plus que quelques
-    // pixels d'écran et un disque de 44 px passerait dessus, sur le ciel.
-    const droite = gaucheEcran.value + largeurCadre.value * f.scale
+    // Et de même en largeur : centré sur l'heure, mais jamais sur la croix, qui
+    // est à sa droite et que le disque (16 contre 15) recouvrirait, mangeant
+    // son clic. À petite échelle l'heure est si près de la croix que le disque
+    // de 44 px s'y poserait : il se cale alors sur son bord gauche.
+    const gaucheCroix = gaucheEcran.value + (largeurCadre.value - PLAQUE.filet) * f.scale - cote.value * f.scale
     const centreHeure =
-      gaucheEcran.value + (largeurCadre.value - bordInterieur - LARGEUR_HEURE / 2) * f.scale
+      gaucheEcran.value +
+      (largeurCadre.value - PLAQUE.filet - cote.value - ECART_CROIX - LARGEUR_HEURE / 2) * f.scale
     return {
-      left: `${Math.min(centreHeure - CIBLE / 2, droite - CIBLE)}px`,
+      left: `${Math.min(centreHeure - CIBLE / 2, gaucheCroix - CIBLE)}px`,
       top: `${sommet}px`,
       width: `${CIBLE}px`,
       height: `${CIBLE}px`,
@@ -336,6 +363,57 @@ const commande = computed<Record<string, string> | null>(() => {
     width: `${2 * r}px`,
     height: `${2 * r}px`,
   }
+})
+
+const route = useRoute()
+const commandeEl = ref<HTMLButtonElement | null>(null)
+const croixEl = ref<HTMLButtonElement | null>(null)
+
+/**
+ * Échap ferme le panneau tant qu'il est baissé, et seulement alors : rangé, la
+ * touche n'est pas à lui. Le CV reste au-dessus de tout, donc sa touche passe
+ * d'abord : tant qu'il est ouvert, Échap le referme **lui**, et le panneau, qui
+ * reste monté dessous (décision 7 de la spec du rideau), attend le suivant.
+ * Passe par `Scene.basculerRideau()`, comme la croix et l'horloge.
+ */
+function surEchap(e: KeyboardEvent) {
+  if (e.key !== 'Escape' || e.defaultPrevented) return
+  if (!rideau.value?.baisse || route.name === 'cv') return
+  scene.value?.basculerRideau()
+}
+onMounted(() => document.addEventListener('keydown', surEchap))
+onBeforeUnmount(() => document.removeEventListener('keydown', surEchap))
+
+/**
+ * Le focus. Il **entre** dans le panneau à l'ouverture — sur la croix, le chemin
+ * de sortie, qui précède les liens dans l'ordre du DOM — et **revient** à la
+ * fermeture sur la commande de l'horloge.
+ *
+ * Sauf au départ du train : la commande est alors `disabled` et ne peut pas le
+ * prendre. Un `focus()` sur elle serait avalé en silence, et le visiteur au
+ * clavier resterait sans focus nulle part ; on le rend au corps du document.
+ *
+ * Et le focus n'est repris que s'il était à nous (dans la plaque, sur la
+ * commande, ou nulle part) : si le visiteur l'a posé ailleurs, il y reste.
+ *
+ * Ce n'est pas un piège : rien ne retient Tab, rien n'est `inert` hors de la
+ * liste, la page derrière reste visible donc atteignable.
+ */
+watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
+  if (baisse === avant) return
+  await nextTick()
+  if (baisse) {
+    croixEl.value?.focus({ preventScroll: true })
+    return
+  }
+  const actif = document.activeElement
+  const aNous =
+    !actif || actif === document.body || actif === commandeEl.value ||
+    !!document.getElementById(ID_PANNEAU)?.contains(actif)
+  if (!aNous) return
+  const bouton = commandeEl.value
+  if (bouton && !bouton.disabled) bouton.focus({ preventScroll: true })
+  else if (actif instanceof HTMLElement && actif !== document.body) actif.blur()
 })
 </script>
 
@@ -352,6 +430,7 @@ const commande = computed<Record<string, string> | null>(() => {
        retiré du DOM, et un renvoi dans le vide ne renseigne personne. -->
   <button
     v-if="commande"
+    ref="commandeEl"
     class="commande"
     :class="{ 'sur-bandeau': visible }"
     data-commande
@@ -371,6 +450,11 @@ const commande = computed<Record<string, string> | null>(() => {
       <p class="entete">
         <span><VoletTexte texte="PROCHAINS DÉPARTS" :retard="DEBUT_ENTETE_MS" :fige="fige" /></span>
         <span class="heure"><VoletTexte :texte="heure" :retard="DEBUT_ENTETE_MS" :fige="fige" /></span>
+        <!-- Visible, et non un disque transparent : c'est le chemin de sortie. Le
+             dessin est masqué au lecteur d'écran, qui lit le nom du bouton. -->
+        <button ref="croixEl" class="croix" type="button" aria-label="Fermer les prochains départs" :style="styleCroix" @click="scene?.basculerRideau()">
+          <svg viewBox="0 0 44 44" aria-hidden="true" focusable="false"><path d="M14 14L30 30M30 14L14 30" /></svg>
+        </button>
       </p>
       <!-- `inert` ici et pas sur la plaque : les trois liens sont les seuls
            focalisables du panneau, et un nœud `inert` cesse d'être visé par le
@@ -523,7 +607,8 @@ const commande = computed<Record<string, string> | null>(() => {
   margin-left: calc(-1 * var(--creux));
   align-items: center;
   padding-top: 0;
-  padding-right: var(--creux);
+  /* Rien à droite : la croix y est collée, et c'est elle qui porte le retrait. */
+  padding-right: 0;
   padding-bottom: 0;
   padding-left: var(--creux);
   background: var(--texte);
@@ -532,6 +617,42 @@ const commande = computed<Record<string, string> | null>(() => {
   opacity: 1;
   font-size: 22px;
   letter-spacing: 0.08em;
+}
+
+/* La croix : un carré plein aux couleurs du bandeau, dont la taille (44 px
+   d'écran) est posée en ligne par le script. Elle a **son** fond et non celui
+   du bandeau : quand la bande est plus basse que le doigt, elle déborde au
+   ciel, et un trait sans fond y disparaîtrait. Pas de `z-index` : elle est dans
+   la plaque (15), sous le CV (20). */
+.croix {
+  flex: none;
+  align-self: flex-start;
+  box-sizing: border-box;
+  margin-left: 12px;
+  padding: 0;
+  border: 0;
+  background: var(--texte);
+  color: var(--fond);
+  cursor: pointer;
+}
+
+.croix svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.5;
+}
+
+.croix:hover {
+  background: var(--fond);
+  color: var(--texte);
+}
+
+.croix:focus-visible {
+  outline: 2px solid var(--fond);
+  outline-offset: -5px;
 }
 
 .lignes {
