@@ -163,10 +163,11 @@ export class Faisceau {
   private readonly couches: Graphics[] = []
   /**
    * La neige du cône : les mêmes couches qui tombent que la neige libre
-   * (`CouchesQuiTombent`), tirées dans le cône et retenues dedans par un
-   * masque. Elle vit sous `racine`, donc **s'éteint avec le réverbère** sans
-   * qu'`allumer` ait à la nommer, et reste dans `lumieres`, hors de toute
-   * teinte de nuit.
+   * (`CouchesQuiTombent`), tirées sur le **rectangle englobant** du cône
+   * (`floconsDuCone`) et retenues dans le triangle par le masque — c'est donc
+   * le masque, et lui seul, qui fait le cône. Elle vit sous `racine`, donc
+   * **s'éteint avec le réverbère** sans qu'`allumer` ait à la nommer, et reste
+   * dans `lumieres`, hors de toute teinte de nuit.
    *
    * Le conteneur est immobile (ce sont les couches, dedans, qui descendent) :
    * c'est lui qui porte le masque. PROVISOIRE (§7) : densité et éclat à régler
@@ -237,9 +238,9 @@ export class Faisceau {
   }
 
   /**
-   * Allume ou éteint le faisceau tout entier : le cône peint, sa poussière, et
-   * la neige qui y tombera (tâche 7). Un seul interrupteur, parce que tout cela
-   * vit dans `racine` — ce qui est dans le faisceau s'éteint avec lui.
+   * Allume ou éteint le faisceau tout entier : le cône peint, sa poussière et
+   * la neige qui y tombe. Un seul interrupteur, parce que tout cela vit dans
+   * `racine` — ce qui est dans le faisceau s'éteint avec lui.
    *
    * On **cache**, on ne vide pas : les tracés sont posés une fois (le cône à la
    * construction, les grains au cadrage) et les refaire au rallumage coûterait

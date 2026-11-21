@@ -108,7 +108,10 @@ describe('la géométrie du quai', () => {
 
   /**
    * Tolérance 0 (à moins de 0,5 px) : l'horloge tombe à 1160,37 pour un centre
-   * de scène à 1160, parce que `DECALAGE_GARE` est un entier choisi à l'œil.
+   * de scène à 1160. **626 est la valeur qui amène l'horloge au centre**, et
+   * non un goût (spec, « Place et taille ») ; le tiers de pixel qui reste est
+   * l'arrondi, parce que `DECALAGE_GARE` est un entier et que la valeur exacte
+   * ne l'est pas.
    */
   it('l’horloge est au milieu de la scène', () => {
     expect(HORLOGE.x).toBeCloseTo(STAGE.width / 2, 0)

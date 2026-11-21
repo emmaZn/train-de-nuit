@@ -9,9 +9,10 @@
  * qui s'éteint, c'est tout ce qui n'est pas une lumière. Le bâtiment et la
  * bordure s'éteignent : ils vivent dans un plan que la nuit teinte. Le
  * réverbère et l'horloge sont des lumières : ils vivent dans une branche
- * qu'aucune teinte n'atteint — ni elle, ni aucun de ses ancêtres. Mais c'est un seul objet posé sur un seul sol, alors
- * `avancer()` pose la **même abscisse** sur les deux racines : elles défilent
- * d'un seul mouvement, et rien ne peut les désynchroniser.
+ * qu'aucune teinte n'atteint — ni elle, ni aucun de ses ancêtres. Mais c'est un
+ * seul objet posé sur un seul sol, alors `avancer()` pose la **même abscisse**
+ * sur les deux racines : elles défilent d'un seul mouvement, et rien ne peut
+ * les désynchroniser.
  *
  * Les lumières se montent **entre le voile du pied et la rame**, et non après
  * les vitres : le quai est derrière le train par construction, et après les
@@ -346,6 +347,10 @@ export class Quai {
    *
    * L'échelle vient du dernier cadrage : la cible tient 44 px d'écran à toute
    * échelle, et c'est le quai qui connaît la sienne.
+   *
+   * Elle répond encore quand le mât défile : c'est `Scene.basculerReverbere`
+   * qui tient la règle d'arrêt (spec §3), comme pour le rideau — le quai dit
+   * où est la lampe, pas quand on a le droit d'y toucher.
    */
   reverbereTouche(x: number, y: number): boolean {
     return this.posee && reverbereTouche(x - this.x, y, this.echelleCadre)
@@ -356,7 +361,7 @@ export class Quai {
     return this.lampeAllumee
   }
 
-  /** Un clic l'éteint, un second le rallume. */
+  /** Un clic l'éteint, un second le rallume — à l'arrêt : la règle est dans `Scene`. */
   basculerReverbere(): void {
     this.allumerReverbere(!this.lampeAllumee)
   }
@@ -364,8 +369,8 @@ export class Quai {
   /**
    * Allume ou éteint : on **cache** la lumière, on ne l'efface pas.
    *
-   * Le faisceau entier part d'un coup — son cône, sa poussière et, plus tard,
-   * sa neige — parce que c'est un seul conteneur. La lanterne, elle, perd sa
+   * Le faisceau entier part d'un coup — son cône, sa poussière et sa neige —
+   * parce que c'est un seul conteneur. La lanterne, elle, perd sa
    * visibilité et garde son tracé : `redessiner` repasse dessus à chaque
    * cadrage, et une lanterne éteinte par un `clear()` se rallumerait au premier
    * redimensionnement.

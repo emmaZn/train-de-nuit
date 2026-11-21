@@ -1,4 +1,4 @@
-import { Container } from 'pixi.js'
+import { Container, Graphics } from 'pixi.js'
 import { describe, expect, it } from 'vitest'
 
 import { Faisceau, grainsDuFaisceau, nappesDuCone } from '@/scene/Faisceau'
@@ -189,7 +189,7 @@ describe('la neige du faisceau', () => {
 
   it('est découpée au cône : un masque, sur un conteneur immobile', () => {
     const f = new Faisceau(new Container())
-    const masque = f.neige.racine.mask as Container | null
+    const masque = f.neige.racine.mask as Graphics | null
     expect(masque).toBeTruthy()
     // Le masque est seul à retenir les flocons dans le faisceau : sa géométrie
     // est l'invariant, pas son existence. Il doit valoir le cône.
@@ -201,6 +201,66 @@ describe('la neige du faisceau', () => {
     f.cadrer(cadre, false)
     f.animer(2)
     expect(f.neige.racine.y).toBe(0)
+  })
+
+  /**
+   * **La boîte ne dit rien de la forme.** Depuis que les flocons sont tirés sur
+   * le **rectangle** englobant (`floconsDuCone`), le masque est la seule chose
+   * qui les retient dans le cône : c'est lui l'invariant. Or la garde ci-dessus
+   * ne regarde que `getLocalBounds()`, et un rectangle, un losange ou un
+   * triangle retourné y passeraient tous les quatre.
+   *
+   * On interroge donc le masque **point par point**, et on le confronte à
+   * `dansLeCone`, qui est la vérité du cône. Les quatre sondes nommées disent
+   * la forme en clair — deux coins hauts dehors, deux coins bas dedans : c'est
+   * exactement ce qui sépare le triangle des trois autres — et le balayage
+   * garde le reste. Les points à moins d'un pixel d'une arête sont laissés de
+   * côté : un test d'appartenance n'est pas tenu au dernier bit.
+   */
+  it('et ce masque est bien le triangle du cône, pas sa boîte', () => {
+    const f = new Faisceau(new Container())
+    const masque = f.neige.racine.mask as Graphics
+    const dedans = (x: number, y: number) => masque.containsPoint({ x, y })
+    const bas = cone.sommet.y + cone.hauteur
+
+    // Les deux coins hauts de la boîte sont **hors** du cône : un rectangle les
+    // prendrait. Le sommet, lui, est dedans : un triangle retourné ne l'aurait pas.
+    expect(dedans(cone.base[0] + 5, cone.sommet.y + 5), 'coin haut gauche').toBe(false)
+    expect(dedans(cone.base[1] - 5, cone.sommet.y + 5), 'coin haut droit').toBe(false)
+    expect(dedans(cone.sommet.x, cone.sommet.y + 5), 'sous le sommet').toBe(true)
+    // Les deux coins bas sont **dans** le cône : un losange inscrit dans la
+    // même boîte s'y refermerait sur sa pointe basse.
+    expect(dedans(cone.base[0] + 5, bas - 2), 'coin bas gauche').toBe(true)
+    expect(dedans(cone.base[1] - 5, bas - 2), 'coin bas droit').toBe(true)
+    expect(dedans(cone.sommet.x, bas - 2), 'milieu de la base').toBe(true)
+
+    /** Le point est-il franc — à plus d'un pixel de toute arête ? Sinon on passe. */
+    const franc = (x: number, y: number): boolean | null => {
+      const a = dansLeCone(cone, { x, y })
+      for (const dx of [-1, 1]) {
+        for (const dy of [-1, 1]) {
+          if (dansLeCone(cone, { x: x + dx, y: y + dy }) !== a) return null
+        }
+      }
+      return a
+    }
+
+    let compares = 0
+    let dehors = 0
+    for (let i = 0; i <= 24; i += 1) {
+      for (let j = 0; j <= 24; j += 1) {
+        const x = cone.base[0] + ((cone.base[1] - cone.base[0]) * i) / 24
+        const y = cone.sommet.y + (cone.hauteur * j) / 24
+        const attendu = franc(x, y)
+        if (attendu === null) continue
+        compares += 1
+        if (!attendu) dehors += 1
+        expect(dedans(x, y), `(${x.toFixed(1)}, ${y.toFixed(1)})`).toBe(attendu)
+      }
+    }
+    // Le balayage a bien vu les deux côtés : sans ça il ne garderait rien.
+    expect(compares).toBeGreaterThan(400)
+    expect(dehors).toBeGreaterThan(100)
   })
 
   it('porte des flocons, COUCHES_NEIGE couches, tracés au cadrage', () => {

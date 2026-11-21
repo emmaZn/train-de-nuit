@@ -49,9 +49,10 @@
  * que le premier, et elles portent les trois seuls focalisables du panneau. La
  * plaque, elle, ne l'est **pas** : un nœud `inert` sort du test de survol du
  * navigateur comme s'il était `pointer-events: none`, et l'appui serait retombé
- * pendant 1,45 s sur ce qu'il y a dessous — le réverbère, qui s'éteint même en
- * marche, et l'horloge, qui rebaisserait le rideau. La plaque reste donc
- * cliquable, et son `pointerdown` continue d'arrêter ce qui tombe dessus.
+ * pendant 1,45 s sur ce qu'il y a dessous — l'horloge, qui rebaisserait le
+ * rideau, et le réverbère, car une remontée à la croix se joue train à quai,
+ * là où la lampe répond. La plaque reste donc cliquable, et son `pointerdown`
+ * continue d'arrêter ce qui tombe dessus.
  *
  * Le texte se pose **volet par volet** (`VoletTexte`), de haut en bas, comme un
  * tableau de grande gare : c'est l'événement, la descente n'en est que
@@ -122,8 +123,8 @@ const cote = computed(() => CIBLE / (frame.value?.scale ?? 1))
  * Où elle est dans la hauteur du bandeau : centrée quand la bande est assez
  * haute pour la porter, et sinon calée sur le **bas** de la bande, donc
  * débordant par le haut — au-dessus il n'y a que le bord de la plaque et le
- * ciel, en dessous il y a la première ligne, qui est un des trois liens. C'est
- * le même parti que la commande posée sur l'heure.
+ * ciel, en dessous il y a la première ligne, qui est un des trois liens. Entre
+ * déborder vers le vide et déborder sur un lien, on choisit le vide.
  */
 const styleCroix = computed(() => {
   const t = cote.value
@@ -235,6 +236,11 @@ const gaucheEcran = computed(() => {
 
 // Taille de cadre, mise à l'échelle par `transform` : le texte n'est jamais
 // mesuré en pixels d'écran, et le style du panneau non plus.
+//
+// `--echelle` est la **même** échelle que le `transform`, donnée au CSS : le
+// filet s'en sert pour revenir à un vrai pixel d'écran (voir `.panneau`). Elle
+// sort d'ici et non d'une seconde lecture du cadre, pour qu'il n'y ait jamais
+// deux échelles qui divergent d'une image.
 const place = computed<Record<string, string>>((): Record<string, string> => {
   const f = frame.value!
   return {
@@ -243,6 +249,7 @@ const place = computed<Record<string, string>>((): Record<string, string> => {
     width: `${largeurCadre.value}px`,
     height: `${RIDEAU.hauteur}px`,
     transform: `scale(${f.scale})`,
+    '--echelle': `${f.scale}`,
   }
 })
 
@@ -331,23 +338,23 @@ const commandeEl = ref<HTMLButtonElement | null>(null)
 const croixEl = ref<HTMLButtonElement | null>(null)
 
 /**
- * Échap ferme le panneau tant qu'il est baissé, et seulement alors : rangé, la
- * touche n'est pas à lui. Le CV reste au-dessus de tout, donc sa touche passe
- * d'abord : tant qu'il est ouvert, Échap le referme **lui**, et le panneau, qui
- * reste monté dessous (décision 7 de la spec du rideau), attend le suivant.
- * Passe par `Scene.basculerRideau()`, comme la croix et l'horloge.
- */
-/**
  * Ferme, et **seulement** si le panneau est baissé : `basculerRideau` est une
  * bascule, et la croix reste atteignable pendant la remontée (la plaque doit
  * rester dans le chemin du pointeur). Un second appui — un double-tap — la
- * rebaisserait sans cette garde.
+ * rebaisserait sans cette garde. Passe par `Scene.basculerRideau()`, comme la
+ * croix et l'horloge.
  */
 function fermer() {
   if (!rideau.value?.baisse) return
   scene.value?.basculerRideau()
 }
 
+/**
+ * Échap ferme le panneau tant qu'il est baissé, et seulement alors : rangé, la
+ * touche n'est pas à lui. Le CV reste au-dessus de tout, donc sa touche passe
+ * d'abord : tant qu'il est ouvert, Échap le referme **lui**, et le panneau, qui
+ * reste monté dessous (décision 7 de la spec du rideau), attend le suivant.
+ */
 function surEchap(e: KeyboardEvent) {
   if (e.key !== 'Escape' || e.defaultPrevented) return
   if (route.name === 'cv') return
@@ -396,10 +403,19 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
        bascules. Même faute au pointeur : `useScene` écoute `pointerdown` sur `window` et
        `clicPx` bascule déjà le rideau sur l'aire de l'horloge — que ce bouton couvre.
        `@pointerdown.stop` laisse le `click` seul faire la bascule. `aria-label` fixe :
-       le bouton ne porte aucun texte. `aria-expanded` dit l'état, `aria-controls` dit de
-       quoi : le bouton et la région portent le même nom, et rien ne disait que l'un
-       commande l'autre. Il n'est posé que quand la région existe — rangé, le panneau est
-       retiré du DOM, et un renvoi dans le vide ne renseigne personne. -->
+       le bouton ne porte aucun texte. `aria-controls` dit quelle région il commande —
+       le bouton et la région portent le même nom, et rien ne disait que l'un commande
+       l'autre. Il n'est posé que quand la région existe : rangé, le panneau est retiré
+       du DOM, et un renvoi dans le vide ne renseigne personne.
+
+       **Pas d'`aria-expanded`.** Il l'a porté, et il ne pouvait plus dire que
+       « fermé » : depuis la tâche 5 la commande se **retire** (`v-if`) à
+       l'instant exact où `rideau.baisse` devient vrai, donc elle n'existe
+       jamais ouverte. Un attribut qui ne prend qu'une valeur ne renseigne
+       personne, et garder la commande montée pour qu'il en prenne deux
+       rouvrirait le défaut que la tâche 5 a fermé — une seconde commande de
+       fermeture en piège sous la plaque. C'est la croix du bandeau qui annonce
+       le panneau, et le focus y entre à l'ouverture. -->
   <button
     v-if="commande"
     ref="commandeEl"
@@ -407,7 +423,6 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
     data-commande
     type="button"
     aria-label="Prochains départs"
-    :aria-expanded="rideau?.baisse ?? false"
     :aria-controls="visible ? ID_PANNEAU : undefined"
     :disabled="voyage.enRoute"
     :style="commande"
@@ -503,14 +518,40 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
    CV (20), qui reste au-dessus de tout.
 
    Le fond et le filet sont les siens : la plaque du canvas n'est plus là pour
-   les porter. Le DOM n'est pas tenu à « blanc ou absent ». */
+   les porter.
+
+   **Le filet est un vrai pixel d'écran**, et c'est ce que `calc()` dit. Tout
+   ici est en pixels de **cadre** : un `border: 1px` y serait rendu à
+   `1 × échelle`, soit 0,65 px à 1512 × 771, 0,69 sur un téléphone, 0,89 à
+   1920 × 1080. Le navigateur dessine cela en gris pâle — une mi-teinte, que
+   « blanc ou absent » (CONCEPT §12.2) refuse. Les deux rendus qui ont précédé
+   évitaient déjà le défaut, chacun à sa façon : la plaque du canvas avait un
+   plancher de rastérisation explicite, le rendu détaché avait
+   `transform: none`. La recette s'était perdue avec eux.
+
+   **Un calque par-dessus, et non un `border`.** La division par l'échelle
+   suffit à rendre le trait à un pixel d'écran, mais un `border` prend sa place
+   dans la boîte : à 390 px de large il aurait mangé 0,9 px de cadre de plus
+   sur la piste des destinations, qui n'en a pas — la garde de débordement
+   tombe. Le filet est donc tracé par `::after`, posé en absolu sur la boîte :
+   il ne compte pas dans la mise en page, la ligne garde sa piste entière.
+
+   **Et par-dessus, pas dessous** : une ombre intérieure aurait fait la même
+   économie, mais elle se peint **sous** les enfants. Le bandeau et la croix
+   ont leur propre fond et, sans `border` pour les retenir, vont jusqu'au bord
+   de la boîte : la croix survolée, qui passe à `--fond`, aurait découpé une
+   encoche de 44 px dans le filet droit — sur la commande de sortie. `::after`
+   est le dernier de l'arbre, il passe sur eux.
+
+   `var(--echelle, 1)` : l'échelle vient du style en ligne, à côté du
+   `transform` qu'elle double (voir `place`), et `::after` en hérite. Le repli
+   à 1 n'est là que pour qu'un filet ne disparaisse jamais en silence. */
 .panneau {
   position: fixed;
   z-index: 15;
   transform-origin: 0 0;
   box-sizing: border-box;
   background: var(--fond);
-  border: 1px solid var(--texte);
   /* Le retrait latéral, déclaré une seule fois : le bandeau d'en-tête
      l'annule pour aller d'un bord intérieur à l'autre du cadre.
 
@@ -544,6 +585,20 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
      non plus une boîte de couverture calculée dans le canvas. `auto` couvre
      aussi le fond et les lignes éteintes, qui ne portent aucun lien. */
   pointer-events: auto;
+}
+
+/* Le filet, en propre : voir `.panneau` ci-dessus pour les deux raisons de ne
+   le faire ni avec un `border` ni avec une ombre intérieure. `inset: 0` sur la
+   boîte de la plaque, qui est `position: fixed` donc bloc conteneur ;
+   `pointer-events: none` pour qu'il ne prenne rien — c'est la plaque qui
+   arrête les appuis, pas son cadre. */
+.panneau::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: calc(1px / var(--echelle, 1)) solid var(--texte);
+  pointer-events: none;
 }
 
 /* L'en-tête est un **bandeau plein** : le fond prend la couleur du texte et le
@@ -613,9 +668,15 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
   stroke-width: 2.5;
 }
 
-.croix:hover {
-  background: var(--fond);
-  color: var(--texte);
+/* L'inversion du survol, **aux seuls pointeurs qui survolent**. Sur un écran
+   tactile, `:hover` se pose au doigt et y **reste** : la croix serait restée
+   inversée après la fermeture, et c'est la sortie du panneau — la moitié de ce
+   public est au téléphone. */
+@media (hover: hover) {
+  .croix:hover {
+    background: var(--fond);
+    color: var(--texte);
+  }
 }
 
 .croix:focus-visible {

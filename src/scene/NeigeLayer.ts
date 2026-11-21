@@ -75,8 +75,10 @@ export class CouchesQuiTombent {
   /**
    * Trace les populations, une fois pour toutes : chaque flocon deux fois,
    * à `y` et à `y - hauteur`. `rayonMin` garde un flocon au-dessus du
-   * demi-grain d'écran — en dessous, un disque s'antialiaserait en mi-teinte,
-   * et le projet n'en allume pas (CONCEPT §12.2).
+   * demi-grain d'écran : plus petit, le disque tombe sous le pixel et
+   * l'anticrénelage le rend en gris pâle au lieu de blanc — ce n'est pas la
+   * mi-teinte **déclarée** que CONCEPT §12.2 pèse (la neige a son opacité, et
+   * elle est assumée), c'est un blanc qu'on perd au tracé. Le plancher le rend.
    */
   poser(populations: Flocon[][], hauteur: number, rayonMin: number): void {
     this.hauteur = Math.max(hauteur, 1)

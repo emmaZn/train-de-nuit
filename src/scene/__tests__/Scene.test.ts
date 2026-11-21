@@ -197,6 +197,7 @@ type Interne = {
   stars: { hit: (px: number, py: number) => Trace | null } | null
   rideau: Rideau | null
   oiseaux: { cliquer: (x: number, y: number) => boolean } | null
+  neige: { groupe: Container } | null
 }
 
 const vivantes: Scene[] = []
@@ -213,12 +214,19 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** Ce que le rendu du reflet avait sous les yeux : la visibilité des plans qui doivent en sortir. */
+type Vu = { ciel: boolean; neige: boolean; neigeDuCone: boolean | null }
+
 /**
  * Une scène qui a fait son `init()` pour de bon — le rideau naît là, dans le
  * même ordre que dans le navigateur —, sans carte graphique : Pixi est
  * remplacé par ce que la scène lui demande, et l'horloge de rendu par une
  * fonction qu'on appelle (`image`). Le quai, que `peupler` monte après le
  * manifeste, est posé à la main : l'île est à l'arrêt (distance 0).
+ *
+ * `rendus` note, **à l'instant du rendu du reflet**, ce que le renderer voit :
+ * c'est le seul endroit d'où l'on peut le savoir, puisque `horsDuReflet` remet
+ * tout en place dans son `finally`.
  */
 async function sceneDeTest(reducedMotion = false) {
   vi.spyOn(Application.prototype, 'init').mockResolvedValue(undefined as never)
@@ -226,7 +234,15 @@ async function sceneDeTest(reducedMotion = false) {
   vivantes.push(scene)
   const app = (scene as unknown as { app: Record<string, unknown> }).app
   Object.defineProperty(app, 'screen', { get: () => ECRAN, configurable: true })
-  app.renderer = { on() {}, resolution: 1, background: { color: 0 }, render() {} }
+  const rendus: Vu[] = []
+  const render = vi.fn(() => {
+    rendus.push({
+      ciel: plans.ciel.visible,
+      neige: plans.neige.visible,
+      neigeDuCone: interne.quai ? interne.quai.lumiere.neige.racine.visible : null,
+    })
+  })
+  app.renderer = { on() {}, resolution: 1, background: { color: 0 }, render }
   const images: Array<(t: { deltaMS: number }) => void> = []
   app.ticker = { add: (f: (t: { deltaMS: number }) => void) => images.push(f) }
   const emis: Array<[number, boolean]> = []
@@ -239,7 +255,7 @@ async function sceneDeTest(reducedMotion = false) {
   // Cadré comme la scène le cadre : la cible du réverbère suit l'échelle.
   interne.quai.cadrer(CADRE, 1)
   interne.quai.avancer(0, 0)
-  return { scene, interne, emis, image: () => images[0]({ deltaMS: 16 }) }
+  return { scene, interne, emis, render, rendus, image: () => images[0]({ deltaMS: 16 }) }
 }
 
 describe('le rideau, commandé par l’horloge', () => {
@@ -680,5 +696,86 @@ describe('le réverbère, qu’un clic éteint', () => {
     expect(scene.reverbereAllume).toBe(true)
     expect(() => scene.basculerReverbere()).not.toThrow()
     expect(scene.reverbereAllume).toBe(true)
+  })
+
+  /**
+   * **Seulement à l'arrêt** (spec §3), au pointeur comme au clavier. Le bouton
+   * du DOM est `disabled` en marche ; la lampe avait, elle, gardé une règle à
+   * elle — « elle répond là où elle est, même en marche » — et la souris
+   * pouvait donc éteindre un réverbère que le clavier ne pouvait plus toucher.
+   * Deux règles pour un seul geste : c'est ce que `basculerReverbere` interdit
+   * en toutes lettres (« pour que le clavier n'ait pas une lampe à lui »).
+   *
+   * Le clic reste **pris** — `clicPx` rend `true` —, comme celui de l'horloge
+   * en marche : il a touché la lampe, il ne doit pas aussi ouvrir une bulle.
+   */
+  it('ne répond plus en marche, comme le bouton du DOM qui est alors `disabled`', async () => {
+    const { scene, interne } = await sceneDeTest()
+    scene.setGare('ailleurs')
+    scene.setVoyage(true, 1, 'ici')
+    const { x, y } = surLeMat()
+    expect(scene.clicPx(x, y)).toBe(true)
+    expect(scene.reverbereAllume).toBe(true)
+    // Et le geste direct non plus : la règle est dans `basculerReverbere`.
+    scene.basculerReverbere()
+    expect(scene.reverbereAllume).toBe(true)
+    // À l'arrêt, elle répond de nouveau.
+    scene.setVoyage(false, 0)
+    interne.quai!.avancer(0, 1)
+    expect(scene.clicPx(x, y)).toBe(true)
+    expect(scene.reverbereAllume).toBe(false)
+  })
+})
+
+describe('la nuit, posée avant la première image', () => {
+  /**
+   * L'`assombrir()` de la fin d'`init` ne peut pas tenir ce qu'il promettait :
+   * quand il passe, `gare` vaut encore `'ici'` — `useScene` ne dit la gare
+   * qu'**après** l'`await init()`. Il posait donc la neige à **zéro**.
+   *
+   * Ce qui porte la garantie, c'est que `setGare` et `setVoyage` assombrissent
+   * eux-mêmes : la neige d'un lien partagé vers « ailleurs » est pleine dès que
+   * la scène sait où elle est, sans attendre le premier tick de Pixi.
+   */
+  it('la neige est pleine dès que la gare est dite, sans qu’une image soit rendue', async () => {
+    const { scene, interne, render } = await sceneDeTest()
+    expect(interne.neige!.groupe.alpha).toBe(0)
+    scene.setGare('ailleurs')
+    scene.setVoyage(false, 0)
+    expect(interne.neige!.groupe.alpha).toBe(1)
+    // Aucune image n'a été rendue : c'est bien la pose, pas le tick.
+    expect(render).not.toHaveBeenCalled()
+  })
+
+  /** Et elle repart dès qu'on quitte « ailleurs », toujours sans image. */
+  it('et elle s’en va de même quand la gare change', async () => {
+    const { scene, interne } = await sceneDeTest()
+    scene.setGare('ailleurs')
+    scene.setVoyage(false, 0)
+    expect(interne.neige!.groupe.alpha).toBe(1)
+    scene.setGare('ici')
+    expect(interne.neige!.groupe.alpha).toBe(0)
+  })
+
+  /**
+   * **M6.** Le reflet ne doit pas renvoyer la neige du cône : retournés, ses
+   * flocons **monteraient** dans l'eau. Rien ne le gardait — supprimer le
+   * dernier argument de `horsDuReflet` laissait la suite entière au vert.
+   * On regarde donc ce que le renderer a sous les yeux **pendant** le rendu :
+   * `horsDuReflet` remet tout en place dans son `finally`, c'est le seul
+   * instant où cela se voit.
+   */
+  it('le reflet ne prend ni le ciel, ni la neige, ni celle du faisceau', async () => {
+    const { interne, render, rendus, image } = await sceneDeTest()
+    image()
+    expect(render).toHaveBeenCalled()
+    expect(rendus.length).toBeGreaterThan(0)
+    for (const vu of rendus) {
+      expect(vu.ciel, 'le ciel').toBe(false)
+      expect(vu.neige, 'la neige libre').toBe(false)
+      expect(vu.neigeDuCone, 'la neige du cône').toBe(false)
+    }
+    // Et tout est rendu après : le faisceau ne reste pas éteint par le reflet.
+    expect(interne.quai!.lumiere.neige.racine.visible).toBe(true)
   })
 })

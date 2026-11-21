@@ -702,19 +702,24 @@ describe('PanneauDeparts — la commande du rideau', () => {
   /**
    * Le bouton et la région du panneau portent le **même nom** — c'est le texte
    * d'Emmanuelle, et on n'y touche pas. Rien ne disait pour autant au lecteur
-   * d'écran que l'un commande l'autre : `aria-expanded` donne l'état,
-   * `aria-controls` dit de quoi c'est l'état.
+   * d'écran que l'un commande l'autre : c'est `aria-controls` qui le dit.
    *
    * Il n'est posé que quand la région est là : rideau rangé, le panneau est retiré
    * du DOM (ses liens avec lui), et un renvoi vers un `id` absent ne renseigne
    * personne. L'`id` est cherché **dans le montage** : ces tests attachent au
    * document sans démonter, et un panneau d'un test précédent traîne encore.
+   *
+   * **Et pas d'`aria-expanded`** (M2) : la commande se retire à l'instant exact
+   * où le rideau se baisse, elle n'existe donc jamais « ouverte » — l'attribut
+   * ne pouvait plus prendre qu'une valeur. La garde est ici pour qu'on ne le
+   * remette pas sans remettre aussi une commande qui reste montée, c'est-à-dire
+   * le défaut que la tâche 5 a fermé.
    */
   it('dit quelle région elle commande, tant que cette région est là', async () => {
     const { wrapper, rideau, f } = rangee()
     // Rangé : il n'y a pas de région, donc rien à désigner.
     expect(wrapper.find('[role="region"]').exists()).toBe(false)
-    expect(commande(wrapper).attributes('aria-expanded')).toBe('false')
+    expect(commande(wrapper).attributes('aria-expanded')).toBeUndefined()
     expect(commande(wrapper).attributes('aria-controls')).toBeUndefined()
 
     // Baissé : la commande se retire, et la croix du bandeau est la sortie.
@@ -727,10 +732,10 @@ describe('PanneauDeparts — la commande du rideau', () => {
     expect(wrapper.find('[data-commande]').exists()).toBe(false)
 
     // Remontée : la plaque est encore là, la commande est revenue sur l'horloge
-    // et désigne la région tant qu'elle existe ; elle dit « fermé ».
+    // et désigne la région tant qu'elle existe.
     rideau.value = { y: yPoseA(f) - 40, baisse: false }
     await nextTick()
-    expect(commande(wrapper).attributes('aria-expanded')).toBe('false')
+    expect(commande(wrapper).attributes('aria-expanded')).toBeUndefined()
     expect(commande(wrapper).attributes('aria-controls')).toBe(region.attributes('id'))
   })
 
@@ -786,15 +791,22 @@ describe('PanneauDeparts — la commande du rideau', () => {
     expect(scene.basculerRideau).not.toHaveBeenCalled()
   })
 
-  it('dit l’état du rideau : fermé tant qu’elle existe, absente dès qu’il est baissé', async () => {
+  /**
+   * **M2.** Son existence **est** l'état : elle est là quand le rideau est
+   * rangé, elle n'est plus là dès qu'il est baissé. Il n'y a donc rien qu'un
+   * `aria-expanded` puisse dire — il ne prenait qu'une valeur, « fermé » —, et
+   * c'est la croix du bandeau qui annonce le panneau ouvert.
+   */
+  it('n’a pas d’`aria-expanded` : son existence est l’état', async () => {
     const { wrapper, rideau, f } = rangee()
-    expect(commande(wrapper).attributes('aria-expanded')).toBe('false')
+    expect(commande(wrapper).attributes('aria-expanded')).toBeUndefined()
     rideau.value = { y: yPoseA(f), baisse: true }
     await nextTick()
     expect(wrapper.find('[data-commande]').exists()).toBe(false)
     rideau.value = { y: yRangeA(f), baisse: false }
     await nextTick()
-    expect(commande(wrapper).attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[data-commande]').exists()).toBe(true)
+    expect(commande(wrapper).attributes('aria-expanded')).toBeUndefined()
   })
 
   it('garde le même nom que la région, rangée comme au retour', async () => {
@@ -937,8 +949,9 @@ describe('PanneauDeparts — la commande du rideau', () => {
  * c'est lui qui porte la plaque — à l'échelle du cadre, centré sur la fenêtre,
  * devant la frise et sous le CV.
  *
- * Les quatre premières gardes sont celles de la spec §4 ; la cinquième est le
- * Review Focus nº 1, le redimensionnement en pleine descente.
+ * Ce sont les gardes de la spec §4. Le redimensionnement en pleine descente
+ * (Review Focus nº 1) a eu la sienne ici ; elle ne pouvait pas tomber et elle
+ * est partie (M7) — c'est `rideau.test.ts` qui garde la fraction de course.
  */
 describe('PanneauDeparts — la plaque est le panneau', () => {
   const source = () => readFileSync('src/components/PanneauDeparts.vue', 'utf8')
@@ -1031,7 +1044,12 @@ describe('PanneauDeparts — la plaque est le panneau', () => {
     expect(Number(panneau![1])).toBeLessThan(Number(cv![1]))
   })
 
-  /** Et sa commande passe devant lui, sinon le panneau la recouvrirait. */
+  /**
+   * Et sa commande, elle, ne passe **pas** devant : elle se retire. Elle a
+   * porté un `z-index` tant qu'elle restait montée sous la plaque ; depuis la
+   * tâche 5 elle n'y est plus du tout, et le disque posé en plein ciel ne doit
+   * surtout pas monter au-dessus des bulles d'étoiles.
+   */
   it('la commande n’a plus de z-index : elle se retire panneau baissé, au lieu de passer devant', () => {
     // Posée sur l'horloge elle est un disque invisible en plein ciel, qu'un
     // `z-index` ferait passer devant les bulles ; et baissé, le panneau la retire.
@@ -1053,51 +1071,22 @@ describe('PanneauDeparts — la plaque est le panneau', () => {
     expect(declarations('.entete')).not.toMatch(/clip-path/)
   })
 
-  /**
-   * **Review Focus nº 1.** La fenêtre change pendant que le panneau descend : il
-   * suit sa **fraction** de course et ne vise pas un `y` périmé. À fraction
-   * égale, le haut du panneau est à la même fraction de sa course d'écran —
-   * c'est la propriété, et elle vaut pour les deux cadres.
+  /*
+   * **Retiré (M7) : « un redimensionnement en pleine descente ne fait pas sauter
+   * le panneau ».** Il donnait au composant le `y` qu'il recalculait ensuite par
+   * la même interpolation, puis vérifiait que les deux tombaient d'accord : il
+   * ne pouvait pas tomber. Son jumeau côté scène, dans `rideau.test.ts`, porte
+   * le vrai contenu — c'est `Rideau` qui interpole une **fraction** de course et
+   * non un `y`, et c'est là que ça se garde. Deux tests dont l'un ne peut jamais
+   * tomber, c'est la famille déjà sanctionnée à la tâche 4.
    */
-  it('un redimensionnement en pleine descente ne fait pas sauter le panneau', async () => {
-    const f1 = cadreDe(1512, 771)
-    const f2 = cadreDe(800, 1000)
-    expect(f2.scale).not.toBeCloseTo(f1.scale)
-    // La course du haut du panneau à l'écran, d'un cadre donné.
-    const course = (f: Frame) => ({
-      range: f.offsetY + yRangeA(f) * f.scale,
-      pose: f.offsetY + yPoseA(f) * f.scale,
-    })
-    // Le `y` que la scène émet à cette fraction : `Rideau.y` interpole la
-    // fraction entre la rangée et la pose **du cadre courant**.
-    const yA = (f: Frame, p: number) => yRangeA(f) * (1 - p) + yPoseA(f) * p
-    const P = 0.4
-    const { wrapper, cadre, rideau } = monter('ailleurs', {
-      frame: f1,
-      largeur: 1512,
-      rideau: { y: yA(f1, P), baisse: true },
-    })
-    const haut = () => parseFloat(wrapper.get<HTMLElement>('.panneau').element.style.top)
-    const fraction = (f: Frame) => {
-      const c = course(f)
-      return (haut() - c.range) / (c.pose - c.range)
-    }
-    expect(fraction(f1)).toBeCloseTo(P, 6)
-    // La fenêtre change : la scène recadre et réémet, à la même fraction.
-    window.innerWidth = 800
-    cadre.value = f2
-    rideau.value = { y: yA(f2, P), baisse: true }
-    await nextTick()
-    expect(fraction(f2)).toBeCloseTo(P, 6)
-    // Et ce n'est pas la même place à l'écran : le test verrait un panneau figé.
-    expect(haut()).not.toBeCloseTo(course(f1).range * (1 - P) + course(f1).pose * P, 1)
-  })
 })
 
 /**
- * Ce que le DOM dessine maintenant qu'il dessine tout : les deux bras, le disque
- * de la commande posé sur l'heure du bandeau, et la largeur d'une ligne une fois
- * la plaque bornée par la fenêtre.
+ * Ce que le DOM dessine maintenant qu'il dessine tout : le filet de la plaque,
+ * les deux bras, la hauteur et la gouttière, et la largeur d'une ligne une fois
+ * la plaque bornée par la fenêtre. (Le disque de la commande n'y est plus : il
+ * a quitté le bandeau à la tâche 5, et c'est la croix qui ferme.)
  *
  * jsdom ne met rien en page : ces tests gardent le style émis et le source des
  * règles — pas le rendu réel, que personne n'a regardé. Les mesures du style
@@ -1119,7 +1108,19 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
   }
   /** Une mesure de `.panneau`, en pixels de cadre. */
   const mesure = (nom: string) => nb(new RegExp(`--${nom}:\\s*([\\d.]+)px`), regle('.panneau'), `--${nom}`)
-  const filet = () => nb(/border:\s*([\d.]+)px/, regle('.panneau'), 'le filet du cadre')
+  /**
+   * Le filet déclaré, en pixels d'**écran** : il est tracé par `.panneau::after`,
+   * posé en absolu, et non par un `border` de `.panneau` — il ne compte donc pas
+   * dans la mise en page (M1).
+   */
+  const filetEcran = () =>
+    nb(
+      /border:\s*calc\(\s*([\d.]+)px\s*\/\s*var\(--echelle[^)]*\)\s*\)/,
+      regle('.panneau::after'),
+      'le filet du cadre',
+    )
+  /** Le même, en pixels de **cadre** : ce qu'il **couvre** de la plaque, pas ce qu'il lui prend. */
+  const filet = (echelle: number) => filetEcran() / echelle
 
   const plaque = (wrapper: ReturnType<typeof monter>['wrapper']) => {
     const s = (wrapper.get('.panneau').element as HTMLElement).style
@@ -1134,6 +1135,65 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
     const f = cadreDe(l, h)
     return { f, ...monter('ailleurs', { frame: f, largeur: l, rideau: { y: yPoseA(f), baisse: true } }) }
   }
+
+  /**
+   * **M1 — le filet ne descend jamais sous le pixel d'écran.**
+   *
+   * Tout le style de la plaque est en pixels de **cadre**, mis à l'échelle par
+   * `transform: scale()`. Un `border: 1px` y était donc rendu à `1 × échelle` :
+   * 0,65 px à 1512 × 771, 0,69 à 390 × 844, 0,89 à 1920 × 1080. Un navigateur
+   * dessine cela en gris pâle — une mi-teinte, et le projet n'en allume pas
+   * (CONCEPT §12.2, « blanc ou absent »). Les deux rendus qui ont précédé
+   * évitaient déjà le défaut ; la recette est partie avec eux.
+   *
+   * Le filet est donc déclaré en pixels d'écran et divisé par l'échelle, et
+   * l'échelle est la **même** que celle du `transform` — c'est le second
+   * invariant ici, sans quoi la division corrigerait de travers.
+   *
+   * Et il est tracé par un **calque posé par-dessus** (`.panneau::after`), pas
+   * par un `border` de la plaque : un `border` divisé par l'échelle reprend sa
+   * part de la boîte, et la piste des destinations, qui n'a pas de marge à
+   * 390 px de large, la perdait. Pas par une ombre intérieure non plus : elle
+   * se peint **sous** les enfants, et la croix survolée — qui passe à `--fond`
+   * et touche le bord de la boîte sans `border` pour la retenir — aurait
+   * découpé une encoche de 44 px dans le filet droit.
+   */
+  describe('le filet de la plaque', () => {
+    /** Les déclarations d'une règle, commentaires retirés : ils parlent de `border`. */
+    const declarations = (nom: string) => regle(nom).replace(/\/\*[\s\S]*?\*\//g, '')
+    const TOUTES: ReadonlyArray<readonly [number, number]> = [
+      [320, 568], [390, 844], [430, 932], [719, 500], [1024, 768],
+      [1512, 771], [1920, 1080], [2560, 1440], [3440, 800],
+    ]
+
+    it('est un calque posé par-dessus, et non un `border` qui prendrait de la place', () => {
+      // Rien dans la boîte de la plaque : ni `border`, ni ombre peinte sous les enfants.
+      expect(declarations('.panneau')).not.toMatch(/\bborder:/)
+      expect(declarations('.panneau')).not.toMatch(/box-shadow/)
+      // Le calque, lui, est en absolu et ne prend aucun appui.
+      const apres = declarations('.panneau::after')
+      expect(apres).toMatch(/position:\s*absolute/)
+      expect(apres).toMatch(/inset:\s*0/)
+      expect(apres).toMatch(/pointer-events:\s*none/)
+      expect(filetEcran()).toBeGreaterThanOrEqual(1)
+    })
+
+    it.each(TOUTES)('reste à un pixel d’écran plein à %i × %i', (l, h) => {
+      const { wrapper } = posee(l, h)
+      const s = (wrapper.get('.panneau').element as HTMLElement).style
+      // L'échelle donnée au CSS est celle du `transform` : une seule source.
+      const echelle = Number(/^scale\(([\d.]+)\)$/.exec(s.transform)![1])
+      const declaree = Number(s.getPropertyValue('--echelle'))
+      expect(declaree, '--echelle n’est pas celle du transform').toBeCloseTo(echelle, 10)
+      // Ce que le navigateur trace : l'épaisseur de cadre, mise à l'échelle.
+      // Un cheveu de tolérance, pour la même raison que `MARGE_FLOTTANT` dans
+      // `quai.ts` : `1 / e * e` rend 0,9999999999999999 à certaines échelles.
+      const rendu = filet(declaree) * echelle
+      expect(rendu, `filet de ${rendu} px d’écran à ${l}×${h}`).toBeGreaterThanOrEqual(1 - 1e-9)
+      // Et jamais plus : c'est un filet, pas une bordure qui grossirait.
+      expect(rendu).toBeLessThanOrEqual(1 + 1e-9)
+    })
+  })
 
   /**
    * Les deux bras passent **devant** la frise (spec §5) : ils ne l'évitent plus,
@@ -1418,9 +1478,17 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
       nb(/margin:[^;]*\s([\d.]+)em;/, regle('.ligne > span:nth-child(2)::after'), 'le retrait des points')
     const CHASSE = 0.6
 
-    /** Le contenu d'une ligne, en pixels de cadre, pour une plaque de `largeur`. */
+    /**
+     * Le contenu d'une ligne, en pixels de cadre, pour une plaque de `largeur`.
+     *
+     * Le filet n'y entre **plus** : c'est une ombre intérieure, hors du modèle
+     * de boîte (M1). Il couvre le premier pixel d'écran de la plaque sans rien
+     * prendre à la piste — c'est précisément pour cela qu'il n'est pas un
+     * `border`, qui, divisé par l'échelle, aurait mangé 0,9 px de cadre de plus
+     * à 390 px de large et fait tomber la garde de débordement.
+     */
     const contenu = (largeur: number) =>
-      largeur - 2 * filet() - 2 * mesure('creux') + 2 * margeNegative() - 2 * padding()
+      largeur - 2 * mesure('creux') + 2 * margeNegative() - 2 * padding()
 
     /** Ce qui déborde de la piste `1fr`, en pixels de cadre, pour la pire paire du vivier. */
     const debordement = (largeur: number) => {
@@ -1442,10 +1510,13 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
      * c'est pour ça qu'elles sont deux.
      *
      * Celle-ci mesure le franc entre la ligne et le filet du cadre, qui vaut
-     * `filet + --creux − ce qui déborde`. À `--creux: 26` et 0,4 px de débord
-     * elle est en effet impliquée par la suivante. Mais elle ne dépend pas du
+     * `--creux − le filet − ce qui déborde`. Le filet se **retranche** depuis
+     * qu'il est une ombre intérieure (M1) : il ne prend plus de place à la
+     * plaque, il en couvre le premier pixel d'écran, et c'est sur ce pixel-là
+     * que la ligne ne doit pas venir. À `--creux: 26` et 0,4 px de débord elle
+     * est en effet impliquée par la suivante. Mais elle ne dépend pas du
      * seul débord : **un `--creux` plus court la fait tomber toute seule**, texte
-     * parfaitement tenu ou non — à 19 px de cadre elle casse avec un débord nul.
+     * parfaitement tenu ou non — à 21 px de cadre elle casse avec un débord nul.
      * Or descendre `--creux` est exactement ce que le rapport propose pour faire
      * revenir les points de conduite sur un téléphone. C'est le garde-fou de ce
      * réglage-là : la plaque doit garder 20 px de cadre de respiration, quel que
@@ -1453,8 +1524,9 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
      */
     it.each(TAILLES)('garde 20 px de cadre entre la ligne et le filet, à %i × %i', (l, h) => {
       const { wrapper } = posee(l, h)
-      const trop = Math.max(0, debordement(plaque(wrapper).largeur))
-      const franc = filet() + mesure('creux') - trop
+      const p = plaque(wrapper)
+      const trop = Math.max(0, debordement(p.largeur))
+      const franc = mesure('creux') - filet(p.echelle) - trop
       expect(franc, `il ne reste que ${franc}px de cadre de franc`).toBeGreaterThanOrEqual(20)
     })
 
@@ -1480,8 +1552,9 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
       for (const [l, h] of TAILLES) {
         const { wrapper } = posee(l, h)
         // Moins la croix et son écart : le titre et l'heure se partagent le reste.
-        const croix = 44 / plaque(wrapper).echelle + nb(/margin-left:\s*([\d.]+)px/, regle('.croix'), 'l’écart de la croix')
-        const place = plaque(wrapper).largeur - 2 * filet() - croix
+        const p = plaque(wrapper)
+        const croix = 44 / p.echelle + nb(/margin-left:\s*([\d.]+)px/, regle('.croix'), 'l’écart de la croix')
+        const place = p.largeur - 2 * filet(p.echelle) - croix
         expect(lettres, `bandeau ${lettres}px pour ${place}px à ${l}×${h}`).toBeLessThanOrEqual(place)
       }
     })
@@ -1508,7 +1581,6 @@ describe('PanneauDeparts — fermer le panneau', () => {
     expect(m, `pas de ${quoi}`).not.toBeNull()
     return Number(m![1])
   }
-  const filet = () => nb(/border:\s*([\d.]+)px/, regle('.panneau'), 'le filet du cadre')
   const creux = () => nb(/--creux:\s*([\d.]+)px/, regle('.panneau'), '--creux')
 
   type Monte = ReturnType<typeof monter>
@@ -1575,6 +1647,31 @@ describe('PanneauDeparts — fermer le panneau', () => {
       expect(parseFloat(s.height) * f.scale).toBeGreaterThanOrEqual(44 - 1e-6)
     })
 
+    /**
+     * **M5.** `:hover` se pose au doigt sur un écran tactile et y reste : la
+     * croix serait restée inversée après la fermeture, et c'est la sortie du
+     * panneau. La règle est donc sous `@media (hover: hover)`, comme toute
+     * inversion qui ne doit pas coller.
+     */
+    it('n’inverse ses couleurs qu’aux pointeurs qui survolent vraiment', () => {
+      const texte = source()
+      const debut = texte.indexOf('@media (hover: hover)')
+      expect(debut, 'pas de @media (hover: hover)').toBeGreaterThanOrEqual(0)
+      // Le corps de la requête, accolades comptées : on ne devine pas sa fin.
+      const i = texte.indexOf('{', debut)
+      let profondeur = 0
+      let fin = i
+      for (; fin < texte.length; fin += 1) {
+        if (texte[fin] === '{') profondeur += 1
+        else if (texte[fin] === '}' && (profondeur -= 1) === 0) break
+      }
+      expect(texte.slice(i, fin), '.croix:hover n’est pas dans la requête').toContain('.croix:hover')
+      // Et elle ne se déclare nulle part ailleurs, sans garde.
+      expect(texte.split('.croix:hover')).toHaveLength(2)
+      // Le focus clavier, lui, reste inconditionnel : il ne colle pas.
+      expect(regle('.croix:focus-visible')).toMatch(/outline/)
+    })
+
     it.each(TAILLES)('ne descend jamais sur la première ligne, qui est un lien, à %i × %i', (l, h) => {
       const { wrapper } = posee(l, h)
       const s = (wrapper.get('.croix').element as HTMLElement).style
@@ -1619,7 +1716,9 @@ describe('PanneauDeparts — fermer le panneau', () => {
     it.each(TAILLES)('ne monte pas dans la frise de navigation, à %i × %i', (l, h) => {
       const { wrapper, f } = posee(l, h)
       const p = (wrapper.get('.panneau').element as HTMLElement).style
-      const haut = parseFloat(p.top) + (filet() + parseFloat((wrapper.get('.croix').element as HTMLElement).style.marginTop)) * f.scale
+      // Pas de filet dans ce compte : c'est une ombre intérieure (M1), elle ne
+      // décale pas le contenu — la croix part du bord haut de la plaque.
+      const haut = parseFloat(p.top) + parseFloat((wrapper.get('.croix').element as HTMLElement).style.marginTop) * f.scale
       expect(haut).toBeGreaterThanOrEqual(HAUTEUR_FRISE)
     })
 

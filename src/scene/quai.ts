@@ -5,15 +5,15 @@
  * La composition : loco à gauche, **gare au milieu**, réverbère devant elle.
  * Elle vient du §5.4 de la spec (maquette du 15 novembre), puis le 21 novembre
  * la gare est descendue au centre de la scène (`DECALAGE_GARE`) : à droite, ni
- * elle ni son horloge n'étaient dans le cadre d'un écran étroit, d'un
- * téléphone surtout. Le panneau des départs
- * n'y figure plus : ce n'est plus une plaque posée sur le mur mais un rideau
- * suspendu à la scène (`rideau.ts`), qui ne suit pas la gare. Le bâtiment n'est plus un mur mais la gare entière
- * dessinée par la propriétaire, ses **deux** marquises de quai comprises :
- * celle de gauche part vers la gauche, derrière la rame ; celle de droite part
- * vers la droite et sort de la bande visible des écrans étroits, qui ne la
- * découvrent qu'en marche vers « ici ». Le réverbère se tient devant le **corps**
- * de la gare, sur le quai, entre les deux marquises — il ne passe sous aucune.
+ * elle ni son horloge n'étaient dans le cadre d'un écran étroit, d'un téléphone
+ * surtout. Le panneau des départs n'y figure plus : ce n'est plus une plaque
+ * posée sur le mur mais un rideau suspendu à la scène (`rideau.ts`), qui ne
+ * suit pas la gare. Le bâtiment n'est plus un mur mais la gare entière dessinée
+ * par la propriétaire, ses **deux** marquises de quai comprises : celle de
+ * gauche part vers la gauche, derrière la rame ; celle de droite part vers la
+ * droite et sort de la bande visible des écrans étroits, qui ne la découvrent
+ * qu'en marche vers « ici ». Le réverbère se tient devant le **corps** de la
+ * gare, sur le quai, entre les deux marquises — il ne passe sous aucune.
  * La propriétaire a voulu ces deux marquises (20 novembre 2026).
  *
  * **Le banc et la valise sont retirés**, le même jour et pour la même raison :
@@ -120,9 +120,11 @@ export const DECALAGE_GARE = 626
  * La largeur du bâtiment, en pixels de cadre — à l'échelle 1 de son dessin
  * (`CADRES.batiment`). Il s'étire **de part et d'autre de son corps**, que
  * `BORD_DROIT_CORPS` tient en place : le mur passe derrière le réverbère, qui
- * se tient devant lui comme sur un vrai quai, et la marquise de droite sort du
- * cadre. Un second réglage, indépendant de `DECALAGE_GARE`. Le changer demande
- * de refaire le dessin : le test des rapports le rappelle.
+ * se tient devant lui comme sur un vrai quai, et la marquise de droite s'arrête
+ * à `FIN_GARE` = 2064,3 — **dans** le cadre de 2320, mais hors de la bande que
+ * montrent les écrans étroits (voir l'en-tête). Un second réglage, indépendant
+ * de `DECALAGE_GARE`. Le changer demande de refaire le dessin : le test des
+ * rapports le rappelle.
  *
  * **1040, puis 1316, puis 1813 : c'est toujours la même règle, et ce n'est
  * jamais un réglage de goût.** On garde la **hauteur** — 500 px, la présence
@@ -166,7 +168,8 @@ export const CORPS_IMAGE = { x0: 638, x1: 1484 } as const
  *
  * 2150, c'est 2220 moins les 70 px de cadre que le premier dessin posait à
  * droite de son corps : **le corps de gare ne bouge pas d'un pixel.** Ce qui
- * change, c'est ce qu'il y a autour, et la marquise de droite sort du cadre.
+ * change, c'est ce qu'il y a autour — la marquise de droite va jusqu'à 2064,3,
+ * qui tient dans le cadre mais sort de la bande des écrans étroits.
  */
 const BORD_DROIT_CORPS = 2150
 
@@ -353,9 +356,10 @@ export function reverbereTouche(x: number, y: number, echelle: number): boolean 
 const bords = [PIECES.reverbere.x - DEMI_EMBASE, PIECES.batiment.x]
 const fins = [
   PIECES.reverbere.x + DEMI_EMBASE,
-  // La marquise de droite dépasse le cadre : l'emprise la compte quand même,
-  // sans quoi la gare serait réputée sortie du champ alors qu'elle rentre
-  // encore par la gauche.
+  // Le bord de la marquise de droite, et non celui du corps de gare : il
+  // tombe à 2064,3, dans le cadre mais hors de la bande des écrans étroits.
+  // L'emprise le compte, sans quoi la gare serait réputée sortie du champ
+  // alors que sa marquise y est encore.
   PIECES.batiment.x + PIECES.batiment.largeur,
 ]
 

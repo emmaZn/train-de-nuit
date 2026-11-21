@@ -450,8 +450,10 @@ export class Scene {
     // change pas de repère.
     this.sky = new Sky(this.plans.ciel)
     this.stars = new Stars(this.plans.ciel, { reducedMotion: this.reducedMotion })
-    // Dès ici, avant le premier `cadrer()` et le premier `assombrir()` : un
-    // lien partagé vers « ailleurs » doit neiger sur sa toute première image.
+    // Dès ici, avant le `cadrer()` qui la trace : elle doit exister quand Vue
+    // dira la gare, juste après cet `init()`, parce que c'est `setGare` qui
+    // pose sa nuit — un lien partagé vers « ailleurs » neige alors sur sa toute
+    // première image, sans attendre un tick.
     this.neige = new Neige(this.plans.neige, this.reducedMotion)
     // Il n'attend pas le manifeste : construit ici, il est cadré par le
     // `cadrer()` qui suit, et sa position n'est jamais indéfinie.
@@ -464,9 +466,13 @@ export class Scene {
     this.decor.filters = [this.recolor]
 
     this.cadrer()
-    // La nuit, tout de suite : la neige d'un lien partagé vers « ailleurs »
-    // doit être pleine sur la **première** image rendue, et non attendre le
-    // premier tick. `peupler` fait de même pour les plans qui s'inscrivent.
+    // La nuit de ce que la scène sait **aujourd'hui** : elle ne sait pas encore
+    // où elle est — Vue ne dit la gare qu'après cet `await init()` —, donc ce
+    // calcul rend zéro, et ce n'est pas lui qui tient la neige d'un lien
+    // partagé vers « ailleurs ». Ce sont `setGare` et `setVoyage`, qui
+    // assombrissent chacun en finissant : la nuit est pleine dès qu'ils sont
+    // dits, avant le premier tick. Ce rappel-ci pose la teinte des porteurs qui
+    // viennent de naître, comme `peupler` le fait pour les siens.
     this.assombrir()
     // `resizeTo: window` reporte le redimensionnement à un requestAnimationFrame :
     // lire `app.screen` depuis un écouteur `resize` du document donne toujours
@@ -726,11 +732,20 @@ export class Scene {
    * Éteint le réverbère, ou le rallume : le geste du clic sur le mât, et celui
    * du bouton du DOM — le même, pour que le clavier n'ait pas une lampe à lui.
    *
-   * Pas de règle d'arrêt, à la différence du rideau : la lampe répond là où
-   * elle est, même en marche. Rien n'est perdu à l'éteindre en route, elle est
-   * rallumée dès que la gare a quitté le champ.
+   * **Seulement à l'arrêt** (spec §3), comme le rideau. Ce code a d'abord eu
+   * une règle à lui — « la lampe répond là où elle est, même en marche » — et
+   * c'était une lampe pour la souris seule : le bouton du DOM, lui, est
+   * `disabled` dès le départ du train. Deux règles pour un seul geste, c'est
+   * précisément ce que la phrase ci-dessus interdit. La garde est donc la même
+   * des deux côtés, et le charme d'une lampe qu'on éteint en s'en allant cède à
+   * la cohérence.
+   *
+   * `clicPx` rend quand même `true` quand l'appui a touché le mât : il a visé
+   * la lampe, il n'a pas à ouvrir aussi la bulle d'une étoile — c'est ce que
+   * fait déjà l'horloge en marche.
    */
   basculerReverbere(): void {
+    if (this.enRoute) return
     this.quai?.basculerReverbere()
     this.emettreReverbere()
   }
@@ -804,12 +819,18 @@ export class Scene {
    * Quelle gare le train vient de quitter — ou celle où il est à quai. La
    * scène n'en a besoin que pour savoir où est « plus loin » sur la ligne ;
    * elle ne lit aucun magasin.
+   *
+   * Elle finit par `assombrir()` : la nuit est une fonction de l'état, et
+   * l'état vient de changer. C'est **ici** que se tient la garantie « plein
+   * dès la première image » d'un lien partagé vers « ailleurs » — `init` ne
+   * pouvait pas la tenir, il passe avant que Vue n'ait dit la gare.
    */
   setGare(gare: Gare): void {
     this.gare = gare
     this.armerLeBattement()
     this.prochainPlusLoin = this.legsIle + forwardSteps(gare, 'plus-loin')
     this.prochainAilleurs = this.legsQuai + forwardSteps(gare, 'ailleurs')
+    this.assombrir()
   }
 
   /**
@@ -935,6 +956,10 @@ export class Scene {
   /**
    * The journey, as the store sees it. Called again whenever it changes, so a
    * target redirected in flight simply extends the number of legs left.
+   *
+   * Elle finit par `assombrir()`, comme `setGare` : la nuit se lit dans l'état
+   * du voyage, et il vient de changer. C'est l'autre moitié de la garantie —
+   * la scène est à sa nuit dès qu'elle sait où elle est, sans attendre un tick.
    */
   setVoyage(enRoute: boolean, etapesRestantes: number, cible: Gare | null = null): void {
     if (enRoute && !this.enRoute) {
@@ -963,6 +988,7 @@ export class Scene {
       queueMicrotask(() => this.emitter.emit('arrived'))
     }
     if (!enRoute) this.dernierSaut = -1
+    this.assombrir()
   }
 
   /**

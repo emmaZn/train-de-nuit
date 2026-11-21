@@ -70,8 +70,8 @@ const place = computed<Record<string, string> | null>(() => {
        défaut corrigé le 20 novembre sur la commande de l'horloge.
 
        `aria-label` est **fixe** et `aria-pressed` porte seul l'état : c'est
-       l'idiome du dépôt (la commande de l'horloge porte `aria-expanded` avec
-       un nom fixe) et la pratique WAI-ARIA pour un bouton bascule. Un nom qui
+       l'idiome du dépôt (la commande de l'horloge garde elle aussi un nom
+       fixe) et la pratique WAI-ARIA pour un bouton bascule. Un nom qui
        changerait *avec* `aria-pressed` s'annoncerait « Éteindre le réverbère,
        non pressé », qui se contredit à l'oreille. Pressé = la lampe est
        allumée, comme un interrupteur enfoncé. -->

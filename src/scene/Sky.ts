@@ -13,7 +13,6 @@ import type { Grain } from './alea'
 export { alea }
 export type { Grain }
 
-
 /** One grain per this many square pixels. */
 const DENSITE = 1 / 600
 /** Below this, a small viewport would end up with an empty sky. */
@@ -26,7 +25,6 @@ export function dustCount(viewportW: number, viewportH: number, mobile: boolean)
   const brut = surface * DENSITE * (mobile ? FACTEUR_MOBILE : 1)
   return Math.max(PLANCHER, Math.round(brut))
 }
-
 
 export function makeDust(count: number, seed: number, w: number, h: number): Grain[] {
   const suivant = alea(seed)
