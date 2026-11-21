@@ -10,9 +10,11 @@
  * n'y figure plus : ce n'est plus une plaque posée sur le mur mais un rideau
  * suspendu à la scène (`rideau.ts`), qui ne suit pas la gare. Le bâtiment n'est plus un mur mais la gare entière
  * dessinée par la propriétaire, ses **deux** marquises de quai comprises :
- * celle de gauche part vers la gauche et passe au-dessus du réverbère, qui se
- * tient devant elle ; celle de droite sort du cadre, et ne se découvre qu'en
- * marche vers « ici ». La propriétaire l'a voulu ainsi (20 novembre 2026).
+ * celle de gauche part vers la gauche, derrière la rame ; celle de droite part
+ * vers la droite et sort de la bande visible des écrans étroits, qui ne la
+ * découvrent qu'en marche vers « ici ». Le réverbère se tient devant le **corps**
+ * de la gare, sur le quai, entre les deux marquises — il ne passe sous aucune.
+ * La propriétaire a voulu ces deux marquises (20 novembre 2026).
  *
  * **Le banc et la valise sont retirés**, le même jour et pour la même raison :
  * le deuxième dessin de gare n'a pas de porte, et c'est sur elle qu'ils étaient
@@ -93,11 +95,13 @@ export const IMAGES = {
  * 1432×900 ; 349 à 1971 à 1280×960 et 1024×768. La bande commune à tous ces
  * formats (2560×1080 à 1024×768) va donc de **349 à 1971, soit environ
  * 1622 px**. La gare en occupe environ 1386 (de `DEBUT_GARE` à `FIN_GARE`) :
- * elle pourrait y entrer, mais à 360 de décalage elle passe presque entière
- * derrière la rame — la locomotive mange le flanc du bâtiment, le réverbère
- * tient sur la cabine, la marquise disparaît. La propriétaire préfère le
- * rognage : **le bord droit de la gare sort de la bande commune, à dessein.**
- * Un portrait de téléphone ne montre que ~560 px (879 à 1441).
+ * elle pourrait y entrer, mais **à l'époque** (réglage à 360, réverbère encore
+ * lié à la gare) elle passait presque entière derrière la rame : la locomotive
+ * mangeait le flanc du bâtiment, le réverbère tenait sur la cabine, la marquise
+ * disparaissait. C'est l'histoire d'un réglage antérieur, qui ne décrit plus la
+ * scène : à 626 le réverbère est découplé et reste devant le corps de gare. La
+ * propriétaire préférait déjà le rognage : **le bord droit de la gare sort de la
+ * bande commune, à dessein.** Un portrait de téléphone ne montre que ~560 px (879 à 1441).
  *
  * **626, parce que c'est la valeur qui amène l'horloge au centre du cadre**
  * (`HORLOGE.x` = 1160,37 pour un centre à 1160), et non un goût : la scène
@@ -106,8 +110,8 @@ export const IMAGES = {
  * Le bord droit de la gare, lui, reste hors de la bande commune : il tombe à
  * 2064 (`FIN_GARE`) et le rognage de la marquise de droite est assumé.
  *
- * (Les mesures de bande ci-dessus datent d'avant ce décalage ; elles restent
- * vraies, c'est la gare qui a bougé.) 60 fut la valeur du réglage 1, 600 un
+ * (Les mesures de bande ci-dessus restent vraies, mais le récit du réglage à
+ * 360 est celui d'une configuration disparue : voir plus haut.) 60 fut la valeur du réglage 1, 600 un
  * essai à la main, 626 la valeur tenue.
  */
 export const DECALAGE_GARE = 626
