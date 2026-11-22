@@ -399,6 +399,18 @@ export class Scene {
 
   private fond = DEFAUT as string
   private phase = 0
+  /**
+   * L'arrivée du voyage en cours a-t-elle déjà été annoncée ?
+   *
+   * Au terminus, `tick` épingle `phase` à 1 pour que la voie ne reparte pas à
+   * pleine vitesse — et la condition qui annonce l'arrivée est justement
+   * `phase >= 1`. Sans ce drapeau elle reste vraie à chaque image, et chaque
+   * image ajoute une étape fantôme à `legsIle` et `legsQuai`. Le store répond
+   * de façon asynchrone, donc la boucle tournait le temps de quelques images à
+   * chaque arrêt : les îles dérivaient, et les scènes se décalaient au fil des
+   * tours. Remis à faux quand la rame s'ébranle (`setVoyage`).
+   */
+  private arriveeAnnoncee = false
   private enRoute = false
   private etapesRestantes = 0
   /** Où va le voyage : l'assombrissement la lit pour savoir si « ailleurs » est le terme. */
@@ -948,6 +960,15 @@ export class Scene {
     // `setPointer` (la parallaxe du ciel) voyage sur le même `pointermove` et
     // qu'un ciel figé au survol du panneau se verrait bien davantage.
     this.quai?.eclairer(cadre !== null && this.quai.horlogeTouchee(cadre.x, cadre.y))
+    // Le curseur dit ce qui se clique. Les oiseaux sont dessinés dans le
+    // canvas, donc rien ne le dit à leur place — l'horloge et le réverbère,
+    // eux, ont chacun leur bouton du DOM qui porte son propre curseur. Même
+    // question que `clicPx`, `gagOuvert` compris : un doigt de souris sur un
+    // oiseau qui ne répond pas serait une promesse en l'air.
+    this.canvas.style.cursor =
+      cadre !== null && this.gagOuvert && (this.oiseaux?.survole(cadre.x, cadre.y) ?? false)
+        ? 'pointer'
+        : ''
     this.emitter.emit('starHover', this.stars?.hit(px, py) ?? null, px, py)
   }
 
@@ -988,6 +1009,9 @@ export class Scene {
         this.emettreRideau()
       }
       this.phase = 0
+      // La rame s'ébranle : l'arrivée du voyage précédent est oubliée, et
+      // celle-ci pourra s'annoncer à son tour.
+      this.arriveeAnnoncee = false
       this.profil = { demarrage: true, freinage: etapesRestantes <= 1 }
     }
     this.enRoute = enRoute
@@ -1116,7 +1140,14 @@ export class Scene {
 
     if (this.enRoute && this.peutAnimer) {
       this.phase += dt / DUREE_ETAPE
-      if (this.phase >= 1) {
+      // `!this.arriveeAnnoncee` : au terminus la phase reste **épinglée** à 1
+      // (voir plus bas), si bien que `phase >= 1` resterait vraie à chaque
+      // image. Sans ce drapeau, l'arrivée se réannonçait en boucle et chaque
+      // image ajoutait une étape à `legsIle` et `legsQuai` — les deux
+      // compteurs qui placent les îles. Le store répond de façon asynchrone,
+      // donc la boucle tournait quelques images à chaque arrivée : les scènes
+      // dérivaient un peu par arrêt, et visiblement au bout de deux tours.
+      if (this.phase >= 1 && !this.arriveeAnnoncee) {
         // La scène décompte elle-même : le store ne la rafraîchit qu'au tick
         // suivant, et s'en remettre à lui ferait franchir deux étapes d'affilée.
         this.etapesRestantes = Math.max(0, this.etapesRestantes - 1)
@@ -1126,6 +1157,9 @@ export class Scene {
           // `legsBase + 1` — l'incrémenter en plus compterait l'étape deux
           // fois, et le massif sauterait d'une étape entière sur une image.
           this.phase = 1
+          // Épinglée : c'est ce drapeau, et lui seul, qui empêche la condition
+          // d'être vraie de nouveau à l'image suivante.
+          this.arriveeAnnoncee = true
         } else {
           this.legsBase += 1
           this.phase = 0

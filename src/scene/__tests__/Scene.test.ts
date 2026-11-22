@@ -196,8 +196,14 @@ type Interne = {
   quai: Quai | null
   stars: { hit: (px: number, py: number) => Trace | null } | null
   rideau: Rideau | null
-  oiseaux: { cliquer: (x: number, y: number) => boolean } | null
+  oiseaux: {
+    cliquer: (x: number, y: number) => boolean
+    survole: (x: number, y: number) => boolean
+  } | null
   neige: { groupe: Container } | null
+  ileAilleurs: { ancre: number | null; distance: number | null }
+  legsQuai: number
+  legsIle: number
 }
 
 const vivantes: Scene[] = []
@@ -263,6 +269,42 @@ describe('le rideau, commandé par l’horloge', () => {
   const centre = () => enPixelsEcran(HORLOGE.x, HORLOGE.y)
 
   describe('le clic', () => {
+    /**
+     * Le décalage signalé le 22 novembre 2026 : « au fil de la navigation,
+     * quand on fait plusieurs boucles, les scènes se décalent — la gare n'est
+     * plus centrée après deux tours ».
+     *
+     * La cause est ici. À la dernière étape, `tick` épingle `phase` à 1 pour
+     * que la voie ne reparte pas à pleine vitesse — mais la condition qui
+     * annonce l'arrivée est justement `phase >= 1`. Elle reste donc vraie à
+     * chaque image, et chaque image ajoutait une étape à `legsIle` **et** à
+     * `legsQuai`, les deux compteurs qui placent les îles.
+     *
+     * Dans l'application, le store répond de façon asynchrone — `arrived` puis
+     * `finirEtape`, puis un `watch` qui rappelle `setVoyage` : plusieurs images
+     * passent avec `enRoute` encore vrai. C'est la fenêtre où les îles
+     * dérivaient, un peu à chaque arrivée, visiblement au bout de deux tours.
+     * Ce test garde cette fenêtre ouverte exprès.
+     */
+    it('n’annonce l’arrivée qu’une fois, même si le store tarde à répondre', async () => {
+      const { scene, interne, image } = await sceneDeTest()
+      let arrivees = 0
+      scene.on('arrived', () => {
+        arrivees += 1
+      })
+      scene.setGare('la-haut')
+      scene.setVoyage(true, 1)
+      for (let f = 0; f < 700; f += 1) image()
+      expect(arrivees).toBe(1)
+
+      // Et surtout : les deux compteurs qui placent les îles n'ont avancé que
+      // d'une étape. C'est là que le décalage se mesure, à sa source — la
+      // position de l'île, elle, dépend de la vitesse du train, que les tests
+      // n'ont pas (les images de la rame ne sont pas chargées).
+      expect(interne.legsQuai).toBe(1)
+      expect(interne.legsIle).toBe(1)
+    })
+
     it('baisse le rideau, un second le relève', async () => {
       const { scene } = await sceneDeTest()
       const { x, y } = centre()
@@ -292,7 +334,7 @@ describe('le rideau, commandé par l’horloge', () => {
     it('est pris par l’horloge avant les oiseaux : un clic ne fait qu’une chose', async () => {
       const { scene, interne } = await sceneDeTest()
       const cliquer = vi.fn(() => true)
-      interne.oiseaux = { cliquer }
+      interne.oiseaux = { cliquer, survole: () => false }
       scene.setGare('plus-loin')
       scene.setVoyage(false, 0)
       expect(scene.gagOuvert).toBe(true)
@@ -317,7 +359,7 @@ describe('le rideau, commandé par l’horloge', () => {
     it('se referme sur un clic à côté de la plaque, avant les oiseaux', async () => {
       const { scene, interne } = await sceneDeTest()
       const cliquer = vi.fn(() => true)
-      interne.oiseaux = { cliquer }
+      interne.oiseaux = { cliquer, survole: () => false }
       scene.setGare('plus-loin')
       scene.setVoyage(false, 0)
       scene.basculerRideau()
@@ -332,7 +374,7 @@ describe('le rideau, commandé par l’horloge', () => {
     it('laisse l’oiseau répondre quand la plaque est rangée', async () => {
       const { scene, interne } = await sceneDeTest()
       const cliquer = vi.fn(() => true)
-      interne.oiseaux = { cliquer }
+      interne.oiseaux = { cliquer, survole: () => false }
       scene.setGare('plus-loin')
       scene.setVoyage(false, 0)
       const quelquePart = enPixelsEcran(600, yPoseA(CADRE) + 40)
@@ -697,7 +739,7 @@ describe('le réverbère, qu’un clic éteint', () => {
   it('est pris avant les oiseaux', async () => {
     const { scene, interne } = await sceneDeTest()
     const cliquer = vi.fn(() => true)
-    interne.oiseaux = { cliquer }
+    interne.oiseaux = { cliquer, survole: () => false }
     scene.setGare('plus-loin')
     scene.setVoyage(false, 0)
     expect(scene.gagOuvert).toBe(true)
