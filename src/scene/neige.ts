@@ -76,13 +76,18 @@ const RAYONS: readonly (readonly [number, number])[] = [
 /**
  * L'opacité d'un flocon, couche par couche : la lointaine est la plus terne.
  * La neige est blanche (CONCEPT §12.2) ; c'est son opacité, et elle seule, qui
- * la met en arrière-plan. PROVISOIRE (§7).
+ * la met en arrière-plan.
+ *
+ * **Assombrie d'un tiers le 22 novembre 2026**, à la demande de la
+ * propriétaire. Hors du faisceau, la neige n'est éclairée par rien : c'est ce
+ * contraste-là qui fait lire le cône du réverbère comme la seule lumière de la
+ * scène, et non une zone un peu plus dense. PROVISOIRE (§7).
  */
 const OPACITES: readonly (readonly [number, number])[] = [
-  [0.2, 0.4],
-  [0.3, 0.52],
-  [0.4, 0.68],
-  [0.5, 0.85],
+  [0.12, 0.24],
+  [0.18, 0.31],
+  [0.24, 0.41],
+  [0.3, 0.51],
 ]
 
 /** Combien de flocons une surface porte, toutes couches confondues. */
@@ -156,11 +161,14 @@ export function decalageCouche(i: number, t: number, hauteur: number): number {
  *      propriétaire a demandée, ce pour quoi la neige est dans le canvas. ---- */
 
 /**
- * Un flocon par ce nombre de pixels de cadre² **du cône** — la densité de la
- * poussière du faisceau (`1/150`), soit douze fois celle de la neige libre.
- * PROVISOIRE (§7) : à régler à vue.
+ * Un flocon par ce nombre de pixels de cadre² **du cône**, soit huit fois la
+ * densité de la neige libre.
+ *
+ * Elle valait `1/150` — celle de la poussière du faisceau — et la propriétaire
+ * l'a trouvée un peu trop dense le 22 novembre 2026. PROVISOIRE (§7) : à régler
+ * à vue.
  */
-const DENSITE_CONE = 1 / 150
+const DENSITE_CONE = 1 / 220
 
 /** Moins de flocons sur mobile (§11), mais le cône reste plus dense que le fond. */
 const FACTEUR_MOBILE_CONE = 0.6
@@ -178,10 +186,13 @@ const RAYONS_CONE: readonly (readonly [number, number])[] = [
 
 /**
  * Opacité, par couche : plus vive que la libre (`OPACITES`) couche pour couche,
- * et de beaucoup en médiane. Pas pour chaque flocon : `PLANCHER_CLARTE` assombrit
- * le haut du cône, et un flocon de la couche 0 près du sommet (0,385 au plus
- * terne) peut passer sous le plafond de 0,4 de la couche lointaine libre. Le
- * flocon est blanc, comme la lanterne qui l'éclaire — pas de mi-teinte
+ * et de beaucoup en médiane.
+ *
+ * Depuis que la neige libre est assombrie (22 novembre 2026), l'écart est franc
+ * partout, ce qu'il n'était pas : le plus terne du cône — un flocon de la
+ * couche 0 près du sommet, que `PLANCHER_CLARTE` descend à 0,385 — vaut
+ * maintenant plus du double du plafond de 0,24 de la couche lointaine libre.
+ * Le flocon est blanc, comme la lanterne qui l'éclaire : pas de mi-teinte
  * nouvelle (CONCEPT §12.2). PROVISOIRE (§7).
  */
 const OPACITES_CONE: readonly (readonly [number, number])[] = [

@@ -690,6 +690,23 @@ export class Scene {
       this.basculerReverbere()
       return true
     }
+    // Cliquer à côté de la plaque la referme (22 novembre 2026, demande de la
+    // propriétaire). Sa place dans l'ordre dit tout :
+    //
+    // — **après** l'horloge et le réverbère, qui gardent la main. La spec §5
+    //   veut qu'on puisse éteindre la lampe tableau baissé, et les deux tiers
+    //   bas de son mât sont dégagés sous la plaque ; passer avant la lui
+    //   volerait.
+    // — **avant** les oiseaux : un clic ne fait qu'une chose, et le tableau est
+    //   devant eux. Un oiseau visible à côté de la plaque ne tombe donc pas, il
+    //   referme le tableau — et redevient cliquable aussitôt après.
+    //
+    // Seulement **baissé** : pendant la remontée il n'y a plus rien à fermer, et
+    // un second appui rebaisserait la plaque qu'on vient de renvoyer.
+    if (this.rideau?.baisse) {
+      this.basculerRideau()
+      return true
+    }
     if (!this.oiseaux || !this.gagOuvert) return false
     return this.oiseaux.cliquer(cadre.x, cadre.y)
   }

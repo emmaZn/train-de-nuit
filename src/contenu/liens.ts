@@ -1,12 +1,13 @@
 /**
  * Les trois destinations du panneau d'« ailleurs » — un seul endroit.
  *
- * ⚠ BOUCHONS : l'URL LinkedIn et l'adresse mail ne sont PAS des décisions.
- * Emmanuelle ne les a pas encore données ; rien ne se déploie sans elles.
+ * ⚠ BOUCHON : l'adresse mail n'est PAS une décision. Elle est assemblée de
+ * morceaux plus bas, et reste à confirmer par Emmanuelle ; rien ne se déploie
+ * sans elle. L'URL LinkedIn, elle, est la sienne depuis le 22 novembre 2026.
  */
 
-/** BOUCHON — remplacer par l'URL réelle du profil. */
-export const LINKEDIN = 'https://www.linkedin.com/in/bouchon-a-remplacer'
+/** Le profil d'Emmanuelle, donné par elle le 22 novembre 2026. */
+export const LINKEDIN = 'https://www.linkedin.com/in/emmanuelle-zenou-a398a6198'
 
 /** La page du CV : route imbriquée sous « ailleurs ». */
 export const CV = '/ailleurs/cv'

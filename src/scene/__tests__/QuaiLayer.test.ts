@@ -4,7 +4,7 @@ import { Container, Sprite } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { loadTexture } from '@/scene/assets'
-import { Quai, anglesHorloge } from '@/scene/QuaiLayer'
+import { DUREE_ALLUMAGE, DUREE_EXTINCTION, Quai, anglesHorloge } from '@/scene/QuaiLayer'
 import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
 import { CADRES, HALO_HORLOGE, HORLOGE, HORLOGE_IMAGE, PIECES, cibleReverbere } from '@/scene/quai'
@@ -33,12 +33,12 @@ vi.mock('@/scene/assets', async (importOriginal) => {
 })
 
 /** Le quai monté là où la scène le monte : décor éteint au fond, lumières à part. */
-function poser() {
+function poser(reducedMotion = false) {
   const decor = new Container()
   const plans = plansDuDecor(decor)
   const planQuai = new Container()
   plans.plateauFond.addChild(planQuai)
-  const quai = new Quai(planQuai, plans.lumieres)
+  const quai = new Quai(planQuai, plans.lumieres, reducedMotion)
   return { decor, plans, quai }
 }
 
@@ -498,12 +498,16 @@ describe('le réverbère qu’on éteint', () => {
     expect(quai.lumiere.groupe.visible).toBe(true)
     expect(quai.lanterne.visible).toBe(true)
 
+    // Le fondu court avant que la lumière soit vraiment partie : c'est la tween
+    // du 22 novembre, et c'est pour ça que la pendule GSAP avance ici.
     quai.basculerReverbere()
+    avancerGsap(DUREE_EXTINCTION)
     expect(quai.allumeReverbere).toBe(false)
     expect(quai.lumiere.groupe.visible).toBe(false)
     expect(quai.lanterne.visible).toBe(false)
 
     quai.basculerReverbere()
+    avancerGsap(DUREE_ALLUMAGE)
     expect(quai.allumeReverbere).toBe(true)
     expect(quai.lumiere.groupe.visible).toBe(true)
     expect(quai.lanterne.visible).toBe(true)
@@ -530,6 +534,7 @@ describe('le réverbère qu’on éteint', () => {
       quai.avancer(0, 0)
 
       quai.basculerReverbere()
+      avancerGsap(DUREE_EXTINCTION)
       expect(quai.allumeReverbere).toBe(false)
       // La lumière est partie…
       expect(quai.lumiere.groupe.visible).toBe(false)
@@ -548,9 +553,92 @@ describe('le réverbère qu’on éteint', () => {
    * éteinte par un tracé vide se rallumerait au premier redimensionnement —
    * ou ferait revenir, un jour, le halo rond retiré le 21 novembre.
    */
+  /**
+   * Un réverbère ne meurt pas en une image. La clarté suit une tween — **une
+   * seule**, qui porte la lanterne et le faisceau ensemble : ils vivent dans
+   * deux fichiers, et les faire fondre chacun de son côté les ferait diverger
+   * d'une image au moindre changement de durée.
+   */
+  it('s’éteint en fondu, lanterne et faisceau du même pas', () => {
+    const { quai } = poser()
+    quai.basculerReverbere()
+
+    // L'état bascule au geste, pas à la fin du fondu : `aria-pressed` ne ment pas.
+    expect(quai.allumeReverbere).toBe(false)
+
+    avancerGsap(DUREE_EXTINCTION / 2)
+    expect(quai.lanterne.visible).toBe(true)
+    expect(quai.lanterne.alpha).toBeGreaterThan(0)
+    expect(quai.lanterne.alpha).toBeLessThan(1)
+    expect(quai.lumiere.groupe.alpha).toBeCloseTo(quai.lanterne.alpha, 5)
+
+    avancerGsap(DUREE_EXTINCTION)
+    expect(quai.lanterne.visible).toBe(false)
+    expect(quai.lumiere.groupe.visible).toBe(false)
+  })
+
+  /** Un filament s'allume plus vite qu'il ne meurt. */
+  it('se rallume en fondu, et plus vite qu’il ne s’éteint', () => {
+    expect(DUREE_ALLUMAGE).toBeLessThan(DUREE_EXTINCTION)
+    const { quai } = poser()
+    quai.basculerReverbere()
+    avancerGsap(DUREE_EXTINCTION)
+
+    quai.basculerReverbere()
+    expect(quai.lanterne.visible).toBe(true)
+    avancerGsap(DUREE_ALLUMAGE / 2)
+    expect(quai.lanterne.alpha).toBeGreaterThan(0)
+    expect(quai.lanterne.alpha).toBeLessThan(1)
+
+    avancerGsap(DUREE_ALLUMAGE)
+    expect(quai.lanterne.alpha).toBe(1)
+  })
+
+  /** Deux appuis coup sur coup : la clarté repart d'où elle en est, sans saut. */
+  it('repart d’où il en était si on rebascule en plein fondu', () => {
+    const { quai } = poser()
+    quai.basculerReverbere()
+    avancerGsap(DUREE_EXTINCTION / 2)
+    const aMiChemin = quai.lanterne.alpha
+
+    quai.basculerReverbere()
+    expect(quai.lanterne.alpha).toBeCloseTo(aMiChemin, 5)
+
+    avancerGsap(DUREE_ALLUMAGE)
+    expect(quai.lanterne.alpha).toBe(1)
+  })
+
+  /** CONCEPT §11 : sous mouvement réduit, rien ne bouge — l'extinction est sèche. */
+  it('sous mouvement réduit, s’éteint sans fondu', () => {
+    const { quai } = poser(true)
+    quai.basculerReverbere()
+    expect(quai.lanterne.visible).toBe(false)
+    expect(quai.lumiere.groupe.visible).toBe(false)
+  })
+
+  /**
+   * Le rallumage du retour est sec, et tue le fondu en cours : il se joue hors
+   * de l'écran, personne ne peut le voir, et une tween qui survivrait
+   * rallumerait la lampe une seconde fois en pleine vue.
+   */
+  it('se rallume d’un coup quand la gare quitte le champ', () => {
+    const { quai } = poser()
+    quai.basculerReverbere()
+    quai.avancer(1e6, 0)
+    expect(quai.allumeReverbere).toBe(true)
+    expect(quai.lanterne.alpha).toBe(1)
+    expect(quai.lanterne.visible).toBe(true)
+    expect(quai.lumiere.groupe.alpha).toBe(1)
+
+    // Et le fondu d'extinction ne reprend pas la main après coup.
+    avancerGsap(DUREE_EXTINCTION * 2)
+    expect(quai.lanterne.alpha).toBe(1)
+  })
+
   it('reste éteint quand le cadrage retrace la lanterne', () => {
     const { quai } = poser()
     quai.basculerReverbere()
+    avancerGsap(DUREE_EXTINCTION)
     quai.cadrer(cadrageScene(1512, 771).frame, 1)
     quai.cadrer(cadrageScene(1280, 800).frame, 2)
     expect(quai.lanterne.visible).toBe(false)

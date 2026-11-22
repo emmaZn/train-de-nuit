@@ -305,10 +305,16 @@ describe('le rideau, commandé par l’horloge', () => {
     /**
      * La plaque a quitté le canvas : la scène ne sait plus ce qu'elle couvre, et
      * n'a plus à le savoir — c'est le panneau du DOM, devant tout, qui arrête ce
-     * qui tombe sur lui. Un clic qui parvient jusqu'ici est donc un clic qui est
-     * tombé **à côté** de la plaque, et l'oiseau répond.
+     * qui tombe sur lui. Un clic qui parvient jusqu'ici est donc un clic tombé
+     * **à côté** de la plaque, et depuis le 22 novembre 2026, à la demande de la
+     * propriétaire, il la referme.
+     *
+     * Ce test disait l'inverse jusqu'à cette date — il affirmait que l'oiseau
+     * répondait. C'est un renversement de comportement voulu, pas un test
+     * affaibli : le tableau est devant les oiseaux, et un clic ne fait qu'une
+     * chose.
      */
-    it('laisse l’oiseau répondre, plaque posée : elle n’est plus dans le canvas', async () => {
+    it('se referme sur un clic à côté de la plaque, avant les oiseaux', async () => {
       const { scene, interne } = await sceneDeTest()
       const cliquer = vi.fn(() => true)
       interne.oiseaux = { cliquer }
@@ -318,7 +324,37 @@ describe('le rideau, commandé par l’horloge', () => {
       avancerGsap(2)
       const quelquePart = enPixelsEcran(600, yPoseA(CADRE) + 40)
       expect(scene.clicPx(quelquePart.x, quelquePart.y)).toBe(true)
+      expect(scene.rideauBaisse).toBe(false)
+      expect(cliquer).not.toHaveBeenCalled()
+    })
+
+    /** Rangé, il n'y a rien à fermer : l'oiseau retrouve le clic. */
+    it('laisse l’oiseau répondre quand la plaque est rangée', async () => {
+      const { scene, interne } = await sceneDeTest()
+      const cliquer = vi.fn(() => true)
+      interne.oiseaux = { cliquer }
+      scene.setGare('plus-loin')
+      scene.setVoyage(false, 0)
+      const quelquePart = enPixelsEcran(600, yPoseA(CADRE) + 40)
+      expect(scene.clicPx(quelquePart.x, quelquePart.y)).toBe(true)
       expect(cliquer).toHaveBeenCalledTimes(1)
+    })
+
+    /**
+     * Le réverbère garde la main sur la fermeture : la spec §5 veut qu'on puisse
+     * l'éteindre tableau baissé, et les deux tiers bas de son mât sont dégagés
+     * sous la plaque. S'il passait après, le tableau se refermerait à sa place.
+     */
+    it('laisse le réverbère répondre avant de se refermer', async () => {
+      const { scene } = await sceneDeTest()
+      scene.setGare('ailleurs')
+      scene.setVoyage(false, 0)
+      scene.basculerRideau()
+      avancerGsap(2)
+      expect(scene.rideauBaisse).toBe(true)
+      const surLeMat = enPixelsEcran(PIECES.reverbere.x, HORIZON - 30)
+      expect(scene.clicPx(surLeMat.x, surLeMat.y)).toBe(true)
+      expect(scene.reverbereAllume).toBe(false)
       expect(scene.rideauBaisse).toBe(true)
     })
   })

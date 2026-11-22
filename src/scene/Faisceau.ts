@@ -247,7 +247,28 @@ export class Faisceau {
    * sans rien donner.
    */
   allumer(allume: boolean): void {
-    this.racine.visible = allume
+    this.setClarte(allume ? 1 : 0)
+  }
+
+  /**
+   * La clarté du faisceau entier, de 0 à 1 — cône peint, poussière et neige.
+   *
+   * C'est `QuaiLayer` qui la fait varier, et d'une **seule** tween partagée avec
+   * la lanterne : les deux sont la même lumière, et deux fondus séparés
+   * dériveraient l'un de l'autre au premier changement de durée.
+   *
+   * À zéro, le conteneur est caché plutôt que transparent : un `alpha` nul
+   * coûte encore un passage de rendu. Rien n'est effacé pour autant — les
+   * tracés sont posés une fois (voir `allumer`).
+   *
+   * `visible` se passe à part, et ce n'est pas un luxe : au **début** d'un
+   * allumage la clarté vaut exactement zéro, et la déduire de l'alpha
+   * laisserait la lampe cachée une image de plus que le geste — le temps que
+   * GSAP appelle sa première mise à jour.
+   */
+  setClarte(clarte: number, visible = clarte > 0): void {
+    this.racine.alpha = clarte
+    this.racine.visible = visible
   }
 
   /**

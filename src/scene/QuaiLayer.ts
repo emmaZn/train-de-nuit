@@ -193,6 +193,19 @@ const BATTEMENT = { pulsations: 2, montee: 0.45, descente: 0.9 } as const
 /** Ce que le pointeur allume : moins que le pic d'un battement, qui doit se distinguer. */
 const ECLAT_SURVOL = 0.7
 
+/**
+ * Combien de secondes met la lumière du réverbère à venir, et à partir.
+ *
+ * Les deux diffèrent exprès : un filament s'allume plus vite qu'il ne meurt —
+ * l'allumage est un seuil franchi, l'extinction une chaleur qui retombe. Une
+ * seule durée pour les deux donnait un interrupteur, pas une lampe.
+ *
+ * PROVISOIRE (§7) : à régler à vue avec la propriétaire, comme le reste des
+ * nombres de la gare.
+ */
+export const DUREE_ALLUMAGE = 0.18
+export const DUREE_EXTINCTION = 0.38
+
 export class Quai {
   /** Ce qui s'éteint : le bâtiment et la bordure. */
   private readonly racineEteinte = new Container()
@@ -255,6 +268,14 @@ export class Quai {
   /** L'opacité du battement : une valeur que GSAP anime, et que `poserEclat` lit. */
   private readonly pulsation = { a: 0 }
   private battement: gsap.core.Timeline | null = null
+  /**
+   * La clarté de la lumière du réverbère, de 0 à 1. **Un seul nombre pour deux
+   * objets** — le faisceau et le corps de la lanterne —, parce qu'ils sont la
+   * même lumière et qu'ils doivent fondre du même pas (voir `poserClarte`).
+   */
+  private readonly clarte = { v: 1 }
+  /** La seule tween de clarté vivante : `kill()` avant d'en créer une autre. */
+  private fondu: gsap.core.Tween | null = null
   private survole = false
 
   /**
@@ -363,7 +384,22 @@ export class Quai {
 
   /** Un clic l'éteint, un second le rallume — à l'arrêt : la règle est dans `Scene`. */
   basculerReverbere(): void {
-    this.allumerReverbere(!this.lampeAllumee)
+    this.allumerReverbere(!this.lampeAllumee, true)
+  }
+
+  /**
+   * Pose la clarté courante sur les **deux** porteurs de la lumière, qui vivent
+   * dans deux fichiers : le faisceau (cône, poussière, neige) et le corps de la
+   * lanterne. Un seul endroit où ils se rejoignent, pour qu'ils ne dérivent pas.
+   */
+  private poserClarte(): void {
+    // Visible tant qu'on est allumé **ou** qu'il reste de la clarté : le premier
+    // terme couvre le début d'un allumage, où la clarté vaut encore zéro ; le
+    // second, la fin d'une extinction, où l'état est déjà faux.
+    const visible = this.lampeAllumee || this.clarte.v > 0
+    this.faisceau.setClarte(this.clarte.v, visible)
+    this.corpsLanterne.alpha = this.clarte.v
+    this.corpsLanterne.visible = visible
   }
 
   /**
@@ -375,10 +411,33 @@ export class Quai {
    * cadrage, et une lanterne éteinte par un `clear()` se rallumerait au premier
    * redimensionnement.
    */
-  private allumerReverbere(allume: boolean): void {
+  private allumerReverbere(allume: boolean, enFondu = false): void {
     this.lampeAllumee = allume
-    this.faisceau.allumer(allume)
-    this.corpsLanterne.visible = allume
+    // Une seule tween vivante : la tuer avant d'en poser une autre fait repartir
+    // la suivante de la clarté **courante**, sans saut, si l'on rebascule en
+    // plein fondu. C'est la forme qu'a déjà `Rideau`.
+    this.fondu?.kill()
+    this.fondu = null
+    const but = allume ? 1 : 0
+    // Sans fondu : le rallumage du retour, qui se joue hors de l'écran, et le
+    // mouvement réduit (CONCEPT §11), où rien ne bouge.
+    if (!enFondu || this.reducedMotion) {
+      this.clarte.v = but
+      this.poserClarte()
+      return
+    }
+    this.fondu = gsap.to(this.clarte, {
+      v: but,
+      duration: allume ? DUREE_ALLUMAGE : DUREE_EXTINCTION,
+      ease: 'power2.out',
+      onUpdate: () => this.poserClarte(),
+      onComplete: () => {
+        this.fondu = null
+      },
+    })
+    // Tout de suite, sans attendre la première mise à jour de GSAP : c'est ce
+    // qui fait apparaître la lampe au geste et non une image plus tard.
+    this.poserClarte()
   }
 
   /** Le battement est-il en cours ? Il s'arrête de lui-même, ou quand on l'apaise. */
@@ -726,6 +785,8 @@ export class Quai {
     this.detruite = true
     this.battement?.kill()
     this.battement = null
+    this.fondu?.kill()
+    this.fondu = null
     // Jamais `sprite.texture.destroy()` : au premier passage c'est la texture
     // vide partagée de Pixi, et la détruire fait tomber tout le rendu. On ne
     // détruit que celles qu'on a fabriquées.
