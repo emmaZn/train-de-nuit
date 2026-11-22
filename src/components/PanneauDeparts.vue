@@ -536,12 +536,18 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
    tombe. Le filet est donc tracé par `::after`, posé en absolu sur la boîte :
    il ne compte pas dans la mise en page, la ligne garde sa piste entière.
 
-   **Et par-dessus, pas dessous** : une ombre intérieure aurait fait la même
-   économie, mais elle se peint **sous** les enfants. Le bandeau et la croix
-   ont leur propre fond et, sans `border` pour les retenir, vont jusqu'au bord
-   de la boîte : la croix survolée, qui passe à `--fond`, aurait découpé une
-   encoche de 44 px dans le filet droit — sur la commande de sortie. `::after`
-   est le dernier de l'arbre, il passe sur eux.
+   **Et par-dessus, pas dessous.** Une ombre intérieure posée **sur cette
+   boîte-ci** aurait fait la même économie de place, mais elle se peint **sous**
+   les enfants. Le bandeau et la croix ont leur propre fond et, sans `border`
+   pour les retenir, vont jusqu'au bord de la boîte : la croix survolée, qui
+   passe à `--fond`, aurait découpé une encoche de 44 px dans le filet droit —
+   sur la commande de sortie. `::after` est le dernier de l'arbre, il passe sur
+   eux.
+
+   C'est bien une ombre intérieure qui trace le filet, mais sur **ce calque-là**
+   (`.panneau::after`), qui n'a pas d'enfant : l'objection ci-dessus ne le
+   touche pas, et une ombre est le seul tracé dont l'épaisseur survit à la mise
+   à l'échelle. Le pourquoi est avec la règle, plus bas.
 
    `var(--echelle, 1)` : l'échelle vient du style en ligne, à côté du
    `transform` qu'elle double (voir `place`), et `::after` en hérite. Le repli
@@ -587,17 +593,31 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
   pointer-events: auto;
 }
 
-/* Le filet, en propre : voir `.panneau` ci-dessus pour les deux raisons de ne
-   le faire ni avec un `border` ni avec une ombre intérieure. `inset: 0` sur la
-   boîte de la plaque, qui est `position: fixed` donc bloc conteneur ;
-   `pointer-events: none` pour qu'il ne prenne rien — c'est la plaque qui
-   arrête les appuis, pas son cadre. */
+/* Le filet, en propre. Les deux raisons de ne le tracer ni par un `border` ni
+   par une ombre intérieure valent pour **la plaque elle-même** (voir
+   `.panneau` ci-dessus) : ici, sur un calque sans enfant et qui ne prend pas
+   de place, l'ombre est au contraire le seul tracé qui tienne son épaisseur.
+
+   **Pourquoi une ombre et non un `border`.** La plaque est mise à l'échelle du
+   cadre, donc un filet d'un pixel d'écran se déclare `1px / échelle`. Mais une
+   largeur de bordure est arrondie au pixel de l'appareil **au calcul du
+   style**, c'est-à-dire avant que la mise à l'échelle de l'ancêtre s'applique :
+   la division était défaite, et le filet retombait à 0,69 px d'écran à 390 et
+   0,89 px à 1920 — le gris délavé qu'un navigateur dessine faute de pouvoir
+   tracer moins d'un pixel, c'est-à-dire la mi-teinte que « blanc ou absent »
+   (CONCEPT §12.2) refuse. L'étendue d'une ombre, elle, n'est pas arrondie :
+   mesurée au navigateur, elle rend exactement 1,000 px d'écran à 1512, 390 et
+   1920.
+
+   `inset: 0` sur la boîte de la plaque, qui est `position: fixed` donc bloc
+   conteneur ; `pointer-events: none` pour qu'il ne prenne rien — c'est la
+   plaque qui arrête les appuis, pas son cadre. */
 .panneau::after {
   content: '';
   position: absolute;
   inset: 0;
   box-sizing: border-box;
-  border: calc(1px / var(--echelle, 1)) solid var(--texte);
+  box-shadow: inset 0 0 0 calc(1px / var(--echelle, 1)) var(--texte);
   pointer-events: none;
 }
 

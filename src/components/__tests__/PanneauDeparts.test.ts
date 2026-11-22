@@ -1115,7 +1115,7 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
    */
   const filetEcran = () =>
     nb(
-      /border:\s*calc\(\s*([\d.]+)px\s*\/\s*var\(--echelle[^)]*\)\s*\)/,
+      /box-shadow:\s*inset\s+0\s+0\s+0\s+calc\(\s*([\d.]+)px\s*\/\s*var\(--echelle[^)]*\)\s*\)/,
       regle('.panneau::after'),
       'le filet du cadre',
     )
@@ -1153,10 +1153,17 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
    * Et il est tracé par un **calque posé par-dessus** (`.panneau::after`), pas
    * par un `border` de la plaque : un `border` divisé par l'échelle reprend sa
    * part de la boîte, et la piste des destinations, qui n'a pas de marge à
-   * 390 px de large, la perdait. Pas par une ombre intérieure non plus : elle
-   * se peint **sous** les enfants, et la croix survolée — qui passe à `--fond`
-   * et touche le bord de la boîte sans `border` pour la retenir — aurait
-   * découpé une encoche de 44 px dans le filet droit.
+   * 390 px de large, la perdait. Pas par une ombre intérieure **sur la
+   * plaque** non plus : elle se peint sous les enfants, et la croix survolée —
+   * qui passe à `--fond` et touche le bord de la boîte sans `border` pour la
+   * retenir — aurait découpé une encoche de 44 px dans le filet droit.
+   *
+   * **Sur le calque, en revanche, c'est bien une ombre intérieure**, et la
+   * division ne suffisait pas sans elle : une largeur de bordure est arrondie
+   * au pixel de l'appareil au calcul du style, donc avant la mise à l'échelle,
+   * et `calc(1px / échelle)` était replié sur 1px puis rétréci — le défaut
+   * revenait entier à 390 et à 1920. L'étendue d'une ombre n'est pas arrondie
+   * ainsi.
    */
   describe('le filet de la plaque', () => {
     /** Les déclarations d'une règle, commentaires retirés : ils parlent de `border`. */
@@ -1178,20 +1185,41 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
       expect(filetEcran()).toBeGreaterThanOrEqual(1)
     })
 
-    it.each(TOUTES)('reste à un pixel d’écran plein à %i × %i', (l, h) => {
+    /**
+     * **Le filet est une ombre, et jamais un `border`.** C'est ce choix-là,
+     * et lui seul, qu'un test peut garder ici.
+     *
+     * Une largeur de bordure est arrondie au pixel de l'appareil **au calcul
+     * du style**, avant que la mise à l'échelle de l'ancêtre s'applique :
+     * `calc(1px / échelle)` était donc replié sur 1px, puis rétréci — 0,69 px
+     * d'écran à 390 × 844, 0,89 à 1920 × 1080, soit le défaut qu'on croyait
+     * corrigé. L'étendue d'une ombre n'est pas arrondie ainsi.
+     *
+     * Le pixel rendu, lui, **n'est pas mesurable ici** : jsdom n'a pas de mise
+     * en page et ne connaît pas la densité de l'écran. Il a été mesuré au
+     * navigateur, à 1,000 px d'écran à 1512 × 771, 390 × 844 et 1920 × 1080.
+     * Ce test garde la seule chose qui, elle, est vérifiable — et c'est elle
+     * qui avait cédé.
+     *
+     * Le test précédent affirmait `(1 / e) × e ≈ 1` sur la valeur **déclarée** :
+     * une identité, qui ne pouvait pas tomber et n'a rien vu.
+     */
+    it('est tracé par une ombre intérieure, que l’arrondi des bordures n’atteint pas', () => {
+      const apres = declarations('.panneau::after')
+      expect(apres).toMatch(/box-shadow:\s*inset/)
+      expect(apres).not.toMatch(/\bborder:/)
+      expect(filetEcran()).toBe(1)
+    })
+
+    it.each(TOUTES)('tient l’échelle du cadre à %i × %i', (l, h) => {
       const { wrapper } = posee(l, h)
       const s = (wrapper.get('.panneau').element as HTMLElement).style
-      // L'échelle donnée au CSS est celle du `transform` : une seule source.
+      // L'échelle donnée au CSS est celle du `transform` : une seule source,
+      // sans quoi la division du filet corrigerait de travers.
       const echelle = Number(/^scale\(([\d.]+)\)$/.exec(s.transform)![1])
       const declaree = Number(s.getPropertyValue('--echelle'))
       expect(declaree, '--echelle n’est pas celle du transform').toBeCloseTo(echelle, 10)
-      // Ce que le navigateur trace : l'épaisseur de cadre, mise à l'échelle.
-      // Un cheveu de tolérance, pour la même raison que `MARGE_FLOTTANT` dans
-      // `quai.ts` : `1 / e * e` rend 0,9999999999999999 à certaines échelles.
-      const rendu = filet(declaree) * echelle
-      expect(rendu, `filet de ${rendu} px d’écran à ${l}×${h}`).toBeGreaterThanOrEqual(1 - 1e-9)
-      // Et jamais plus : c'est un filet, pas une bordure qui grossirait.
-      expect(rendu).toBeLessThanOrEqual(1 + 1e-9)
+      expect(filet(declaree)).toBeGreaterThan(0)
     })
   })
 
