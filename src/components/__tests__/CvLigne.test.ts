@@ -118,12 +118,26 @@ describe('CvLigne', () => {
     expect(router.currentRoute.value.path).toBe('/ailleurs')
   })
 
-  it('affiche trois lignes par arrêt, haltes marquées, et rien d’autre', async () => {
+  /**
+   * La feuille de route (22 novembre 2026) coupe en deux ce que la voie mêlait :
+   * le **service** d'un côté, les **haltes** de l'autre, et trois colonnes par
+   * ligne — période, poste, dépôt. Avant, c'était une seule liste de sept
+   * arrêts à trois paragraphes chacun ; ce test disait cela, et il dit
+   * maintenant la nouvelle forme. Ce qui ne change pas : tout le parcours est
+   * là, rien n'est inventé en plus.
+   */
+  it('range le parcours en service et haltes, trois colonnes par ligne', async () => {
     const { wrapper } = await monter('/ailleurs/cv')
-    const arrets = wrapper.findAll('.arret')
-    expect(arrets).toHaveLength(7)
-    expect(wrapper.findAll('.arret.halte')).toHaveLength(3)
-    for (const a of arrets) expect(a.findAll('p')).toHaveLength(3)
+    const rangs = wrapper.findAll('.rang')
+    expect(rangs).toHaveLength(7)
+    expect(wrapper.findAll('.rang.halte')).toHaveLength(3)
+    expect(wrapper.findAll('.service .rang')).toHaveLength(4)
+    expect(wrapper.findAll('.haltes .rang')).toHaveLength(3)
+    for (const r of rangs) {
+      expect(r.find('.periode').exists()).toBe(true)
+      expect(r.find('.intitule').exists()).toBe(true)
+      expect(r.find('.depot').exists()).toBe(true)
+    }
     expect(wrapper.text()).not.toMatch(/Gentilly|anglais|espagnol|Vue|TypeScript/i)
   })
 
@@ -222,10 +236,16 @@ describe('CvLigne', () => {
     }
   })
 
+  /**
+   * L'anneau visait `--trait` tant que le CV était un voile sombre. Sur la
+   * feuille de route, `--trait` est presque blanc : il serait invisible sur le
+   * papier. C'est donc l'encre de la feuille qu'il prend — mais c'est toujours
+   * un **vrai anneau**, et non une opacité qui monte, ce que ce test garde.
+   */
   it('« retour » porte un vrai anneau de focus, pas qu’une opacité', () => {
     const source = readFileSync('src/components/CvLigne.vue', 'utf8')
     const bloc = source.slice(source.indexOf('.retour:focus-visible'))
-    expect(bloc.slice(0, bloc.indexOf('}'))).toMatch(/outline:\s*1px solid var\(--trait\)/)
+    expect(bloc.slice(0, bloc.indexOf('}'))).toMatch(/outline:\s*1px solid var\(--encre\)/)
   })
 
   it('Échap ferme le CV et ramène à /ailleurs, comme « retour »', async () => {
