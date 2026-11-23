@@ -11,10 +11,11 @@ part. Ce document dit **ce qui est déjà là et ce qui ne l'est pas**, mesuré 
 Il ne décide de rien. Les chiffres sont à revérifier avant d'y toucher : ils
 vieillissent.
 
-**Les chantiers « mouvement réduit » et « clavier » ont été menés le
-23 novembre au soir.** Voir les sections datées en fin de document ; les §1 et
-§3 ci-dessous sont laissés tels qu'ils ont été écrits — leurs alertes étaient
-fausses, et le vrai défaut du clavier n'y figurait pas.
+**Les chantiers « mouvement réduit », « clavier » et « mobile » ont été menés
+dans la nuit du 23 au 24 novembre 2026.** Voir les sections datées en fin de
+document ; les §1, §2 et §3 ci-dessous sont laissés tels qu'ils ont été écrits.
+Leurs alertes se sont révélées fausses toutes les trois fois, et les vrais
+défauts n'y figuraient pas.
 
 ## 1. Mouvement réduit — largement fait, trois trous à vérifier
 
@@ -272,3 +273,68 @@ Un `<div></div>` vide apparaît dans la tabulation de toutes les pages. Il
 n'est pas du site : rien dans `src` ni dans `index.html` n'ajoute de nœud à
 `body`. C'est l'extension du navigateur qui s'en sert pendant la mesure — à ne
 pas confondre avec un défaut au prochain passage.
+
+## Vérifié dans la nuit du 23 au 24 novembre 2026 — chantier « mobile »
+
+Mesuré sur la page qui tourne, dans des cadres aux vraies tailles — 375 × 667,
+390 × 844, 430 × 932, plus l'iPhone couché et l'iPad portrait.
+
+### Les deux manques du §2 n'en sont pas
+
+- **Le `dvh` ne sert à rien ici.** `base.css` pose `overflow: hidden` : le
+  document ne défile jamais. Or la barre d'URL d'iOS ne se rétracte que sur un
+  défilement **du document** — le CV, lui, défile dans sa propre boîte. La
+  hauteur de la fenêtre ne bouge donc pas, et il n'y a rien à convertir.
+- **Les encoches ne sont pas touchées.** Le `<meta viewport>` ne porte pas
+  `viewport-fit=cover` : iOS garde la page **dans** la zone sûre et
+  `env(safe-area-inset-*)` vaut zéro. Les bandes sont déjà à la couleur de la
+  nuit, posées par le `html { background }` du script de tête. Passer sous
+  l'encoche serait un **choix** — et il faudrait alors `env()` sur la frise,
+  les commandes, la signature et le bas du CV. Non demandé, non fait.
+- **L'appui au doigt était déjà fait**, et le commentaire de `useScene` le dit
+  mieux que le §11 : « a finger never moves over a star before it lands: the
+  touch is the whole gesture ». Un appui qui ne touche rien referme la bulle.
+
+### Le défaut : la frise amputait la gare suivante
+
+Le masque de la frise efface tout ce qui passe `margeVoieDroite` — la place de
+l'œil et du FR/EN, 130 px — et commence à l'effacer `fonduFrise` plus tôt. Sur
+un écran de 390 il ne restait donc que 250 px lisibles. Or la gare suivante
+commençait à 206 et « PROCHAIN ARRÊT » finissait à 305 : **les deux tiers de
+la mention étaient invisibles**, à 375, 390 et 430.
+
+Trois pistes ont été rendues côte à côte sur la page qui tourne :
+
+- **A** — descendre les commandes en bas de l'écran. Marchait, mais l'œil et le
+  FR/EN venaient se serrer contre la signature.
+- **B** — resserrer l'écart. Faisait apparaître une **troisième** gare, coupée
+  à son tour : le §11 ne veut que la gare à quai et la suivante.
+- **C** — mention courte et léger resserrement. **Choisi.**
+
+Donc, à partir de maintenant :
+
+- `t.frise.prochainCourt` — « PROCHAIN », « NEXT » — remplace la mention
+  longue **sous `SEUIL_MOBILE`**, et seulement là.
+- `ecartFrise` **plafonne** l'écart sur téléphone par la place qui reste :
+  `largeur − margeVoieDroite − fonduFrise − ancre − LARGEUR_MENTION_MOBILE`.
+  Ce n'est pas un réglage à l'œil, c'est une contrainte de place. Le plafond ne
+  mord que là où il le faut : au-delà de 420 px environ, l'étalement est déjà
+  sous le plafond et rien ne change.
+
+Le resserrement de 5 % d'Emmanuelle (24 novembre, « 5 % disons ») reste la
+règle partout où il y a la place. Deux tests de `layout` l'étendaient au
+téléphone : ils ont été réécrits, pas supprimés.
+
+Mesuré après coup : « PROCHAIN » finit **8 px avant le début du fondu**, aux
+trois largeurs.
+
+### Reste ouvert : l'iPhone couché
+
+`SEUIL_MOBILE` ne regarde que la **largeur**. Un téléphone couché — 844 × 390 —
+reçoit donc toute la mise en page de bureau dans 390 px de hauteur : la scène
+y est écrasée, et la signature tombe sur le reflet du train. L'iPad portrait
+(768 × 1024) reçoit lui aussi la mise en page de bureau, mais s'en sort : le
+cadrage y recadre fort à l'horizontale sans rien casser.
+
+**Non tranché.** Les pistes : un seuil qui regarde aussi la hauteur ; ou une
+signature qui s'efface quand il n'y a plus de place sous les rails.

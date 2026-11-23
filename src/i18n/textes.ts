@@ -25,6 +25,8 @@ const fr = {
     aria: 'Les gares du voyage',
     aQuai: 'À QUAI',
     prochainArret: 'PROCHAIN ARRÊT',
+    // Sur téléphone, la frise n'a pas la place de la mention entière (§11).
+    prochainCourt: 'PROCHAIN',
   },
 
   ici: {
@@ -98,6 +100,7 @@ const en: typeof fr = {
     aria: 'The stations along the way',
     aQuai: 'AT PLATFORM',
     prochainArret: 'NEXT STOP',
+    prochainCourt: 'NEXT',
   },
 
   ici: {

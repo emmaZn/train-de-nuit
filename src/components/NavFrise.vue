@@ -42,7 +42,8 @@ const mesurer = () => {
 onMounted(() => window.addEventListener('resize', mesurer, { passive: true }))
 onBeforeUnmount(() => window.removeEventListener('resize', mesurer))
 
-const ancre = computed(() => (largeur.value < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE))
+const surTelephone = computed(() => largeur.value < SEUIL_MOBILE)
+const ancre = computed(() => (surTelephone.value ? ANCRE_FRISE_MOBILE : ANCRE_FRISE))
 const ecart = computed(() => ecartFrise(largeur.value, garesVisibles(largeur.value)))
 const marge = computed(() => margeVoie(largeur.value))
 const margeDroite = computed(() => margeVoieDroite(largeur.value))
@@ -123,7 +124,11 @@ const entrees = computed(() => {
         <span class="point" aria-hidden="true"></span>
         <span class="libelle">{{ entree.libelle }}</span>
         <span v-if="entree.etat === 'a-quai'" class="mention">{{ t.frise.aQuai }}</span>
-        <span v-else-if="entree.etat === 'prochain'" class="mention">{{ t.frise.prochainArret }}</span>
+        <!-- Sur téléphone, la mention courte : la longue n'a pas la place et se
+             faisait effacer aux deux tiers par le masque de la frise. -->
+        <span v-else-if="entree.etat === 'prochain'" class="mention">{{
+          surTelephone ? t.frise.prochainCourt : t.frise.prochainArret
+        }}</span>
       </RouterLink>
 
     </div>

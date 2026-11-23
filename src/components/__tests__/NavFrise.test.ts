@@ -6,7 +6,16 @@ import { RouterLink, createMemoryHistory } from 'vue-router'
 import NavFrise from '@/components/NavFrise.vue'
 import { createAppRouter } from '@/router'
 import { useVoyage } from '@/stores/voyage'
-import { ANCRE_FRISE, ANCRE_FRISE_MOBILE, ecartFrise, garesVisibles } from '@/scene/layout'
+import {
+  ANCRE_FRISE,
+  ANCRE_FRISE_MOBILE,
+  LARGEUR_MENTION_MOBILE,
+  SEUIL_MOBILE,
+  ecartFrise,
+  fonduFrise,
+  garesVisibles,
+  margeVoieDroite,
+} from '@/scene/layout'
 
 async function monter() {
   setActivePinia(createPinia())
@@ -186,4 +195,45 @@ test('la gare à quai reste offerte, même si c’est la page courante', async (
   const quai = wrapper.get('[data-etat="a-quai"]')
   expect(quai.attributes('aria-hidden')).toBeUndefined()
   expect(quai.attributes('tabindex')).toBeUndefined()
+})
+
+/**
+ * Relevé le 23 novembre 2026 sur trois téléphones : la frise **amputait la
+ * gare suivante**. Son masque réserve `margeVoieDroite` à droite — la place
+ * de l'œil et du FR/EN — soit 130 px ; sur un écran de 390 il ne restait que
+ * 250 px visibles, et « PROCHAIN ARRÊT » finissait à 305. Les deux tiers de
+ * la mention étaient invisibles, à 375, 390 et 430.
+ *
+ * Ce n'est pas un réglage à l'œil mais une contrainte de place : la gare
+ * suivante doit tenir, mention comprise, **avant que le masque ne commence à
+ * l'effacer**. L'écart est donc plafonné sur téléphone, et le plafond ne mord
+ * que là où il le faut — à 430 il ne change rien.
+ */
+for (const largeur of [375, 390, 430]) {
+  test(`à ${largeur} px, la gare suivante tient avant le masque`, () => {
+    const finDeLaMention = ANCRE_FRISE_MOBILE + ecartFrise(largeur, 2) + LARGEUR_MENTION_MOBILE
+    const debutDuMasque = largeur - margeVoieDroite(largeur) - fonduFrise(largeur)
+    expect(finDeLaMention).toBeLessThanOrEqual(debutDuMasque)
+  })
+}
+
+test('sur un écran, le plafond ne change rien', () => {
+  const largeur = 1280
+  expect(largeur).toBeGreaterThanOrEqual(SEUIL_MOBILE)
+  // La formule d'avant, telle quelle : rien du bureau ne bouge.
+  expect(ecartFrise(largeur, 4)).toBeCloseTo(((1280 - ANCRE_FRISE - 200) / 3) * 0.95, 5)
+})
+
+test('sur un téléphone, la mention de la gare suivante est la courte', async () => {
+  window.innerWidth = 390
+  const { wrapper } = await monter()
+  expect(wrapper.get('[data-etat="prochain"] .mention').text()).toBe('PROCHAIN')
+  window.innerWidth = 1024
+})
+
+test('sur un écran, elle reste entière', async () => {
+  window.innerWidth = 1280
+  const { wrapper } = await monter()
+  expect(wrapper.get('[data-etat="prochain"] .mention').text()).toBe('PROCHAIN ARRÊT')
+  window.innerWidth = 1024
 })

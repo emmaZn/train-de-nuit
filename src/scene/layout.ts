@@ -175,6 +175,16 @@ export function margeVoieDroite(largeur: number): number {
 const ECART_MINIMUM = 80
 
 /**
+ * Ce que prend, sur téléphone, la mention de la gare suivante — « PROCHAIN »
+ * en français, « NEXT » en anglais. Mesuré à 7 px par caractère dans la
+ * graisse de la frise, plus une marge : huit caractères tiennent largement.
+ *
+ * Elle n'est pas décorative : c'est elle qui plafonne l'écartement. Si la
+ * mention s'allonge un jour, c'est ce nombre qu'il faut refaire.
+ */
+export const LARGEUR_MENTION_MOBILE = 64
+
+/**
  * Combien de gares la frise étale sur la largeur : quatre sur un écran, deux
  * sur un téléphone, où il n'y a de place que pour celle où l'on est et la
  * suivante.
@@ -202,7 +212,22 @@ export function ecartFrise(largeur: number, visibles: number): number {
   const ancre = mobile ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
   const marge = mobile ? MARGE_FRISE_MOBILE : MARGE_FRISE
   const intervalles = Math.max(1, visibles - 1)
-  return Math.max(ECART_MINIMUM, ((largeur - ancre - marge) / intervalles) * RESSERREMENT)
+  const etale = ((largeur - ancre - marge) / intervalles) * RESSERREMENT
+  if (!mobile) return Math.max(ECART_MINIMUM, etale)
+
+  /*
+   * Sur téléphone, l'étalement ne suffit pas : le masque de la frise efface
+   * tout ce qui passe `margeVoieDroite` — la place de l'œil et du FR/EN — et
+   * commence à l'effacer `fonduFrise` plus tôt. Sur un écran de 390, il ne
+   * restait que 250 px lisibles, et « PROCHAIN ARRÊT » finissait à 305 : la
+   * gare suivante était amputée des deux tiers de sa mention.
+   *
+   * D'où ce plafond, qui n'est pas un réglage mais la place qu'il reste.
+   * Il ne mord que là où il le faut : au-delà de 420 px environ, l'étalement
+   * est déjà sous le plafond et rien ne change.
+   */
+  const place = largeur - margeVoieDroite(largeur) - fonduFrise(largeur) - ancre - LARGEUR_MENTION_MOBILE
+  return Math.max(ECART_MINIMUM, Math.min(etale, place))
 }
 
 
