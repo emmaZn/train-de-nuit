@@ -11,17 +11,10 @@ import {
   margeVoieDroite,
   garesVisibles,
 } from '@/scene/layout'
-import type { Gare } from '@/scene/types'
 import { GARES, useVoyage } from '@/stores/voyage'
+import { useTextes } from '@/i18n'
 
 /** Les routes gardent le tiret, les libellés non. */
-const LIBELLES: Record<Gare, string> = {
-  ici: 'ici',
-  'plus-loin': 'plus loin',
-  'la-haut': 'là-haut',
-  ailleurs: 'ailleurs',
-}
-
 /**
  * Une seule gare derrière : elle sort par la gauche dès le début du trajet.
  * Devant, on en garde toujours quatre rendues même si l'écran n'en montre que
@@ -34,6 +27,7 @@ const APRES = 4
 type Etat = 'passee' | 'a-quai' | 'prochain' | 'a-venir'
 
 const voyage = useVoyage()
+const t = useTextes()
 const { gare, enRoute, etapesRestantes, legs, progression } = storeToRefs(voyage)
 
 /**
@@ -85,7 +79,7 @@ const entrees = computed(() => {
 
     // La clé est l'étape absolue : elle survit au glissement, donc la gare
     // garde son nœud du DOM et se déplace au lieu d'être recréée.
-    return { cle: legs.value + decalage, station, libelle: LIBELLES[station], etat, decalage }
+    return { cle: legs.value + decalage, station, libelle: t.value.gares[station], etat, decalage }
   })
 })
 </script>
@@ -93,7 +87,7 @@ const entrees = computed(() => {
 <template>
   <nav
     class="frise"
-    aria-label="Les gares du voyage"
+    :aria-label="t.frise.aria"
     :style="{ '--ecart': `${ecart}px`, '--ancre': `${ancre}px`, '--marge': `${marge}px`, '--marge-droite': `${margeDroite}px`, '--fondu': `${fondu}px` }"
   >
     <div class="piste" :class="{ 'en-route': enRoute }" :style="{ '--legs': position }">
@@ -111,8 +105,8 @@ const entrees = computed(() => {
       >
         <span class="point" aria-hidden="true"></span>
         <span class="libelle">{{ entree.libelle }}</span>
-        <span v-if="entree.etat === 'a-quai'" class="mention">À QUAI</span>
-        <span v-else-if="entree.etat === 'prochain'" class="mention">PROCHAIN ARRÊT</span>
+        <span v-if="entree.etat === 'a-quai'" class="mention">{{ t.frise.aQuai }}</span>
+        <span v-else-if="entree.etat === 'prochain'" class="mention">{{ t.frise.prochainArret }}</span>
       </RouterLink>
 
     </div>

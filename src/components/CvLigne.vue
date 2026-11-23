@@ -21,6 +21,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { HORS_DE_LA_VOIE, PARCOURS, TERMINUS } from '@/contenu/cv'
+import { useLangue, useTextes } from '@/i18n'
 import { adresseMail } from '@/contenu/liens'
 
 /**
@@ -30,8 +31,12 @@ import { adresseMail } from '@/contenu/liens'
  * pas à connaître la forme qui l'affiche, et le jour où elle rechange, il ne
  * bougera pas.
  */
-const POSTES = computed(() => PARCOURS.filter((a) => !a.halte))
-const HALTES = computed(() => PARCOURS.filter((a) => a.halte))
+const langue = useLangue()
+const t = useTextes()
+const parcours = computed(() => PARCOURS[langue.langue])
+
+const POSTES = computed(() => parcours.value.filter((a) => !a.halte))
+const HALTES = computed(() => parcours.value.filter((a) => a.halte))
 
 // Assemblée au montage, jamais écrite en clair dans la source ni le HTML.
 const mail = adresseMail()
@@ -83,7 +88,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="cv" class="cv" tabindex="-1" role="region" aria-label="Curriculum vitæ">
+  <div ref="cv" class="cv" tabindex="-1" role="region" :aria-label="t.cv.aria">
     <div class="feuille">
       <!-- Le bord perforé : du décor, et rien d'autre. Il disparaît sous 720 px,
            où la feuille n'a plus la largeur de se payer une marge vide. -->
@@ -91,15 +96,15 @@ onBeforeUnmount(() => {
 
       <div class="corps">
         <div class="bandeau">
-          <span class="titre">Feuille de route</span>
-          <span class="numero">N° 01 · Ailleurs</span>
+          <span class="titre">{{ t.cv.titre }}</span>
+          <span class="numero">{{ t.cv.numero }}</span>
         </div>
         <div class="sousbandeau">
-          <RouterLink class="retour" to="/ailleurs">← retour à la gare</RouterLink>
+          <RouterLink class="retour" to="/ailleurs">{{ t.cv.retour }}</RouterLink>
         </div>
 
         <section class="service">
-          <h2>Service</h2>
+          <h2>{{ t.cv.service }}</h2>
           <ol class="rangs">
             <li v-for="p in POSTES" :key="p.intitule" class="rang">
               <span class="periode">{{ p.depuis }} → {{ p.jusqua }}</span>
@@ -110,7 +115,7 @@ onBeforeUnmount(() => {
         </section>
 
         <section class="haltes">
-          <h2>Haltes</h2>
+          <h2>{{ t.cv.haltes }}</h2>
           <ol class="rangs">
             <li v-for="h in HALTES" :key="h.intitule" class="rang halte">
               <span class="periode">{{ h.depuis }} → {{ h.jusqua }}</span>
@@ -122,11 +127,11 @@ onBeforeUnmount(() => {
 
         <div class="pied">
           <section class="hors">
-            <h2>Hors de la voie</h2>
-            <p>{{ HORS_DE_LA_VOIE.join(' · ') }}</p>
+            <h2>{{ t.cv.horsDeLaVoie }}</h2>
+            <p>{{ HORS_DE_LA_VOIE[langue.langue].join(' · ') }}</p>
           </section>
           <section class="terminus">
-            <h2>Terminus</h2>
+            <h2>{{ t.cv.terminus }}</h2>
             <p><a :href="`mailto:${mail}`">{{ mail }}</a></p>
             <p><a :href="`https://${TERMINUS.github}`" target="_blank" rel="noopener noreferrer">{{ TERMINUS.github }}</a></p>
           </section>

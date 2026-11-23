@@ -3,6 +3,9 @@ import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ageRelatif } from '@/scene/dates'
 import { useTraces } from '@/stores/traces'
+import { useTextes } from '@/i18n'
+
+const mots = useTextes()
 
 const { etoiles } = storeToRefs(useTraces())
 
@@ -13,7 +16,7 @@ const lignes = computed(() => {
   return etoiles.value.map((t) => ({
     id: t.id,
     phrase: t.phrase,
-    mention: [t.prenom, ageRelatif(t.creeLe, maintenant)].filter(Boolean).join(' · '),
+    mention: [t.prenom, ageRelatif(t.creeLe, maintenant, mots.value.age)].filter(Boolean).join(' · '),
   }))
 })
 </script>
@@ -21,7 +24,7 @@ const lignes = computed(() => {
 <template>
   <!-- La liste du §11 : les mêmes phrases que le ciel, pour qui ne survole pas. -->
   <section v-if="lignes.length > 0" class="etoiles">
-    <ul role="list" tabindex="0" aria-label="Étoiles laissées par les voyageurs">
+    <ul role="list" tabindex="0" :aria-label="mots.laHaut.etoilesAria">
       <li v-for="ligne in lignes" :key="ligne.id">
         <span class="phrase">{{ ligne.phrase }}</span>
         <span class="mention"> — {{ ligne.mention }}</span>

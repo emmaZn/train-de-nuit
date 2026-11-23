@@ -1,4 +1,5 @@
 import { alea } from './alea'
+import type { Langue } from '@/i18n/langue'
 
 export type Depart = {
   heure: string
@@ -10,27 +11,65 @@ export type Depart = {
 /** Les trois départs réels, toujours à +4, +11 et +19 minutes de `maintenant`. */
 export const DECALAGES = [4, 11, 19] as const
 
-const REELS: ReadonlyArray<{ destination: string, statut: string, lien: NonNullable<Depart['lien']> }> = [
-  { destination: 'LINKEDIN', statut: 'QUAI 1', lien: 'linkedin' },
-  { destination: 'CV', statut: 'QUAI 2', lien: 'cv' },
-  { destination: 'ÉCRIRE', statut: 'EMBARQUEMENT', lien: 'ecrire' },
-]
+type Ligne = { destination: string, statut: string, lien: NonNullable<Depart['lien']> }
+
+/**
+ * Les trois départs réels, dans les deux langues.
+ *
+ * L'ordre et le nombre ne bougent pas : `DECALAGES` les horodate par rang, et
+ * un test confronte les deux listes. Les volets ne savent écrire que
+ * l'`ALPHABET` de `volets.ts` — lettres sans accent, chiffres, `:` et `'` —,
+ * ce que l'anglais respecte sans effort.
+ */
+const REELS: Record<Langue, ReadonlyArray<Ligne>> = {
+  fr: [
+    { destination: 'LINKEDIN', statut: 'QUAI 1', lien: 'linkedin' },
+    { destination: 'CV', statut: 'QUAI 2', lien: 'cv' },
+    { destination: 'ÉCRIRE', statut: 'EMBARQUEMENT', lien: 'ecrire' },
+  ],
+  en: [
+    { destination: 'LINKEDIN', statut: 'PLATFORM 1', lien: 'linkedin' },
+    { destination: 'CV', statut: 'PLATFORM 2', lien: 'cv' },
+    { destination: 'WRITE', statut: 'BOARDING', lien: 'ecrire' },
+  ],
+}
 
 /** Le vivier approuvé par Emmanuelle, figé. */
-export const VIVIER: ReadonlyArray<{ destination: string, statut: string }> = [
-  { destination: "L'ENFANCE", statut: 'ANNULÉ' },
-  { destination: 'NULLE PART', statut: 'SUPPRIMÉ' },
-  { destination: 'LE PRINTEMPS', statut: "À L'HEURE" },
-  { destination: 'LA LUNE', statut: 'RETARDÉ' },
-  { destination: 'DEMAIN', statut: 'RETARDÉ' },
-  { destination: 'LA MER', statut: "À L'HEURE" },
-  { destination: 'LE SOMMEIL', statut: 'QUAI 4' },
-  { destination: 'AVANT', statut: 'SANS ARRÊT' },
-  { destination: 'LE SILENCE', statut: "À L'HEURE" },
-  { destination: 'LA MAISON', statut: 'ANNULÉ' },
-  { destination: 'PLUS TARD', statut: 'RETARDÉ' },
-  { destination: 'LE DÉBUT', statut: 'TERMINUS' },
-]
+/**
+ * Les lignes éteintes : douze destinations qu'on ne prend pas. Même ordre dans
+ * les deux langues — le tirage se fait sur le rang, donc une graine donnée rend
+ * les mêmes lignes quelle que soit la langue, et seul leur libellé change.
+ */
+export const VIVIER: Record<Langue, ReadonlyArray<{ destination: string, statut: string }>> = {
+  fr: [
+    { destination: "L'ENFANCE", statut: 'ANNULÉ' },
+    { destination: 'NULLE PART', statut: 'SUPPRIMÉ' },
+    { destination: 'LE PRINTEMPS', statut: "À L'HEURE" },
+    { destination: 'LA LUNE', statut: 'RETARDÉ' },
+    { destination: 'DEMAIN', statut: 'RETARDÉ' },
+    { destination: 'LA MER', statut: "À L'HEURE" },
+    { destination: 'LE SOMMEIL', statut: 'QUAI 4' },
+    { destination: 'AVANT', statut: 'SANS ARRÊT' },
+    { destination: 'LE SILENCE', statut: "À L'HEURE" },
+    { destination: 'LA MAISON', statut: 'ANNULÉ' },
+    { destination: 'PLUS TARD', statut: 'RETARDÉ' },
+    { destination: 'LE DÉBUT', statut: 'TERMINUS' },
+  ],
+  en: [
+    { destination: 'CHILDHOOD', statut: 'CANCELLED' },
+    { destination: 'NOWHERE', statut: 'TERMINATED' },
+    { destination: 'SPRING', statut: 'ON TIME' },
+    { destination: 'THE MOON', statut: 'DELAYED' },
+    { destination: 'TOMORROW', statut: 'DELAYED' },
+    { destination: 'THE SEA', statut: 'ON TIME' },
+    { destination: 'SLEEP', statut: 'PLATFORM 4' },
+    { destination: 'BEFORE', statut: 'NON STOP' },
+    { destination: 'SILENCE', statut: 'ON TIME' },
+    { destination: 'HOME', statut: 'CANCELLED' },
+    { destination: 'LATER', statut: 'DELAYED' },
+    { destination: 'THE BEGINNING', statut: 'TERMINUS' },
+  ],
+}
 
 /** Écart, en minutes, entre deux lignes éteintes consécutives. */
 const ECART_MIN = 5
@@ -62,8 +101,8 @@ function plusMinutes(maintenant: Date, n: number): Date {
   return d
 }
 
-export function departsReels(maintenant: Date): Depart[] {
-  return REELS.map((r, i) => ({
+export function departsReels(maintenant: Date, langue: Langue = 'fr'): Depart[] {
+  return REELS[langue].map((r, i) => ({
     heure: formaterHeure(plusMinutes(maintenant, DECALAGES[i])),
     destination: r.destination,
     statut: r.statut,
@@ -77,12 +116,18 @@ export function departsReels(maintenant: Date): Depart[] {
  * des heures. Même graine, mêmes destinations — l'appelant choisit donc le grain du
  * renouvellement (à chaque arrivée, ou pendant l'arrêt) en changeant, ou non, la graine.
  */
-export function departsEteints(maintenant: Date, graine: number, combien: number): Depart[] {
+export function departsEteints(
+  maintenant: Date,
+  graine: number,
+  combien: number,
+  langue: Langue = 'fr',
+): Depart[] {
   const suivant = alea(graine)
   // `Math.floor` : sans lui, un `combien` non entier mélangeait ⌈n⌉ tours de
   // mélange et une tranche de ⌊n⌋.
-  const n = Math.max(0, Math.min(Math.floor(combien), VIVIER.length))
-  const pioche = [...VIVIER]
+  const vivier = VIVIER[langue]
+  const n = Math.max(0, Math.min(Math.floor(combien), vivier.length))
+  const pioche = [...vivier]
   // Mélange de Fisher-Yates partiel : les n premiers sont le tirage.
   for (let i = 0; i < n; i++) {
     const j = i + Math.floor(suivant() * (pioche.length - i))

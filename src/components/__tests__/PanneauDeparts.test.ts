@@ -14,6 +14,7 @@ import type { Frame } from '@/scene/layout'
 import { HALO_HORLOGE, HORLOGE, cibleReverbere } from '@/scene/quai'
 import { BRAS, RIDEAU, horlogeTouchee, yPoseA, yRangeA } from '@/scene/rideau'
 import { VIVIER, departsReels } from '@/scene/horaires'
+import { TEXTES } from '@/i18n/textes'
 import { createAppRouter } from '@/router'
 import { CV } from '@/contenu/liens'
 import { useVoyage } from '@/stores/voyage'
@@ -1520,7 +1521,7 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
 
     /** Ce qui déborde de la piste `1fr`, en pixels de cadre, pour la pire paire du vivier. */
     const debordement = (largeur: number) => {
-      const paires = [...VIVIER, ...departsReels(new Date())]
+      const paires = [...VIVIER.fr, ...departsReels(new Date())]
       return Math.max(
         ...paires.map((d) => {
           const piste =
@@ -1573,7 +1574,10 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
     })
 
     it('tient dans le bandeau, d’après la source', () => {
-      const titre = source().match(/texte="(PROCHAINS DÉPARTS)"/)![1]
+      // Les deux langues, et c'est la plus longue qui décide : le bandeau ne
+      // s'élargit pas quand on bascule.
+      const titre = [TEXTES.fr.departs.entete, TEXTES.en.departs.entete]
+        .reduce((a, b) => (a.length >= b.length ? a : b))
       const corpsEntete = nb(/font-size:\s*([\d.]+)px/, regle('.entete'), 'le corps du bandeau')
       const espacement = nb(/letter-spacing:\s*([\d.]+)em/, regle('.entete'), 'l’espacement du bandeau')
       const lettres = (titre.length + '00:00'.length) * (CHASSE + espacement) * corpsEntete

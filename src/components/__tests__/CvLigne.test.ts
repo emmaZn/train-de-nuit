@@ -64,18 +64,18 @@ describe('contenu du CV', () => {
   })
 
   it('les sept arrêts sont dans l’ordre des dates, du plus récent au plus ancien', () => {
-    expect(PARCOURS).toHaveLength(7)
-    expect(PARCOURS.filter((a) => a.halte)).toHaveLength(3)
-    expect(PARCOURS[0].intitule).toBe('Lead Développeuse Front-End')
-    expect(PARCOURS[6].intitule).toContain('L2 Sciences')
+    expect(PARCOURS.fr).toHaveLength(7)
+    expect(PARCOURS.fr.filter((a) => a.halte)).toHaveLength(3)
+    expect(PARCOURS.fr[0].intitule).toBe('Lead Développeuse Front-End')
+    expect(PARCOURS.fr[6].intitule).toContain('L2 Sciences')
   })
 
   it('aucun arrêt ne porte de description', () => {
-    for (const a of PARCOURS) expect(Object.keys(a)).toEqual(['intitule', 'lieu', 'depuis', 'jusqua', 'halte'])
+    for (const a of PARCOURS.fr) expect(Object.keys(a)).toEqual(['intitule', 'lieu', 'depuis', 'jusqua', 'halte'])
   })
 
   it('les loisirs sont quatre', () => {
-    expect(HORS_DE_LA_VOIE).toHaveLength(4)
+    expect(HORS_DE_LA_VOIE.fr).toHaveLength(4)
   })
 })
 
@@ -274,4 +274,14 @@ describe('CvLigne', () => {
     await flushPromises()
     expect(dessous().every((d) => d.attributes('inert') === undefined)).toBe(true)
   })
+})
+
+test('le CV existe en anglais, au même nombre d’arrêts', () => {
+  // La feuille de route numérote par rang : un arrêt de plus ou de moins dans
+  // une langue décalerait toute la voie.
+  expect(PARCOURS.en).toHaveLength(PARCOURS.fr.length)
+  expect(PARCOURS.en.map((a) => a.halte)).toEqual(PARCOURS.fr.map((a) => a.halte))
+  expect(PARCOURS.en.map((a) => a.depuis)).not.toEqual(PARCOURS.fr.map((a) => a.depuis))
+  expect(PARCOURS.en[0].intitule).toBe('Lead Front-End Developer')
+  expect(HORS_DE_LA_VOIE.en).toHaveLength(HORS_DE_LA_VOIE.fr.length)
 })

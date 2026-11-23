@@ -21,10 +21,12 @@ import { computed, inject, onBeforeUnmount, ref, watch } from 'vue'
 import { FRAME_KEY, SCENE_KEY } from '@/composables/useScene'
 import { cibleReverbere } from '@/scene/quai'
 import { useVoyage } from '@/stores/voyage'
+import { useTextes } from '@/i18n'
 
 const frame = inject(FRAME_KEY, ref(null))
 const scene = inject(SCENE_KEY, ref(null))
 const voyage = useVoyage()
+const t = useTextes()
 
 const allume = ref(true)
 
@@ -80,7 +82,7 @@ const place = computed<Record<string, string> | null>(() => {
     class="commande-reverbere"
     type="button"
     :aria-pressed="allume"
-    aria-label="Réverbère"
+    :aria-label="t.commandes.reverbere"
     :disabled="voyage.enRoute"
     :style="place"
     @pointerdown.stop

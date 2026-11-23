@@ -12,8 +12,11 @@ describe('l’alphabet des volets', () => {
    */
   it('porte chaque caractère que les départs peuvent afficher', () => {
     const textes = [
-      ...VIVIER.flatMap((v) => [v.destination, v.statut]),
-      ...departsReels(new Date(2026, 10, 20, 21, 3)).flatMap((d) => [d.destination, d.statut, d.heure]),
+      // Les deux langues : l'alphabet doit savoir écrire tout ce qui peut
+      // s'afficher, et l'anglais a ses propres mots sur le panneau.
+      ...VIVIER.fr.flatMap((v) => [v.destination, v.statut]),
+      ...VIVIER.en.flatMap((v) => [v.destination, v.statut]),
+      ...departsReels(new Date(2026, 10, 20, 21, 3), 'en').flatMap((d) => [d.destination, d.statut, d.heure]),
       // Chaque chiffre y passe : toutes les minutes de la journée, à l'heure près.
       ...Array.from({ length: 24 * 60 }, (_, m) => formaterHeure(new Date(2026, 0, 1, 0, m))),
     ]

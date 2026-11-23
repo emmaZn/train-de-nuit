@@ -3,6 +3,8 @@ import { computed, provide, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import CommandeReverbere from '@/components/CommandeReverbere.vue'
 import EyeButton from '@/components/EyeButton.vue'
+import LangueButton from '@/components/LangueButton.vue'
+import Signature from '@/components/Signature.vue'
 import EtoilesListe from '@/components/EtoilesListe.vue'
 import NavFrise from '@/components/NavFrise.vue'
 import PanneauDeparts from '@/components/PanneauDeparts.vue'
@@ -46,6 +48,8 @@ const cvOuvert = computed(() => route.name === 'cv')
     <StarTooltip />
     <EtoilesListe />
     <EyeButton :fond="fond" @change="changerFond" />
+    <LangueButton />
+    <Signature />
   </div>
 </template>
 

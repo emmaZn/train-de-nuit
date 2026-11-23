@@ -27,7 +27,7 @@ describe('horaires du panneau', () => {
     const d = departsEteints(new Date('2026-11-15T21:03:00'), 7, 3)
     expect(d).toHaveLength(3)
     expect(new Set(d.map((x) => x.destination)).size).toBe(3)
-    for (const x of d) expect(VIVIER.some((v) => v.destination === x.destination)).toBe(true)
+    for (const x of d) expect(VIVIER.fr.some((v) => v.destination === x.destination)).toBe(true)
   })
 
   it('les lignes éteintes n’ont pas de lien', () => {
@@ -67,7 +67,7 @@ describe('horaires du panneau', () => {
   })
 
   it('ne demande jamais plus que le vivier', () => {
-    expect(departsEteints(new Date(), 1, 99)).toHaveLength(VIVIER.length)
+    expect(departsEteints(new Date(), 1, 99)).toHaveLength(VIVIER.fr.length)
   })
 
   /**
@@ -83,10 +83,46 @@ describe('horaires du panneau', () => {
   })
 
   it('le vivier est celui qu’elle a approuvé, mot pour mot', () => {
-    expect(VIVIER.map((v) => `${v.destination} / ${v.statut}`)).toEqual([
+    expect(VIVIER.fr.map((v) => `${v.destination} / ${v.statut}`)).toEqual([
       "L'ENFANCE / ANNULÉ", 'NULLE PART / SUPPRIMÉ', "LE PRINTEMPS / À L'HEURE", 'LA LUNE / RETARDÉ',
       'DEMAIN / RETARDÉ', "LA MER / À L'HEURE", 'LE SOMMEIL / QUAI 4', 'AVANT / SANS ARRÊT',
       "LE SILENCE / À L'HEURE", 'LA MAISON / ANNULÉ', 'PLUS TARD / RETARDÉ', 'LE DÉBUT / TERMINUS',
     ])
+  })
+})
+
+describe('les deux langues', () => {
+  it('le vivier anglais a le même ordre et la même longueur que le français', () => {
+    // Le tirage se fait sur le rang : à graine égale, les deux langues sortent
+    // les mêmes lignes, et seul le libellé change.
+    expect(VIVIER.en).toHaveLength(VIVIER.fr.length)
+    expect(VIVIER.en[0].destination).toBe('CHILDHOOD')
+    expect(VIVIER.en.map((v) => v.destination)).not.toEqual(VIVIER.fr.map((v) => v.destination))
+  })
+
+  it('une graine donnée tire les mêmes rangs dans les deux langues', () => {
+    const quand = new Date(2026, 10, 23, 1, 0)
+    const fr = departsEteints(quand, 7, 5, 'fr')
+    const en = departsEteints(quand, 7, 5, 'en')
+    expect(en.map((d) => d.heure)).toEqual(fr.map((d) => d.heure))
+    expect(en.map((d) => VIVIER.en.findIndex((v) => v.destination === d.destination)))
+      .toEqual(fr.map((d) => VIVIER.fr.findIndex((v) => v.destination === d.destination)))
+  })
+
+  it('les trois départs réels gardent leurs liens en anglais', () => {
+    const d = departsReels(new Date(), 'en')
+    expect(d.map((x) => x.lien)).toEqual(['linkedin', 'cv', 'ecrire'])
+    expect(d[2].destination).toBe('WRITE')
+    expect(d[0].statut).toBe('PLATFORM 1')
+  })
+
+  it('les volets savent écrire tout ce que l’anglais demande', () => {
+    // `ALPHABET` ne porte ni lettre accentuée hors À É Ê ni ponctuation autre
+    // que `:` et `'` : une destination anglaise qui en sortirait resterait
+    // blanche sur le panneau.
+    const dicibles = new Set([...` ABCDEFGHIJKLMNOPQRSTUVWXYZÀÉÊ0123456789:'`])
+    for (const v of [...VIVIER.en, ...departsReels(new Date(), 'en')]) {
+      for (const c of `${v.destination}${v.statut}`) expect(dicibles.has(c)).toBe(true)
+    }
   })
 })

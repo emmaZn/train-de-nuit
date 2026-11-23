@@ -4,6 +4,7 @@ import { SCENE_KEY } from '@/composables/useScene'
 import { HAUTEUR_FRISE } from '@/scene/layout'
 import { ageRelatif } from '@/scene/dates'
 import type { Trace } from '@/scene/types'
+import { useTextes } from '@/i18n'
 
 /** Gap between the star and the bubble, in CSS pixels. */
 const ECART = 14
@@ -31,6 +32,8 @@ const DEBORD_TACHE = 16
 
 type Survol = { trace: Trace; x: number; y: number; age: string; gauche: number; dessus: boolean }
 
+
+const mots = useTextes()
 const scene = inject(SCENE_KEY, ref(null))
 const survol = ref<Survol | null>(null)
 
@@ -47,7 +50,7 @@ function surEtoile(trace: Trace | null, x: number, y: number) {
     trace,
     x,
     y,
-    age: ageRelatif(trace.creeLe, Date.now()),
+    age: ageRelatif(trace.creeLe, Date.now(), mots.value.age),
     // Beside the star, but never past either edge: clamped, not flipped, so a
     // star in the middle of a phone still gets a bubble that fits.
     gauche: Math.max(

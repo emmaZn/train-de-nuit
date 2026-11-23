@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { DEFAUT, nextFond } from '@/scene/palette'
+import { useTextes } from '@/i18n'
 
 withDefaults(defineProps<{ fond?: string }>(), { fond: DEFAUT })
 defineEmits<{ change: [fond: string] }>()
+
+const t = useTextes()
 </script>
 
 <template>
   <button
     type="button"
     class="oeil"
-    aria-label="Changer la couleur de la nuit"
+    :aria-label="t.commandes.oeil"
     @click="$emit('change', nextFond(fond))"
   >
     <!-- Duotone : l'intérieur est légèrement éclairé plutôt que rempli d'une
@@ -44,7 +47,10 @@ defineEmits<{ change: [fond: string] }>()
 .oeil {
   position: fixed;
   top: calc(var(--haut-voie) - 18px);
-  right: var(--marge-ecran);
+  /* Décalé de la largeur du sélecteur de langue, qui prend le coin : deux
+     segments mono de 10,5 px et leur écart, mesurés à 36 px, plus 14 px de
+     gouttière. Si `LangueButton` change de forme, ce nombre suit. */
+  right: calc(var(--marge-ecran) + 50px);
   z-index: 3;
   /* En flux, un SVG traîne son interligne : le bouton ferait 40 px de haut
      pour une icône de 24, et le centrage tomberait à côté. */

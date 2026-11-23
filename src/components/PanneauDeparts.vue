@@ -73,6 +73,7 @@ import { DEBUT_ENTETE_MS, DEBUT_LIGNES_MS, ECART_LIGNES_MS } from '@/components/
 import { FRAME_KEY, RIDEAU_KEY, SCENE_KEY } from '@/composables/useScene'
 import { CV, LINKEDIN, adresseMail } from '@/contenu/liens'
 import { departsEteints, departsReels, formaterHeure } from '@/scene/horaires'
+import { useLangue, useTextes } from '@/i18n'
 import type { Depart } from '@/scene/horaires'
 import { STAGE } from '@/scene/layout'
 import { HALO_HORLOGE, HORLOGE } from '@/scene/quai'
@@ -83,6 +84,8 @@ const frame = inject(FRAME_KEY, ref(null))
 const rideau = inject(RIDEAU_KEY, ref(null))
 const scene = inject(SCENE_KEY, ref(null))
 const voyage = useVoyage()
+const langue = useLangue()
+const t = useTextes()
 
 // Le cadre ne dit pas la largeur de la fenêtre : on la lit là, comme `NavFrise`,
 // et on la relit à chaque cadre émis — la scène en émet un à chaque redimensionnement,
@@ -201,8 +204,8 @@ watch(visible, (v) => {
 onBeforeUnmount(() => window.clearInterval(minuterie))
 
 const lignes = computed<Depart[]>(() => [
-  ...departsReels(maintenant.value),
-  ...departsEteints(maintenant.value, graine.value, 2),
+  ...departsReels(maintenant.value, langue.langue),
+  ...departsEteints(maintenant.value, graine.value, 2, langue.langue),
 ])
 const heure = computed(() => formaterHeure(maintenant.value))
 
@@ -422,7 +425,7 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
     class="commande"
     data-commande
     type="button"
-    aria-label="Prochains départs"
+    :aria-label="t.departs.aria"
     :aria-controls="visible ? ID_PANNEAU : undefined"
     :disabled="voyage.enRoute"
     :style="commande"
@@ -430,15 +433,15 @@ watch(() => rideau.value?.baisse ?? false, async (baisse, avant) => {
     @click="scene?.basculerRideau()"
   ></button>
   <Transition name="dissoudre">
-    <div v-if="visible" :id="ID_PANNEAU" class="panneau" :class="{ remonte }" :style="place" role="region" aria-label="Prochains départs" @pointerdown="arreterAppui">
+    <div v-if="visible" :id="ID_PANNEAU" class="panneau" :class="{ remonte }" :style="place" role="region" :aria-label="t.departs.aria" @pointerdown="arreterAppui">
       <span class="bras" aria-hidden="true" :style="{ left: retraitBras, height: hauteurBras }" />
       <span class="bras" aria-hidden="true" :style="{ right: retraitBras, height: hauteurBras }" />
       <p class="entete">
-        <span><VoletTexte texte="PROCHAINS DÉPARTS" :retard="DEBUT_ENTETE_MS" :fige="fige" /></span>
+        <span><VoletTexte :texte="t.departs.entete" :retard="DEBUT_ENTETE_MS" :fige="fige" /></span>
         <span class="heure"><VoletTexte :texte="heure" :retard="DEBUT_ENTETE_MS" :fige="fige" /></span>
         <!-- Visible, et non un disque transparent : c'est le chemin de sortie. Le
              dessin est masqué au lecteur d'écran, qui lit le nom du bouton. -->
-        <button ref="croixEl" class="croix" type="button" aria-label="Fermer les prochains départs" :style="styleCroix" @click="fermer">
+        <button ref="croixEl" class="croix" type="button" :aria-label="t.departs.fermer" :style="styleCroix" @click="fermer">
           <svg viewBox="0 0 44 44" aria-hidden="true" focusable="false"><path d="M14 14L30 30M30 14L14 30" /></svg>
         </button>
       </p>

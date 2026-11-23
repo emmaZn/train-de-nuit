@@ -13,12 +13,14 @@
 import { inject, onBeforeUnmount, ref, watch } from 'vue'
 import { SCENE_KEY } from '@/composables/useScene'
 import { useVoyage } from '@/stores/voyage'
-import { REPLIQUES, duree, suivante, variante } from '@/components/repliques'
+import { duree, suivante, variante } from '@/components/repliques'
+import { useLangue } from '@/i18n'
 
 const scene = inject(SCENE_KEY, ref(null))
 // Le bouton n'existe qu'où le gag existe : ailleurs, il épuiserait les
 // quatorze phrases ordonnées sans que rien ne tombe.
 const voyage = useVoyage()
+const langue = useLangue()
 const phrase = ref<string | null>(null)
 let dites = 0
 let minuterie = 0
@@ -29,11 +31,11 @@ let minuterie = 0
  * demander, et l'événement reste à sens unique.
  */
 function annoncer() {
-  scene.value?.setProchaineVariante(variante(REPLIQUES[dites] ?? ''))
+  scene.value?.setProchaineVariante(variante(dites))
 }
 
 function surChute() {
-  const texte = suivante(dites, Math.random)
+  const texte = suivante(dites, Math.random, langue.langue)
   dites += 1
   phrase.value = texte
   window.clearTimeout(minuterie)
