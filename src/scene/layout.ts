@@ -122,12 +122,20 @@ export const ANCRE_FRISE_MOBILE = 44
 
 /** Ce qu'on garde à droite, pour que la dernière mention ait sa place. */
 /**
- * Ce que l'œil occupe au bord droit : 24 px d'icône, 6 de rembourrage de chaque
- * côté, et 16 px de dégagement. La voie s'effaçait jusqu'ici à `MARGE_VOIE` du
- * bord, c'est-à-dire exactement là où l'œil commence — ils se superposaient par
- * construction.
+ * Ce que les commandes occupent au bord droit.
+ *
+ * Il y en a **deux** depuis le 24 novembre 2026 : l'œil, et le sélecteur de
+ * langue qui a pris le coin. Chacune fait 36 px — 24 px d'icône ou de texte, et
+ * 6 de rembourrage de chaque côté —, avec 14 px entre elles ; puis 16 px de
+ * dégagement avant que la voie ne commence.
+ *
+ * La voie s'effaçait jusqu'ici à `MARGE_VOIE` du bord, c'est-à-dire exactement
+ * là où l'œil commençait — ils se superposaient par construction. Et quand le
+ * sélecteur est arrivé, l'œil s'est décalé vers la gauche sans que ce nombre
+ * suive : la voie repassait dessous. Si une commande change de taille ou qu'il
+ * s'en ajoute une, c'est ici qu'il faut recompter.
  */
-export const DEGAGEMENT_OEIL = 36 + 16
+export const DEGAGEMENT_COMMANDES = 36 + 14 + 36 + 16
 
 export const MARGE_FRISE = 200
 export const MARGE_FRISE_MOBILE = 175
@@ -160,7 +168,7 @@ export function margeVoie(largeur: number): number {
 
 /** Idem à droite, où l'œil se tient : la voie doit s'arrêter avant lui. */
 export function margeVoieDroite(largeur: number): number {
-  return margeVoie(largeur) + DEGAGEMENT_OEIL
+  return margeVoie(largeur) + DEGAGEMENT_COMMANDES
 }
 
 /** Écartement minimal : en dessous, deux gares se chevaucheraient. */
@@ -176,15 +184,25 @@ export function garesVisibles(largeur: number): number {
 }
 
 /**
- * Écart entre deux gares, pour que `visibles` gares occupent exactement la
- * largeur, de l'ancre jusqu'à la marge de droite.
+ * De combien les gares sont resserrées par rapport à la largeur disponible.
+ *
+ * Emmanuelle, le 24 novembre 2026 : « tu peux resserrer très légèrement les
+ * gares (5 % disons) ». La frise ne va donc plus tout à fait jusqu'à la marge
+ * de droite : elle s'arrête un peu avant, et c'est voulu.
+ */
+export const RESSERREMENT = 0.95
+
+/**
+ * Écart entre deux gares : ce qu'il faudrait pour que `visibles` gares
+ * occupent exactement la largeur, de l'ancre à la marge de droite, moins le
+ * `RESSERREMENT`.
  */
 export function ecartFrise(largeur: number, visibles: number): number {
   const mobile = largeur < SEUIL_MOBILE
   const ancre = mobile ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
   const marge = mobile ? MARGE_FRISE_MOBILE : MARGE_FRISE
   const intervalles = Math.max(1, visibles - 1)
-  return Math.max(ECART_MINIMUM, (largeur - ancre - marge) / intervalles)
+  return Math.max(ECART_MINIMUM, ((largeur - ancre - marge) / intervalles) * RESSERREMENT)
 }
 
 
