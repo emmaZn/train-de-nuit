@@ -185,7 +185,7 @@ export const PIECES = {
   // soustraction la ferait bouger à chaque réglage de la gare, jusque dans la
   // rame (nez de la loco à 1299) — `quai.test.ts` garde cette marge, et celle
   // qui la sépare de l'horloge.
-  reverbere: { x: 1390, pied: HORIZON, hauteur: 400 },
+  reverbere: { x: 1390, pied: HORIZON, hauteur: 350 },
   batiment: {
     x: BORD_DROIT_CORPS - CORPS_IMAGE.x1 * ECHELLE_BATIMENT - DECALAGE_GARE,
     pied: HORIZON,
