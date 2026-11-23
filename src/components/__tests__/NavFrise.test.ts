@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { RouterLink, createMemoryHistory } from 'vue-router'
@@ -130,4 +132,20 @@ test('la frise suit un redimensionnement', async () => {
   await wrapper.vm.$nextTick()
   expect(wrapper.get('nav.frise').attributes('style')).not.toBe(avant)
   window.innerWidth = 1024
+})
+
+/**
+ * Décidé le 23 novembre 2026 : sous mouvement réduit la frise **glisse
+ * encore**, mais trop vite pour qu'on y lise un voyage — 0,2 s au lieu de
+ * 1,2 s. La couper net ferait perdre le lien entre la gare qu'on quitte et
+ * celle où l'on arrive. Les trois transitions de la frise partent ensemble :
+ * la piste qui glisse, les gares qui s'éteignent, le libellé qui grandit.
+ */
+test('en mouvement réduit, les trois transitions de la frise sont raccourcies ensemble', () => {
+  const source = readFileSync('src/components/NavFrise.vue', 'utf8')
+  const garde = source.match(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\n\}\n/)
+  for (const regle of ['.piste', '.voie', '.libelle']) {
+    expect(garde?.[0], regle).toContain(regle)
+  }
+  expect(garde?.[0]).toMatch(/transition-duration:\s*0\.2s/)
 })

@@ -1,5 +1,5 @@
 import { Container } from 'pixi.js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { Birds, CORPS_MAX, SOL, TAILLE_OISEAU } from '@/scene/Birds'
 import { Cables } from '@/scene/CableLayer'
@@ -163,6 +163,22 @@ describe('Birds', () => {
     expect(dits).toBe(1)
     tourner(birds, 3)
     expect(positions(birds).some((p) => Math.abs(p.y - SOL) < 1)).toBe(false)
+  })
+
+  /**
+   * Le fil vibrait quand même. La secousse était posée **avant** la garde de
+   * `lacher`, si bien que l'oiseau restait sage sur son fil et que le fil,
+   * lui, tremblait — le seul mouvement qui restait sur cette couche. Les
+   * oiseaux, eux, n'arrivent jamais en volant sous ce réglage : personne ne
+   * quitte le fil, donc aucune place ne se libère.
+   */
+  it('en mouvement réduit, le fil ne vibre pas davantage', () => {
+    const { birds, cables } = scene(true)
+    const secousses = vi.spyOn(cables, 'secouer')
+    const cible = positions(birds)[0]
+    expect(birds.cliquer(cible.x, cible.y - TAILLE_OISEAU * 0.3)).toBe(true)
+    tourner(birds, 3)
+    expect(secousses).not.toHaveBeenCalled()
   })
 
   it('fait pirouetter l’oiseau sur le fil avant de le lâcher, si la variante le dit', () => {

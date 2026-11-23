@@ -124,6 +124,26 @@ onBeforeUnmount(() => {
   }
 }
 
+/*
+ * Les six pixels que la phrase montait en paraissant. Ailleurs, les gardes ne
+ * font que raccourcir les fondus : un fondu n'est pas un mouvement, et le §11
+ * en demande partout — « gares en fondu ». Ici il y avait un déplacement, le
+ * seul du DOM à n'être gardé par rien, et c'est lui qu'on retire. La recette
+ * de rechange garde `translateX(-50%)` hors des étapes : c'est le centrage de
+ * la phrase, pas son entrée.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .replique {
+    animation-name: paraitre-sur-place;
+  }
+}
+
+@keyframes paraitre-sur-place {
+  from {
+    opacity: 0;
+  }
+}
+
 .tomber {
   position: fixed;
   right: 16px;

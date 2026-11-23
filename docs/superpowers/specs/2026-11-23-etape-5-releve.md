@@ -11,6 +11,10 @@ part. Ce document dit **ce qui est déjà là et ce qui ne l'est pas**, mesuré 
 Il ne décide de rien. Les chiffres sont à revérifier avant d'y toucher : ils
 vieillissent.
 
+**Le chantier « mouvement réduit » a été mené le 23 novembre au soir : ses trois
+alertes étaient fausses.** Voir la section datée en fin de document ; le §1
+ci-dessous est laissé tel qu'il a été écrit.
+
 ## 1. Mouvement réduit — largement fait, trois trous à vérifier
 
 `prefers-reduced-motion` est lu une fois dans `useScene`, passé à `Scene`, et
@@ -122,3 +126,90 @@ le favicon.
 - **La séquence du massif n'existe plus** (dit dans `layout.ts`), mais son
   cadre `MOUNTAIN_SOURCE` reste parce qu'il place le massif sur la scène.
   Ne pas le prendre pour un reste à nettoyer.
+
+## Vérifié le 23 novembre 2026 — chantier « mouvement réduit »
+
+Les trois alertes du §1 ont été reprises une par une. **Aucune des trois n'est
+un défaut.** Les fichiers ne lisent effectivement pas le réglage, mais `Scene`
+les tient en amont, et c'est le bon endroit : une couche qui ignore le réglage
+mais qu'on n'appelle jamais ne bouge pas.
+
+- `Dissolve` — `Scene.ts:962` : `if (!this.peutAnimer) return
+  poigneeSansAnimation(allumer)`. La phrase ne se défait pas, l'étoile s'allume
+  d'un coup. C'est mot pour mot ce que demande le §11 du CONCEPT.
+- `Sky` — `Scene.setPointer` (`Scene.ts:931`) repart aussitôt sous le réglage,
+  et `Sky.pointeur` part de `{ x: 0, y: 0 }` : la racine du ciel ne quitte
+  jamais sa place, son lissage à 0,02 tourne sur une cible immobile.
+- `Relief` — `dessiner()` sort tant que `legs` n'a pas changé, et sous le
+  réglage le train ne roule pas (`tick` est gardé par `peutAnimer`). Le massif
+  ne tourne qu'au saut d'une gare à l'autre.
+
+Le reste du §11 était déjà tenu : train à l'arrêt, étape franchie d'un coup
+(`Scene.ts:1054`, l'arrivée part en microtâche), pas de scintillement.
+
+### Les deux seuls défauts, corrigés le même soir
+
+1. **`Birds.lacher()` secouait le fil avant sa garde.** L'oiseau restait sage
+   sur son fil — c'est le §14, « le contenu est le but, la chute est le
+   plaisir » — et le fil tremblait quand même. La secousse est passée dans la
+   garde.
+2. **`RepliquesOiseaux.vue` faisait monter la réplique de 6 px.** Le seul
+   déplacement du DOM que rien ne gardait. Une recette de rechange,
+   `paraitre-sur-place`, ne fait plus que le fondu.
+
+### Trois choses mesurées au passage
+
+- **Les oiseaux n'arrivent jamais en volant sous ce réglage.** Une place ne se
+  libère que lorsqu'un oiseau quitte le fil, et la seule façon d'en quitter un
+  est de tomber — ce que la garde empêche. `surLesFils()` reste donc au complet
+  et `avancer()` n'ajoute personne. Mesuré en comparant les deux réglages après
+  un clic : en marche normale la rangée passe de neuf à dix oiseaux et le fil
+  reçoit les trois secousses attendues — le clic, le pas, l'atterrissage ; sous
+  mouvement réduit elle reste à neuf et le fil ne reçoit rien. **Le vol
+  d'arrivée n'est pas joignable sous ce réglage** : il n'y a rien à y garder.
+  (Une première mesure, faite en faisant défiler la scène sans clic, ne prouvait
+  rien : elle ne déclenchait aucune arrivée **dans aucun des deux réglages**.)
+- **Le train ne scintille pas à l'arrêt.** Son compteur d'images continue de
+  tourner — « le grain est vivant » —, mais `frameIndex` épingle l'état `arret`
+  à la dernière image de la séquence (`count - 1`) : l'image affichée ne change
+  pas. Vérifié : 42 pour un compteur à 0, 10, 100 ou 1000.
+- **L'île ne glisse pas après le saut.** `suivreIle` ne déplace l'île qu'au
+  prorata de `train.vitesse`, et cette vitesse vaut 0 à l'arrêt comme au premier
+  instant du démarrage. Poteaux, fils, oiseaux et quai sont posés d'un coup à
+  leur place, et n'avancent plus.
+
+### La frise : tranché le 23 novembre — elle glisse encore
+
+Les gardes du DOM ne coupent pas les fondus, elles les raccourcissent à 0,2 s —
+et c'est juste : un fondu n'est pas un mouvement, et le §11 en demande, « gares
+en fondu ». Mais **`NavFrise` n'est pas dans ce cas** : sa garde porte sur
+`transition: transform`, c'est-à-dire sur le **glissement** de la piste, qui
+dure donc encore 0,2 s au lieu de 1,2 s. Et le `font-size 1.2s` de la gare
+courante (ligne 191) n'est gardé par rien.
+
+**Décidé : on garde le glissement court.** 0,2 s est sous le seuil où l'on lit
+un déplacement, et le couper net ferait perdre le lien entre la gare qu'on
+quitte et celle où l'on arrive. La garde a donc été étendue aux trois
+transitions de la frise — la piste qui glisse, les gares qui s'éteignent, le
+libellé qui grandit — qui partent maintenant ensemble.
+
+C'est cohérent avec ce que ces transitions sont : elles **ne servent qu'aux
+sauts**. En route, `.piste` passe en `transition: none` et c'est la scène qui
+la déplace à chaque image. Elles n'existent que pour qui ne voit pas la scène
+bouger — mouvement réduit, ou pas de WebGL.
+
+### Su et non corrigé
+
+Le réglage est lu **une seule fois, au montage** (`useScene.ts:110`,
+`PanneauDeparts.vue:216`). Le changer dans le système pendant une visite ne
+fait rien tant qu'on ne recharge pas la page. Ça ne gêne personne en usage
+réel — on règle son système avant d'ouvrir un site, pas pendant — mais il faut
+le savoir pour vérifier : **recharger après avoir coché la case.**
+
+### Fini quand
+
+Emmanuelle active « Réduire les animations » dans Réglages › Accessibilité ›
+Affichage, **recharge**, et fait le tour : un voyage entre deux gares, un clic
+sur un oiseau, une phrase envoyée depuis « là-haut », le panneau des départs
+baissé, le CV ouvert. Rien ne doit bouger tout seul, et le site doit rester
+entier — le train est là, les textes s'affichent, les phrases répondent.

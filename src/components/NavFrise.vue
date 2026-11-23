@@ -275,8 +275,20 @@ const entrees = computed(() => {
   outline-offset: 6px;
 }
 
+/*
+ * Les trois transitions de la frise ne servent qu'aux **sauts** : en route,
+ * `.piste` passe en `transition: none` et c'est la scène qui la déplace à
+ * chaque image. Elles sont donc exactement ce que voit quelqu'un qui a
+ * demandé moins de mouvement, et elles partent ensemble.
+ *
+ * Raccourcies, pas coupées (décidé le 23 novembre 2026) : 0,2 s est sous le
+ * seuil où l'on lit un déplacement, mais la frise bouge encore — sans quoi on
+ * perdrait le lien entre la gare qu'on quitte et celle où l'on arrive.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .piste {
+  .piste,
+  .voie,
+  .libelle {
     transition-duration: 0.2s;
   }
 }
