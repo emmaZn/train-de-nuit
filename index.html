@@ -34,6 +34,21 @@
         /* Fenêtre privée, stockage bloqué : ce sera la nuit par défaut. */
       }
       if (nuit !== '#151517' && nuit !== '#000' && nuit !== '#1a120b') nuit = '#151517'
+
+      /* La langue retenue, posée elle aussi avant le premier pixel. Entre
+         l'ouverture de la page et `main.ts`, c'est ce HTML qui parle : annoncé
+         `fr` alors que le site est en anglais, il ment au lecteur d'écran, aux
+         césures et au traducteur automatique. `src/i18n/langue.ts` refait le
+         geste au montage et à chaque bascule ; un test tient les deux. */
+      var langue = null
+      try {
+        langue = localStorage.getItem('train-de-nuit:langue')
+      } catch (e) {
+        /* Fenêtre privée, stockage bloqué : ce sera le français. */
+      }
+      if (langue !== 'fr' && langue !== 'en') langue = 'fr'
+      document.documentElement.lang = langue
+
       /* Deux variables, et non une. `--fond`, pour que la page parte de la
          bonne nuit ; `--nuit-attente`, que personne d'autre n'écrit, pour
          l'écran d'attente. La scène réécrit `--fond` à chaque image pendant

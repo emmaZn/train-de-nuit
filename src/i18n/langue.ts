@@ -45,6 +45,21 @@ export function premiere(): Langue {
   return lire() ?? 'fr'
 }
 
+/**
+ * Dit au document la langue qu'il parle.
+ *
+ * `<html lang>` n'est pas décoratif : il décide de la voix d'un lecteur
+ * d'écran, des césures, et de ce qu'un traducteur automatique croit avoir sous
+ * les yeux. Un site qui bascule en anglais en restant annoncé `fr` ment à tout
+ * ce qui le lit autrement qu'avec des yeux.
+ *
+ * Le script de tête d'`index.html` fait la même chose avant le bundle, pour
+ * que le HTML servi ne mente pas non plus ; un test tient les deux ensemble.
+ */
+export function poserLangue(langue: Langue): void {
+  document.documentElement.lang = langue
+}
+
 export const useLangue = defineStore('langue', {
   state: () => ({ langue: premiere() }),
   actions: {
@@ -52,6 +67,7 @@ export const useLangue = defineStore('langue', {
       if (this.langue === langue) return
       this.langue = langue
       ecrire(langue)
+      poserLangue(langue)
     },
     basculer() {
       this.choisir(this.langue === 'fr' ? 'en' : 'fr')
