@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import { Birds, CORPS_MAX, SOL, TAILLE_OISEAU } from '@/scene/Birds'
 import { Cables } from '@/scene/CableLayer'
+import { u } from '@/scene/cables'
 import { PLACES_SIMULTANEES, placesTenables } from '@/scene/oiseaux'
 import { HORIZON } from '@/scene/layout'
 
@@ -30,6 +31,59 @@ describe('Birds', () => {
     expect(birds.corps.children.length).toBe(PLACES_SIMULTANEES)
     tourner(birds, 30)
     expect(birds.corps.children.length).toBe(PLACES_SIMULTANEES)
+  })
+
+  /**
+   * Le trait qui traversait la scène (signalé le 22 novembre 2026). Un oiseau
+   * qui arrive partait de l'un des deux bords **au hasard** : à trois poteaux,
+   * près de 2630 px de scène séparent le bord gauche du bord droit, et le vol
+   * dure `DUREE_VOL` quelle que soit sa longueur. Un oiseau qui se posait à
+   * gauche en partant de droite rayait donc l'écran — et à toutes les gares,
+   * puisque la boucle tourne partout.
+   *
+   * Il part maintenant du bord le plus proche : le vol le plus long vaut la
+   * moitié de l'installation, pas sa largeur entière.
+   */
+  it('arrive par le bord le plus proche, sans traverser l’installation', () => {
+    const { birds, cables } = scene()
+    const largeur = cables.travees * u(620) + 2 * u(220)
+    // Une place se libère : le prochain oiseau arrivera, et on le voit partir.
+    const cible = positions(birds)[0]
+    birds.cliquer(cible.x, cible.y - TAILLE_OISEAU * 0.3)
+
+    let avant = positions(birds).map((p) => p.x)
+    let depart: number | null = null
+    for (let i = 0; i < 60 * 6 && depart === null; i += 1) {
+      birds.avancer(1 / 60)
+      const apres = positions(birds).map((p) => p.x)
+      if (apres.length > avant.length) depart = apres[apres.length - 1]
+      avant = apres
+    }
+    expect(depart, 'un oiseau est bien arrivé').not.toBeNull()
+
+    // Où il se pose, une fois le vol fini.
+    tourner(birds, 3)
+    const pose = positions(birds)[positions(birds).length - 1].x
+    const vol = Math.abs(pose - (depart as number))
+    expect(vol).toBeLessThanOrEqual(largeur * 0.6)
+  })
+
+  /**
+   * Le curseur et l'appui posent la **même** question : un doigt de souris sur
+   * un oiseau qui ne tomberait pas serait une promesse en l'air.
+   */
+  it('le survol répond là où le clic répond, et nulle part ailleurs', () => {
+    const { birds } = scene()
+    const cible = positions(birds)[0]
+    const x = cible.x
+    const y = cible.y - TAILLE_OISEAU * 0.3
+    expect(birds.survole(x, y)).toBe(true)
+    // Loin au-dessus des fils : les neuf places sont occupées, et viser de
+    // côté tomberait simplement sur un voisin.
+    expect(birds.survole(x, y - TAILLE_OISEAU * 20)).toBe(false)
+    // Et il ne fait rien tomber au passage.
+    expect(positions(birds)).toHaveLength(PLACES_SIMULTANEES)
+    expect(birds.cliquer(x, y)).toBe(true)
   })
 
   it('un clic sur un oiseau le fait tomber, et ne prévient qu’une fois', () => {

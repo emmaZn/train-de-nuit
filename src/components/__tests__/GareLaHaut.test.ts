@@ -46,7 +46,7 @@ vi.mock('@/scene/stars', async (importOriginal) => {
 /** Le délai du §9, en dur : si le composant l'allonge, ces tests le disent. */
 const DELAI = 10_000
 /** Le §6.9 mot pour mot : jamais « ça n'est pas parti ». */
-const MESSAGE = "on n'a pas pu confirmer"
+const MESSAGE = "on n’a pas pu confirmer"
 /** Le délai du composant avant de remplir une région live fraîchement insérée. */
 const DELAI_REGION = 120
 
@@ -167,9 +167,11 @@ afterEach(() => {
 
 /* ---- La copie du §4.3 ---- */
 
-test('le formulaire porte les libellés et placeholders exacts du §4.3', () => {
+test('le formulaire porte les libellés et placeholders du dictionnaire', () => {
+  // Le §4.3 disait « Laisser une trace ? » ; Emmanuelle l'a renommé le 24
+  // novembre 2026 : « on renomme en "Laisser une étoile ?" ».
   const { wrapper, champ } = monter()
-  expect(wrapper.get('h2').text()).toBe('Laisser une trace ?')
+  expect(wrapper.get('h2').text()).toBe('Laisser une étoile ?')
   expect(champ.attributes('placeholder')).toBe('une phrase, un mot, une pensée…')
   expect(wrapper.get('[data-champ="prenom"]').attributes('placeholder')).toBe(
     'un prénom, si vous voulez',
@@ -282,82 +284,15 @@ test('le champ phrase porte exactement la police que la dissolution rastérise',
   const dissolve = readFileSync('src/scene/Dissolve.ts', 'utf8')
   const base = readFileSync('src/styles/base.css', 'utf8')
   const police = dissolve.match(/const POLICE = "([^"]+)"/)?.[1]
-  const famille = base.match(/--police-texte:\s*([^;]+);/)?.[1].trim()
+  const famille = base.match(/--police-mono:\s*([^;]+);/)?.[1].trim()
   const champ = gare.match(/\.phrase\s*\{[^}]*font:\s*([^;]+);/)?.[1].trim()
-  // Un grain tombe là où la lettre était : les deux polices ne peuvent pas diverger.
-  expect(champ).toBe('300 17px var(--police-texte)')
-  expect(police).toBe(`300 17px ${famille}`)
+  // Un grain tombe là où la lettre était : les deux polices ne peuvent pas
+  // diverger. En mono depuis le 24 novembre — « on utilise la font mono
+  // partout, même sur là-haut ».
+  expect(champ).toBe('400 15px var(--police-mono)')
+  expect(police).toBe(`400 15px ${famille}`)
 })
 
-/* ---- La nuit derrière le formulaire ---- */
-
-// Vitest ne charge pas le CSS scopé d'un SFC : on lit la source, comme le fait
-// déjà le test de la police. Ça ne dit rien du rendu — c'est l'épreuve à l'œil
-// qui en juge — mais ça épingle ce que le cadrage fixe.
-function tacheDeNuit(): string {
-  const gare = readFileSync('src/components/gares/GareLaHaut.vue', 'utf8')
-  return /\.trace::before\s*\{([^}]*)\}/.exec(gare)?.[1] ?? ''
-}
-
-test('le formulaire isole son empilement, sinon la tache passe derrière la scène', () => {
-  // `z-index: -1` place la tache derrière le contenu du contexte d'empilement
-  // le plus proche. Sans `isolation: isolate` sur `.trace`, aucun ancêtre n'en
-  // crée : la tache part alors derrière le canvas de la scène et devient
-  // purement invisible. Constaté au navigateur, pas déduit.
-  const gare = readFileSync('src/components/gares/GareLaHaut.vue', 'utf8')
-  const bloc = /\.trace\s*\{([^}]*)\}/.exec(gare)?.[1] ?? ''
-  expect(bloc).toMatch(/position:\s*absolute/)
-  expect(bloc).toMatch(/isolation:\s*isolate/)
-})
-
-test('la tache de nuit se prend sur le fond, jamais sur une couleur figée', () => {
-  // CONCEPT §6 : l'œil fait défiler les fonds, la tache doit suivre sans retouche.
-  expect(tacheDeNuit()).toMatch(/var\(--fond\)/)
-  expect(tacheDeNuit()).not.toMatch(/#[0-9a-f]{3,6}/i)
-})
-
-test('la tache garde exactement l’arête que la bulle a fait accepter', () => {
-  // Le cadrage dit « dérogation déjà actée pour la bulle, reprise ici — rien de
-  // plus ». L'arête, c'est-à-dire l'opacité à laquelle la boîte coupe le
-  // dégradé, est fixée par les arrêts : des arrêts plus tardifs donnent une
-  // arête plus dure que celle qu'Emmanuelle a regardée et acceptée. Les deux
-  // recettes doivent donc porter les mêmes. La couverture des coins se gagne
-  // par un `inset` plus large, pas en durcissant l'arête.
-  const arrets = (src: string, sel: string): string[] =>
-    [...(new RegExp(`${sel}[^}]*\\}`).exec(src)?.[0] ?? '').matchAll(/(\d+)%\s*,?\s*transparent\)\s*(\d+)%/g)]
-      .map((m) => `${m[1]}/${m[2]}`)
-  const bulle = arrets(readFileSync('src/components/StarTooltip.vue', 'utf8'), '\\.bulle::before')
-  const tache = arrets(readFileSync('src/components/gares/GareLaHaut.vue', 'utf8'), '\\.trace::before')
-  expect(bulle.length).toBeGreaterThan(0)
-  expect(tache).toEqual(bulle)
-})
-
-test('la tache reste derrière le texte du formulaire', () => {
-  expect(tacheDeNuit()).toMatch(/z-index:\s*-1/)
-})
-
-test('la tache a un `content`, sans quoi elle n’existe pas du tout', () => {
-  // La seule ligne dont le retrait fait disparaître la tache entièrement en
-  // laissant tous les autres gardes verts : le bloc garderait son `--fond`,
-  // son `z-index`, son `pointer-events` et son `background`. C'est la classe de
-  // défaut qui a déjà mordu une fois ici — une tache strictement invisible que
-  // les tests ne voyaient pas.
-  expect(tacheDeNuit()).toMatch(/content:/)
-})
-
-test('la tache ne capte pas le pointeur des étoiles qu’elle recouvre', () => {
-  // `.trace` porte `pointer-events: auto`, et un ::before positionné fait partie
-  // de sa boîte : sans cette ligne il volerait le survol tout autour du bloc.
-  expect(tacheDeNuit()).toMatch(/pointer-events:\s*none/)
-})
-
-test('la tache n’anime rien d’elle-même', () => {
-  // Elle hérite de l'opacité de `.trace`, qui porte déjà sa transition et sa
-  // règle de mouvement réduit. L'assertion positive vient d'abord : sans elle,
-  // un bloc absent ferait passer la négative sans rien prouver.
-  expect(tacheDeNuit()).toMatch(/background/)
-  expect(tacheDeNuit()).not.toMatch(/animation|transition/)
-})
 
 /* ---- Review Focus #2 : les quatre chemins du réseau ---- */
 
@@ -432,7 +367,7 @@ test('délai dépassé : la ligne dit « on n’a pas pu confirmer », le texte 
   await passerLeDelai()
 
   expect(scene.poignees[0].revert).toHaveBeenCalledTimes(1)
-  expect(ligne().text()).toBe("on n'a pas pu confirmer")
+  expect(ligne().text()).toBe("on n’a pas pu confirmer")
   // Jamais « ça n'est pas parti » : l'écriture, elle, continue.
   expect(ligne().text()).not.toContain('parti')
   expect(valeur()).toBe('une phrase')
@@ -833,4 +768,121 @@ test('en route, le formulaire n’est pas à l’écran', async () => {
   useVoyage().partirVers('ailleurs')
   await nextTick()
   expect(wrapper.find('[data-champ="phrase"]').exists()).toBe(false)
+})
+
+/* ---- La plaque, qui a remplacé la tache ---- */
+
+// Vitest ne charge pas le CSS scopé d'un SFC : on lit la source, comme le fait
+// déjà le test de la police. Ça ne dit rien du rendu — c'est l'épreuve à l'œil
+// qui en juge — mais ça épingle ce que le cadrage fixe.
+
+test('la tache de nuit est partie, remplacée par la plaque', () => {
+  // Spec du 24/11 : le fond opaque de la plaque éteint le massif, et sans
+  // laisser l'arête que le dégradé posait sur le grain. La dérogation du
+  // 13/11 ne vaut plus ici — elle reste pour la bulle et le pied de page.
+  const gare = readFileSync('src/components/gares/GareLaHaut.vue', 'utf8')
+  expect(gare).not.toMatch(/radial-gradient/)
+  expect(gare).not.toMatch(/\.trace::before/)
+  expect(gare).toMatch(/PlaqueGrainee/)
+})
+
+test('le formulaire s’efface avec sa plaque, pas tout seul', () => {
+  // Temps 1 et 5 du §4.3 : c'est la plaque qui porte l'opacité, sinon le cadre
+  // et le fond resteraient à l'écran pendant que la phrase se défait.
+  const gare = readFileSync('src/components/gares/GareLaHaut.vue', 'utf8')
+  const plaque = /\.plaque-trace\s*\{([^}]*)\}/.exec(gare)?.[1] ?? ''
+  expect(plaque).toMatch(/transition:\s*opacity/)
+  expect(gare).toMatch(/\.plaque-trace\[data-envoi='true'\]\s*\{[^}]*opacity:\s*0/)
+})
+
+/* ---- Où le bloc se pose (spec du 23/11) ---- */
+
+/** Le corps d'une règle, lu dans la source du SFC comme le fait `tacheDeNuit`. */
+function regle(src: string, selecteur: string): string {
+  return new RegExp(`${selecteur}\\s*\\{([^}]*)\\}`).exec(src)?.[1] ?? ''
+}
+
+function source(): string {
+  return readFileSync('src/components/gares/GareLaHaut.vue', 'utf8')
+}
+
+function regleTrace(): string {
+  return regle(source(), '\\.plaque-trace')
+}
+
+/** La même règle, telle que la requête des fenêtres étroites la refait. */
+function regleTraceEtroite(): string {
+  const media = /@media \(max-width: 720px\) \{([\s\S]*?)\n\}/.exec(source())?.[1] ?? ''
+  return regle(media, '\\.plaque-trace')
+}
+
+test('le bloc se pose dans le ciel, centré et large', () => {
+  // 204 px : la hauteur qu'Emmanuelle a posée elle-même le 23 au soir, plus bas
+  // que la bande haute de la spec, et sur le sommet du massif. C'est la tache
+  // qui le rend lisible là.
+  const bloc = regleTrace()
+  expect(bloc).toMatch(/top:\s*204px/)
+  expect(bloc).toMatch(/left:\s*50%/)
+  expect(bloc).toMatch(/translateX\(-50%\)/)
+})
+
+test('la largeur tient la phrase sans déborder d’une fenêtre étroite', () => {
+  // 550 px : 75 des 76 signes de la phrase du CONCEPT. En dessous de 774 px de
+  // fenêtre la largeur suit le viewport, sinon la tache est coupée net par
+  // `overflow: hidden` et montre une arête dure en pleine scène.
+  const bloc = regleTrace()
+  expect(bloc).toMatch(/width:\s*min\(550px,/)
+  expect(bloc).toMatch(/100vw/)
+})
+
+test('au téléphone le bloc remonte et reprend les deux bords', () => {
+  const etroit = regleTraceEtroite()
+  expect(etroit).toMatch(/top:\s*118px/)
+  expect(etroit).toMatch(/left:\s*16px/)
+  expect(etroit).toMatch(/right:\s*16px/)
+  expect(etroit).toMatch(/width:\s*auto/)
+})
+
+/* ---- La hiérarchie remontée d'un cran (spec du 23/11) ---- */
+
+test('les quatre textes montent d’un cran, sans quitter l’échelle du §6', () => {
+  // Emmanuelle, le 22/11 : la lisibilité ne vient pas que du fond. À `legs 0`,
+  // au bureau, le texte est sur du noir pur et se lit quand même mal. Les
+  // valeurs restent les variables du site, jamais des nombres écrits à la main.
+  const gare = source()
+  expect(regle(gare, '\\.titre')).toMatch(/opacity:\s*var\(--fort\)/)
+  expect(regle(gare, '\\.phrase::placeholder,\\s*\\.prenom::placeholder')).toMatch(
+    /opacity:\s*var\(--moyen\)/,
+  )
+  const meta = regle(gare, '\\.meta,\\s*\\.dit')
+  expect(meta).toMatch(/opacity:\s*var\(--moyen\)/)
+  expect(meta).toMatch(/font-size:\s*12px/)
+})
+
+test('le trait des champs se voit sur le grain', () => {
+  // La règle est partagée par `.phrase` et `.prenom` : on cherche la ligne, pas
+  // le sélecteur, dont la mise en forme sur deux lignes est fragile à épingler.
+  const gare = source()
+  expect(gare).toMatch(/border-bottom:\s*1px solid rgb\(from var\(--trait\) r g b \/ var\(--faible\)\)/)
+  expect(gare).not.toMatch(/border-bottom:[^;]*var\(--murmure\)/)
+})
+
+test('la hiérarchie du site n’est pas touchée', () => {
+  // `--moyen` et `--faible` servent aussi à la frise, à la bulle et au panneau
+  // des départs : la remontée ne vaut que dans ce bloc-ci.
+  const base = readFileSync('src/styles/base.css', 'utf8')
+  expect(base).toMatch(/--fort:\s*0\.95/)
+  expect(base).toMatch(/--moyen:\s*0\.6/)
+  expect(base).toMatch(/--faible:\s*0\.42/)
+  expect(base).toMatch(/--murmure:\s*0\.2/)
+})
+
+test('sur un écran court, le bloc remonte pour que le bouton reste à l’écran', () => {
+  // Un téléphone en paysage fait 844 px de large : il prend la branche bureau.
+  // Mesuré à 844 × 346 avant correction : la ligne méta tombait à 338-354 pour
+  // 346 px de haut, et `body` est en `overflow: hidden` — « laisser ↵ » était
+  // coupé en deux et la région live jamais visible. Après le délai de 10 s, les
+  // champs sont en lecture seule et ce bouton est le seul geste qui reste.
+  const court = /@media \(max-height: 480px\) \{([\s\S]*?)\n\}/.exec(source())?.[1] ?? ''
+  expect(regle(court, '\\.plaque-trace')).toMatch(/top:\s*118px/)
 })

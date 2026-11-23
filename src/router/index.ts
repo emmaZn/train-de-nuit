@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { Router, RouterHistory } from 'vue-router'
+import CvLigne from '@/components/CvLigne.vue'
 import GareAilleurs from '@/components/gares/GareAilleurs.vue'
 import GareIci from '@/components/gares/GareIci.vue'
 import GareLaHaut from '@/components/gares/GareLaHaut.vue'
@@ -15,7 +16,13 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
       { path: '/ici', name: 'ici', component: GareIci },
       { path: '/plus-loin', name: 'plus-loin', component: GarePlusLoin },
       { path: '/la-haut', name: 'la-haut', component: GareLaHaut },
-      { path: '/ailleurs', name: 'ailleurs', component: GareAilleurs },
+      {
+        path: '/ailleurs',
+        name: 'ailleurs',
+        component: GareAilleurs,
+        // Le CV s'ouvre dans la gare : on ne la quitte pas.
+        children: [{ path: 'cv', name: 'cv', component: CvLigne }],
+      },
       { path: '/:chemin(.*)*', redirect: '/ici' },
     ],
   })
@@ -31,7 +38,9 @@ export function createAppRouter(history: RouterHistory = createWebHistory()): Ro
 export function brancherVoyage(router: Router): void {
   let premiere = true
   router.afterEach((to) => {
-    const gare = to.name as Gare
+    // La gare est la route de premier niveau : `/ailleurs/cv` est « ailleurs »,
+    // `to.name` y vaudrait « cv » et ne déclencherait aucun voyage.
+    const gare = to.matched[0]?.name as Gare
     if (!(GARES as readonly string[]).includes(gare)) return
     const voyage = useVoyage()
     if (premiere) {

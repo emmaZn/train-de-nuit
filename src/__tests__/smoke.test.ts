@@ -13,7 +13,7 @@ vi.mock('@/composables/useScene', async (importOriginal) => {
   const reel = await importOriginal<typeof import('@/composables/useScene')>()
   return {
     ...reel,
-    useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), changerFond: () => {} }),
+    useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(null), rideau: ref(null), changerFond: () => {} }),
   }
 })
 
@@ -37,7 +37,7 @@ test('App pose l’icône œil par-dessus la scène', async () => {
 test('la gare ici affiche son nom et sa phrase', async () => {
   const wrapper = await monter()
   expect(wrapper.text()).toContain('Emmanuelle Zenou')
-  expect(wrapper.text()).toContain('Chaque étoile est quelqu\'un qui est passé par ici.')
+  expect(wrapper.text()).toContain('Chaque étoile est quelqu’un qui est passé par ici.')
 })
 
 test('App pose la frise des gares par-dessus la scène', async () => {

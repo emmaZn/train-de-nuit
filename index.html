@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Le grain du projet : noir `#0b0b0c`, gris `#EDEDED`, sur la grille de
+         16 cellules. iOS ne lit pas le SVG, d'où le PNG à côté. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Train de nuit</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -10,8 +14,265 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=JetBrains+Mono:wght@300;400&display=swap"
       rel="stylesheet"
     />
+    <script>
+      /* La couleur de nuit choisie à la dernière visite, posée avant le premier
+         pixel. Sans elle, l'écran d'attente aurait une nuit que le site n'a
+         pas, et son fondu laisserait voir la bascule.
+
+         Elle est posée **même à défaut de choix** : `base.css` déclare encore
+         `--fond: #2e2313`, que `useScene` remplace par `#151517` au montage.
+         Personne ne voyait ce virage — il arrivait sur une page vide ; devant
+         l'écran d'attente il durerait une seconde et demie.
+
+         Les trois valeurs sont celles de `PALETTE` (src/scene/palette.ts) et le
+         repli celle de `DEFAUT` : recopiées à la main, parce que ce script
+         s'exécute avant le bundle. Un test tient les deux listes ensemble. */
+      var nuit = null
+      try {
+        nuit = localStorage.getItem('train-de-nuit:fond')
+      } catch (e) {
+        /* Fenêtre privée, stockage bloqué : ce sera la nuit par défaut. */
+      }
+      if (nuit !== '#151517' && nuit !== '#000' && nuit !== '#1a120b') nuit = '#151517'
+
+      /* La langue retenue, posée elle aussi avant le premier pixel. Entre
+         l'ouverture de la page et `main.ts`, c'est ce HTML qui parle : annoncé
+         `fr` alors que le site est en anglais, il ment au lecteur d'écran, aux
+         césures et au traducteur automatique. `src/i18n/langue.ts` refait le
+         geste au montage et à chaque bascule ; un test tient les deux. */
+      var langue = null
+      try {
+        langue = localStorage.getItem('train-de-nuit:langue')
+      } catch (e) {
+        /* Fenêtre privée, stockage bloqué : ce sera le français. */
+      }
+      if (langue !== 'fr' && langue !== 'en') langue = 'fr'
+      document.documentElement.lang = langue
+
+      /* Deux variables, et non une. `--fond`, pour que la page parte de la
+         bonne nuit ; `--nuit-attente`, que personne d'autre n'écrit, pour
+         l'écran d'attente. La scène réécrit `--fond` à chaque image pendant
+         son fondu d'ouverture : l'écran y aurait changé de couleur en plein
+         chargement, alors qu'il ne fait qu'attendre. */
+      document.documentElement.style.setProperty('--fond', nuit)
+      document.documentElement.style.setProperty('--nuit-attente', nuit)
+    </script>
+    <style>
+      /* Le `html` est de la couleur du site, pour qu'aucun blanc ne passe
+         avant la feuille de style. */
+      html {
+        background: var(--fond, #151517);
+      }
+
+      #chargement {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: var(--nuit-attente, #151517);
+        opacity: 1;
+        transition: opacity 0.6s ease;
+      }
+
+      #chargement.parti {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* Le ciel est peint dans un canevas, parce qu'il y a trois mille cinq
+         cents grains à poser sur un écran de bureau : trois mille cinq cents
+         éléments animés, c'est une page qui rame ; un canevas, c'est quelques
+         millisecondes et une seule image. */
+      #chargement canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
   </head>
   <body>
+    <!--
+      L'écran d'attente. Il est ici, et non dans Vue, parce qu'il doit se voir
+      avant que le moindre script ne charge : un loader qui attend le bundle
+      s'affiche quand il n'y a plus rien à attendre.
+
+      Le ciel qu'il montre est celui de la scène — la poussière de `Sky.ts`,
+      aux mêmes places, aux mêmes opacités. Quand l'écran s'efface, rien ne
+      bouge : ce qu'on regardait est déjà là, derrière.
+
+      C'est `useScene` qui le retire, quand la scène a posé le train et le
+      massif (`Scene.pret`).
+    -->
+    <div id="chargement" aria-hidden="true">
+      <canvas id="chargement-ciel"></canvas>
+    </div>
+    <script>
+      /*
+        Le ciel de l'écran d'attente : **celui de la scène**, pas un autre.
+
+        `src/scene/Sky.ts` sème une poussière déterministe — trois mille cinq
+        cents grains sur un écran de bureau, trois cents sur un téléphone — à
+        des places, des rayons et des opacités que la graine 7 fixe une fois
+        pour toutes. Ce qui suit la recopie en JavaScript nu : le bundle fait
+        plus de 500 ko et importe Pixi, il ne peut donc pas servir ici, et il
+        n'y a pas d'autre moyen de montrer ce ciel-là avant qu'il n'arrive.
+
+        La recopie est tenue par un test (`src/__tests__/chargement.test.ts`)
+        qui compare grain par grain ce que cette fonction rend et ce que rend
+        `poussiereDeLaFenetre` de `Sky.ts`, sur six formats de fenêtre. Si
+        quelqu'un touche au cadrage, au tirage ou aux constantes, il casse.
+
+        Le peuplement ne tourne pas en `requestAnimationFrame` : pendant ces
+        deux secondes, le fil principal parse le bundle et monte Pixi, et une
+        boucle à l'image y gèlerait. Chaque réveil regarde l'heure et dessine
+        ce qui devrait être là — un gel décale l'apparition, il ne la perd pas.
+      */
+      ;(function () {
+        var boite = document.getElementById('chargement')
+        var toile = document.getElementById('chargement-ciel')
+        var pinceau = toile && toile.getContext && toile.getContext('2d')
+
+        /* src/scene/layout.ts */
+        var STAGE_W = 2320
+        var STAGE_H = 1217
+        var HORIZON = 921
+        var SEUIL_MOBILE = 720
+        var DESCENTE_BUREAU = 20
+        var DESCENTE_MOBILE = 60
+        var PLANCHER_REFLET = 55
+        /* src/scene/Sky.ts */
+        var PARALLAX = 14
+        var DENSITE = 1 / 600
+        var PLANCHER = 60
+        var FACTEUR_MOBILE = 0.35
+        var PLAFOND_TIRAGE = 20000
+        var GRAINE = 7
+
+        /* mulberry32, comme `alea` de src/scene/alea.ts. */
+        function alea(graine) {
+          var a = graine >>> 0
+          return function () {
+            a = (a + 0x6d2b79f5) >>> 0
+            var t = Math.imul(a ^ (a >>> 15), 1 | a)
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+          }
+        }
+
+        /* `cadrageScene` : `fitStage`, puis le décalage de `cadrageCiel`. */
+        function cadre(w, h) {
+          var lw = Math.max(w, 1)
+          var lh = Math.max(h, 1)
+          var echelle = Math.max(lw / STAGE_W, lh / STAGE_H)
+          var hautY = (lh - STAGE_H * echelle) / 2
+          var jeu = Math.max(0, -hautY)
+          var reflet = h - (HORIZON * echelle + hautY)
+          var marge = jeu + (w >= SEUIL_MOBILE ? DESCENTE_BUREAU : DESCENTE_MOBILE)
+          var decalage = Math.min(marge, Math.max(0, reflet - PLANCHER_REFLET))
+          return {
+            scale: echelle,
+            offsetX: (lw - STAGE_W * echelle) / 2,
+            offsetY: hautY + decalage,
+          }
+        }
+
+        /* La seule prise que le test ait sur cette recopie. */
+        window.__poussiereDAttente = function (w, h) {
+          var frame = cadre(w, h)
+          var mobile = w < SEUIL_MOBILE
+          var bord = PARALLAX * frame.scale
+          var sol = Math.min(HORIZON * frame.scale + frame.offsetY, h)
+
+          var garder = function (nombre) {
+            var suivant = alea(GRAINE)
+            var libres = []
+            for (var i = 0; i < nombre; i += 1) {
+              var gx = suivant() * STAGE_W
+              var gy = suivant() * STAGE_H
+              var gr = 0.4 + suivant() * 0.9
+              var ga = 0.06 + suivant() * 0.3
+              var x = gx * frame.scale + frame.offsetX
+              var y = gy * frame.scale + frame.offsetY
+              var r = gr * frame.scale
+              if (x < 0 || x > w) continue
+              if (y + r + bord <= sol) libres.push({ x: x, y: y, r: r, a: ga })
+            }
+            return libres
+          }
+
+          var surface = Math.max(STAGE_W, 1) * Math.max(STAGE_H, 1)
+          var nombre = Math.max(
+            PLANCHER,
+            Math.round(surface * DENSITE * (mobile ? FACTEUR_MOBILE : 1))
+          )
+          var grains = garder(nombre)
+          while (grains.length < PLANCHER && nombre < PLAFOND_TIRAGE) {
+            nombre *= 2
+            grains = garder(nombre)
+          }
+          return grains
+        }
+
+        if (!boite || !pinceau) return
+
+        /* Le temps que met le ciel à se peupler, et la courbe par laquelle il
+           le fait : les plus vifs d'abord et vite, puis de plus en plus de
+           faibles, de plus en plus lentement — l'ordre où un œil s'habitue à
+           la nuit. */
+        var PEUPLEMENT = 2200
+        var COURBE = 1.7
+
+        var grains = []
+        var poses = 0
+        var depart = Date.now()
+        var calme =
+          window.matchMedia &&
+          window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+        function tailler() {
+          var w = window.innerWidth
+          var h = window.innerHeight
+          var densite = window.devicePixelRatio || 1
+          toile.width = Math.round(w * densite)
+          toile.height = Math.round(h * densite)
+          pinceau.setTransform(densite, 0, 0, densite, 0, 0)
+          pinceau.fillStyle = '#ffffff'
+          /* Les plus vifs en tête : c'est l'ordre dans lequel ils s'allument. */
+          grains = window.__poussiereDAttente(w, h).sort(function (a, b) {
+            return b.a - a.a
+          })
+          poses = 0
+        }
+
+        function poser(jusqua) {
+          for (; poses < jusqua; poses += 1) {
+            var g = grains[poses]
+            pinceau.globalAlpha = g.a
+            pinceau.beginPath()
+            pinceau.arc(g.x, g.y, g.r, 0, 6.283185307179586)
+            pinceau.fill()
+          }
+        }
+
+        function peupler() {
+          if (!boite.isConnected) return
+          var part = calme ? 1 : Math.min(1, (Date.now() - depart) / PEUPLEMENT)
+          poser(Math.round(grains.length * Math.pow(part, 1 / COURBE)))
+          if (part < 1) setTimeout(peupler, 60)
+        }
+
+        tailler()
+        peupler()
+
+        /* Une fenêtre qui change de taille pendant l'attente : le ciel n'est
+           plus le bon, on le refait d'un trait jusqu'où il en était. */
+        window.addEventListener('resize', function () {
+          if (!boite.isConnected) return
+          var avant = poses
+          tailler()
+          poser(Math.min(avant, grains.length))
+        })
+      })()
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>

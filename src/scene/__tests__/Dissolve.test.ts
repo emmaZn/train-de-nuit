@@ -6,6 +6,7 @@ import {
   DUREE_TOTALE,
   Dissolve,
   cibleDuGrain,
+  controlePour,
   grainsDePhrase,
   grainsDepuisAlpha,
   poigneeSansAnimation,
@@ -51,14 +52,18 @@ function grains(): Grain[] {
   ]
 }
 
-function monter(source: Promise<Grain[]> = Promise.resolve(grains())) {
+function monter(
+  source: Promise<Grain[]> = Promise.resolve(grains()),
+  place: Place = PLACE,
+  depuis: DOMRect = DEPUIS,
+) {
   const parent = new Container()
   const ciel = new Container()
   const stars = new Stars(ciel, { reducedMotion: false })
   const posees: Trace[] = []
   const d = new Dissolve({
-    depuis: DEPUIS,
-    place: PLACE,
+    depuis,
+    place,
     parent,
     viewportW: VP_W,
     viewportH: VP_H,
@@ -340,4 +345,50 @@ test('le grain monte là où l’étoile s’allumera vraiment', () => {
   const { decalage, echelle } = cadrageCiel(1512, 771)
   expect(decalage).toBeGreaterThan(0)
   expect(cibleDuGrain(place, 1512, 771)).toEqual(projeter(place, 1512, 771, echelle, decalage))
+})
+
+/* ---- L'arc du grain (spec du 23/11) ---- */
+
+test('vers une place plus haute, la courbe ne change pas', () => {
+  // Le geste qu'Emmanuelle a validé : droit d'abord, penché ensuite.
+  const c = controlePour({ x: 100, y: 400 }, { x: 300, y: 100 })
+  expect(c.x).toBeCloseTo(100 + (300 - 100) * 0.12)
+  expect(c.y).toBeCloseTo(400 - (400 - 100) * 0.78)
+})
+
+test('vers une place plus basse, le point de contrôle passe au-dessus du départ', () => {
+  // Sinon le grain descend tout du long et la « montée » du §4.3 devient une chute.
+  const c = controlePour({ x: 100, y: 200 }, { x: 300, y: 500 })
+  expect(c.y).toBeLessThan(200)
+})
+
+
+test('vers une place plus basse, le grain passe au-dessus de son départ', async () => {
+  // Le ciel ne descend qu'à y = 163 dans cette fenêtre : pour qu'une place
+  // tombe SOUS la phrase, c'est la phrase qui doit être haute — exactement la
+  // situation du formulaire remonté dans la bande (spec du 23/11).
+  const haut = new DOMRect(600, 100, 240, 24)
+  const { d, parent } = monter(Promise.resolve(grains()), { x: 0.4, y: 0.9 }, haut)
+  await souffler()
+  void d.land(trace())
+  jouer(d, DUREE_DEFAIT)
+  const depart = Math.min(...cercles(parent).map((c) => c.y))
+  expect(cibleDuGrain({ x: 0.4, y: 0.9 }, VP_W, VP_H).py).toBeGreaterThan(depart)
+  let sommet = depart
+  for (let i = 0; i < Math.round(DUREE_MONTEE / IMAGE); i++) {
+    d.update(IMAGE)
+    for (const c of cercles(parent)) sommet = Math.min(sommet, c.y)
+  }
+  expect(sommet).toBeLessThan(depart)
+})
+
+test('à hauteur égale, la trajectoire reste droite', () => {
+  const c = controlePour({ x: 100, y: 300 }, { x: 400, y: 300 })
+  expect(c.y).toBeCloseTo(300)
+})
+
+test('une place à peine plus basse ne fait qu’un petit arc', () => {
+  // L'arc suit l'écart : pas de bond fixe sur une descente de quatre pixels.
+  const c = controlePour({ x: 100, y: 300 }, { x: 120, y: 304 })
+  expect(300 - c.y).toBeLessThan(4)
 })

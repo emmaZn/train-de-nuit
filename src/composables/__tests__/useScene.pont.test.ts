@@ -1,7 +1,11 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick, ref } from 'vue'
+import { createMemoryHistory } from 'vue-router'
 import { useScene } from '@/composables/useScene'
+import { createAppRouter } from '@/router'
+import { cadrageScene } from '@/scene/layout'
+import { HORLOGE } from '@/scene/quai'
 import { useTraces } from '@/stores/traces'
 import { useVoyage } from '@/stores/voyage'
 import type { Trace } from '@/scene/types'
@@ -42,15 +46,19 @@ function monter(charger: () => Promise<void> = async () => {}) {
   setActivePinia(createPinia())
   const traces = useTraces()
   const spy = vi.spyOn(traces, 'charger').mockImplementation(charger)
+  let rideau: ReturnType<typeof useScene>['rideau']
   const Hote = defineComponent({
     setup() {
       const canvas = ref(document.createElement('canvas'))
-      useScene(canvas)
+      rideau = useScene(canvas).rideau
       return () => h('div')
     },
   })
-  const wrapper = mount(Hote)
-  return { traces, spy, wrapper }
+  // Le routeur, comme `App.vue` le pose : `useScene` demande la route pour
+  // savoir si le CV est ouvert, et sans routeur `useRoute()` ne rend rien.
+  const router = createAppRouter(createMemoryHistory())
+  const wrapper = mount(Hote, { global: { plugins: [router] } })
+  return { traces, spy, wrapper, router, rideau: rideau! }
 }
 
 afterEach(() => {
@@ -94,6 +102,45 @@ test('pointerdown révèle l’étoile touchée et un appui ailleurs la referme'
   ])
 })
 
+/**
+ * **Le CV ouvert, l'appui ne traverse pas.**
+ *
+ * `CvLigne` est `position: fixed; inset: 0; z-index: 20` et vit **hors** des
+ * deux `.dessous` : tant qu'il est ouvert, chaque `pointerdown` le vise, et le
+ * chemin de l'événement ne passe plus par `.panneau` — dont le `stopPropagation`
+ * est la seule chose qui ferme encore cette route depuis que `clicPx` a perdu sa
+ * garde de couverture. Sans cette garde-ci, un appui au milieu du CV tombait sur
+ * l'horloge (que la tâche 1 a mise au centre de la scène, donc de la fenêtre) et
+ * baissait le panneau derrière le voile ; un peu à droite, il éteignait la lampe.
+ *
+ * La garde est ici et non dans `Scene` : la scène ne connaît pas les routes.
+ * C'est la forme de `PanneauDeparts.surEchap`.
+ */
+test('le CV ouvert, un appui ne descend pas jusqu’à la scène', async () => {
+  const { router } = monter()
+  await flushPromises()
+  // L'horloge, en pixels d'écran : le point que le visiteur a sous le pouce.
+  const { frame } = cadrageScene(window.innerWidth, window.innerHeight)
+  const px = frame.offsetX + HORLOGE.x * frame.scale
+  const py = frame.offsetY + HORLOGE.y * frame.scale
+
+  window.dispatchEvent(new MouseEvent('pointerdown', { clientX: px, clientY: py }))
+  expect(double.instance!.clicPx).toHaveBeenCalledTimes(1)
+
+  await router.push('/ailleurs/cv')
+  await nextTick()
+  window.dispatchEvent(new MouseEvent('pointerdown', { clientX: px, clientY: py }))
+  expect(double.instance!.clicPx).toHaveBeenCalledTimes(1)
+  // Et la bulle d'une étoile ne se ferme pas non plus : rien ne descend.
+  expect(double.instance!.setPointerPx).toHaveBeenCalledTimes(1)
+
+  // Le CV refermé, la route reprend.
+  await router.push('/ailleurs')
+  await nextTick()
+  window.dispatchEvent(new MouseEvent('pointerdown', { clientX: px, clientY: py }))
+  expect(double.instance!.clicPx).toHaveBeenCalledTimes(2)
+})
+
 test('un échec de chargement laisse la scène démarrer quand même', async () => {
   monter(async () => {
     throw new Error('hors ligne')
@@ -134,4 +181,18 @@ test('dit à la scène quelle gare le train vient de quitter', async () => {
   useVoyage().gare = 'plus-loin'
   await nextTick()
   expect(scene.setGare).toHaveBeenLastCalledWith('plus-loin')
+})
+
+test('le rideau est inconnu tant que la scène n’a rien émis, puis suit ce qu’elle émet', async () => {
+  const { rideau } = monter()
+  await flushPromises()
+  expect(rideau.value).toBeNull()
+
+  const abonnement = double.instance!.on.mock.calls.find((c) => c[0] === 'rideau')
+  expect(abonnement, 'useScene doit suivre le rideau de la scène').toBeDefined()
+  const emettre = abonnement![1] as (y: number, baisse: boolean) => void
+  emettre(-120, false)
+  expect(rideau.value).toEqual({ y: -120, baisse: false })
+  emettre(340, true)
+  expect(rideau.value).toEqual({ y: 340, baisse: true })
 })

@@ -4,6 +4,10 @@ import StarTooltip from '@/components/StarTooltip.vue'
 import { SCENE_KEY } from '@/composables/useScene'
 import type { Scene } from '@/scene/Scene'
 import type { Trace } from '@/scene/types'
+import { createPinia, setActivePinia } from 'pinia'
+
+// Le composant lit ses libellés dans le dictionnaire, donc un magasin.
+beforeEach(() => setActivePinia(createPinia()))
 
 type Hover = (trace: Trace | null, x: number, y: number) => void
 

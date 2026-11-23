@@ -260,13 +260,7 @@ export class Birds {
       pasDepart: place.u,
       pasCible: place.u,
       pasReste: 0,
-      depart:
-        etat === 'arrivee'
-          ? {
-              x: this.r() < 0.5 ? -u(220) : this.cables.travees * u(620) + u(220),
-              y: this.cables.positionSur(place.fil, place.u).y - u(90),
-            }
-          : null,
+      depart: etat === 'arrivee' ? this.bordLePlusProche(place) : null,
       regard: false,
       sprite,
     }
@@ -277,8 +271,37 @@ export class Birds {
   /* ---------------------------------------------------------- interaction */
 
   /** Un clic, en pixels de cadre. Rend `true` s'il a touché un oiseau posé. */
-  cliquer(x: number, y: number): boolean {
-    let vise: Oiseau | null = null
+  /**
+   * D'où un oiseau arrive : le bord **le plus proche** de sa place.
+   *
+   * Les deux bords de l'installation sont à `-u(220)` et à
+   * `travees × u(620) + u(220)` — avec trois poteaux, près de 2630 px de scène
+   * les séparent. Tirés au hasard, un oiseau qui se posait à gauche et partait
+   * de droite traversait toute la scène, et en `DUREE_VOL` **fixe** : d'où le
+   * trait qui passait de temps à autre, à toutes les gares, et vite (signalé
+   * par la propriétaire le 22 novembre 2026 — la boucle `avancer` tourne
+   * partout, pas seulement à « plus loin »).
+   *
+   * Par le bord le plus proche, le vol le plus long vaut la moitié de
+   * l'installation plus la marge, et la vitesse redevient celle d'un oiseau qui
+   * se pose plutôt que d'un trait qui passe.
+   */
+  private bordLePlusProche(place: Place): { x: number; y: number } {
+    const cible = this.cables.positionSur(place.fil, place.u)
+    const gauche = -u(220)
+    const droite = this.cables.travees * u(620) + u(220)
+    const x = cible.x - gauche <= droite - cible.x ? gauche : droite
+    return { x, y: cible.y - u(90) }
+  }
+
+  /**
+   * L'oiseau posé sous ce point, s'il y en a un. Ne touche à rien : c'est la
+   * même question pour l'appui qui le fait tomber et pour le curseur qui dit
+   * qu'on peut le faire tomber — deux réponses différentes seraient un
+   * mensonge à la main qui vise.
+   */
+  private vise(x: number, y: number): Oiseau | null {
+    let trouve: Oiseau | null = null
     let meilleure = TAILLE_OISEAU * 0.6
     for (const o of this.oiseaux) {
       if (o.etat !== 'pose') continue
@@ -286,9 +309,19 @@ export class Birds {
       const d = Math.hypot(p.x - x, p.y - (TAILLE_OISEAU * RATIO_POSE) / 2 - y)
       if (d < meilleure) {
         meilleure = d
-        vise = o
+        trouve = o
       }
     }
+    return trouve
+  }
+
+  /** Y a-t-il un oiseau sous ce point ? La question que pose le curseur. */
+  survole(x: number, y: number): boolean {
+    return this.vise(x, y) !== null
+  }
+
+  cliquer(x: number, y: number): boolean {
+    const vise = this.vise(x, y)
     if (!vise) return false
     this.lacher(vise)
     return true

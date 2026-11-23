@@ -43,7 +43,7 @@ describe('RepliquesOiseaux', () => {
     const { wrapper, tomber } = monter()
     tomber()
     await wrapper.vm.$nextTick()
-    expect(wrapper.find('.replique').text()).toBe(REPLIQUES[0])
+    expect(wrapper.find('.replique').text()).toBe(REPLIQUES.fr[0])
   })
 
   it('n’en montre qu’une : une nouvelle chute remplace la précédente', async () => {
@@ -52,7 +52,7 @@ describe('RepliquesOiseaux', () => {
     tomber()
     await wrapper.vm.$nextTick()
     expect(wrapper.findAll('.replique')).toHaveLength(1)
-    expect(wrapper.find('.replique').text()).toBe(REPLIQUES[1])
+    expect(wrapper.find('.replique').text()).toBe(REPLIQUES.fr[1])
   })
 
   it('annonce les phrases : la couche est une zone aria-live polie', () => {
@@ -73,14 +73,14 @@ describe('RepliquesOiseaux', () => {
 
   it('annonce à la scène la variante de la prochaine réplique, avant tout clic', () => {
     const { scene } = monter()
-    expect(scene.setProchaineVariante).toHaveBeenLastCalledWith(variante(REPLIQUES[0]))
+    expect(scene.setProchaineVariante).toHaveBeenLastCalledWith(variante(0))
   })
 
   it('pousse la variante suivante après chaque chute', () => {
     const { scene, tomber } = monter()
     for (let i = 0; i < 4; i += 1) tomber()
     // Quatre dites : la prochaine est « Et je danse. », qui pirouette.
-    expect(REPLIQUES[4]).toBe('Et je danse.')
+    expect(REPLIQUES.fr[4]).toBe('Et je danse.')
     expect(scene.setProchaineVariante).toHaveBeenLastCalledWith({
       pirouette: true,
       regard: false,

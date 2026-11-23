@@ -112,16 +112,19 @@ test('quatre gares sur un écran, deux sur un téléphone', () => {
   expect(garesVisibles(390)).toBe(2)
 })
 
-test('les quatre gares occupent toute la largeur disponible', () => {
+test('les quatre gares occupent la largeur, resserrées de cinq pour cent', () => {
   const l = 1280
   const e = ecartFrise(l, 4)
-  expect(ANCRE_FRISE + 3 * e).toBeCloseTo(l - MARGE_FRISE, 6)
+  expect(ANCRE_FRISE + 3 * e).toBeCloseTo(ANCRE_FRISE + (l - MARGE_FRISE - ANCRE_FRISE) * 0.95, 6)
 })
 
-test('les deux gares du téléphone occupent la largeur aussi', () => {
+test('les deux gares du téléphone sont resserrées pareil', () => {
   const l = 390
   const e = ecartFrise(l, 2)
-  expect(ANCRE_FRISE_MOBILE + e).toBeCloseTo(l - MARGE_FRISE_MOBILE, 6)
+  expect(ANCRE_FRISE_MOBILE + e).toBeCloseTo(
+    ANCRE_FRISE_MOBILE + (l - MARGE_FRISE_MOBILE - ANCRE_FRISE_MOBILE) * 0.95,
+    6,
+  )
 })
 
 test('la première gare naît là où le masque est déjà opaque', () => {
@@ -451,4 +454,30 @@ describe('versCadre', () => {
     expect(retour.x).toBeCloseTo(cadre.x)
     expect(retour.y).toBeCloseTo(cadre.y)
   })
+})
+
+test('la voie s’arrête avant les deux commandes du coin, pas avant une seule', () => {
+  // Depuis le 24 novembre 2026 le coin droit en porte deux : l'œil et le
+  // sélecteur de langue. Chacun fait 36 px, il y a 14 px entre eux, et la voie
+  // doit s'effacer 16 px avant la première — sinon elle passe sous l'œil, qui
+  // s'est décalé pour laisser la place au sélecteur.
+  const MARGE_ECRAN = 40 // `--marge-ecran`, dans `base.css`
+  const COMMANDES = 36 + 14 + 36
+  for (const l of [1024, 1280, 1512, 1920, 2560]) {
+    const finVoie = l - margeVoieDroite(l)
+    const debutCommandes = l - MARGE_ECRAN - COMMANDES
+    expect(finVoie, `${l}px`).toBeLessThanOrEqual(debutCommandes - 16)
+  }
+})
+
+test('les gares sont resserrées de cinq pour cent sur la largeur disponible', () => {
+  // Emmanuelle, le 24 novembre 2026 : « tu peux resserrer très légèrement les
+  // gares (5 % disons) ». La frise n'occupe donc plus exactement la largeur :
+  // elle s'arrête un peu avant, et c'est voulu.
+  for (const [l, visibles] of [[1280, 4], [1512, 4], [1920, 4], [390, 2]] as const) {
+    const ancre = l < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
+    const marge = l < SEUIL_MOBILE ? MARGE_FRISE_MOBILE : MARGE_FRISE
+    const plein = (l - ancre - marge) / Math.max(1, visibles - 1)
+    expect(ecartFrise(l, visibles), `${l}px`).toBeCloseTo(plein * 0.95, 5)
+  }
 })

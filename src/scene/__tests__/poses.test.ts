@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { POSES, cellulesAllumees, miroir, separer } from '@/scene/poses'
+import { POSES, RECETTE_POSE, cellulesAllumees, miroir, separer } from '@/scene/poses'
+import { TROUS, cellulesClaires } from '@/scene/grain'
 
 const DESSIN = '<path d="M0 0" fill="#0b0b0c" stroke="#e4e4e8" stroke-width="1.5"/>'
 
@@ -75,5 +76,28 @@ describe('miroir', () => {
 describe('POSES', () => {
   it('nomme les cinq poses, et elles seules', () => {
     expect([...POSES]).toEqual(['perche', 'perche-ebouriffe', 'sonne', 'vol-haut', 'vol-bas'])
+  })
+})
+
+describe('RECETTE_POSE', () => {
+  it('troue le trait comme le train', () => {
+    expect(RECETTE_POSE.trous).toBe(TROUS)
+  })
+
+  it('laisse le corps vide : « option 2 », le 21 novembre 2026', () => {
+    // Quatre recettes de matière ont été comparées dans la scène le 15
+    // novembre, et Emmanuelle a choisi « trait seul ». Le 21, elle a revu les
+    // trois états côte à côte et gardé le corps vide, avec les seuls trous.
+    // Semer de la matière ici reviendrait sur ce choix-là, deux fois.
+    expect(RECETTE_POSE.matiere).toEqual({ haut: 0, bas: 0 })
+  })
+
+  it('ne pose aucun point dans une masse, quelle que soit la hauteur', () => {
+    const colonnes = 40
+    const lignes = 40
+    const masse = new Uint8Array(colonnes * lignes).fill(1)
+    const trait = new Uint8Array(colonnes * lignes)
+    const claires = cellulesClaires(trait, masse, colonnes, lignes, RECETTE_POSE)
+    expect(claires.some((v) => v === 1)).toBe(false)
   })
 })

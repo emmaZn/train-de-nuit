@@ -1,15 +1,17 @@
 import { Container, Graphics } from 'pixi.js'
-import { HORIZON, STAGE } from './layout'
+import { alea } from './alea'
+import { HORIZON, SEUIL_MOBILE, STAGE, cadrageScene } from './layout'
 import type { Frame } from './layout'
+import type { Grain } from './alea'
 
-export type Grain = {
-  x: number
-  y: number
-  /** Radius in pixels. */
-  r: number
-  /** Opacity, 0 to 1. */
-  a: number
-}
+/**
+ * Le générateur et le type du grain vivent dans `alea.ts`, en nombres purs :
+ * les modules qui ne dessinent pas — les horaires, la neige — ne doivent pas
+ * charger Pixi pour s'en servir. Ils se relisent ici pour que rien de ce qui
+ * les importait de `Sky` n'ait à changer de chemin.
+ */
+export { alea }
+export type { Grain }
 
 /** One grain per this many square pixels. */
 const DENSITE = 1 / 600
@@ -22,17 +24,6 @@ export function dustCount(viewportW: number, viewportH: number, mobile: boolean)
   const surface = Math.max(viewportW, 1) * Math.max(viewportH, 1)
   const brut = surface * DENSITE * (mobile ? FACTEUR_MOBILE : 1)
   return Math.max(PLANCHER, Math.round(brut))
-}
-
-/** mulberry32: small, fast, and seeded — the same sky on every visit. */
-function alea(graine: number): () => number {
-  let a = graine >>> 0
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0
-    let t = Math.imul(a ^ (a >>> 15), 1 | a)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
 }
 
 export function makeDust(count: number, seed: number, w: number, h: number): Grain[] {
@@ -108,6 +99,31 @@ export function poussiereLibre(
 
 /** Garde-fou : une région libre quasi vide ne doit pas boucler. */
 const PLAFOND_TIRAGE = 20_000
+
+/**
+ * La graine du ciel. `Sky` la prend par défaut, et l'écran d'attente la
+ * recopie : les deux doivent semer le même ciel.
+ */
+export const GRAINE_CIEL = 7
+
+/**
+ * La poussière telle qu'elle est posée sur une fenêtre donnée — cadre compris.
+ *
+ * C'est la chaîne que `Scene.cadrer` suit : `cadrageScene` pour le cadre, puis
+ * `poussiereLibre`. Elle est ici, en une fonction, parce que **l'écran
+ * d'attente d'`index.html` la recopie en JavaScript nu** : il doit dessiner ce
+ * ciel-là avant que le bundle n'existe, et un test compare les deux grain par
+ * grain. Sans ce point unique, la comparaison porterait sur ma lecture du code
+ * plutôt que sur ce que la scène dessine.
+ */
+export function poussiereDeLaFenetre(
+  viewportW: number,
+  viewportH: number,
+  seed: number = GRAINE_CIEL,
+): Grain[] {
+  const { frame } = cadrageScene(viewportW, viewportH)
+  return poussiereLibre(frame, viewportW, viewportH, viewportW < SEUIL_MOBILE, seed)
+}
 
 export class Sky {
   private readonly racine = new Container()

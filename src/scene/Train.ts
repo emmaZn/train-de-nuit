@@ -198,6 +198,21 @@ export class Train {
   private readonly racine = new Container()
   /** Loco and carriage together: this is what the scale applies to. */
   private readonly rame = new Container()
+  /**
+   * La voie, et le corps de la rame : les deux parties du train que la nuit
+   * assombrit (`sombres`).
+   *
+   * Elles existent dès la construction, bien avant les textures : un lien
+   * partagé vers « ailleurs » est sombre à la première image, et une teinte
+   * posée sur un conteneur qui n'existe pas encore ne rattrape rien.
+   *
+   * La rame elle-même reste **non teintée** : les vitres allumées vivent
+   * dedans, et sous Pixi v8 une teinte se multiplie en descendant — un enfant
+   * ne peut pas défaire celle de son parent. Tout ce qui s'assombrit descend
+   * donc d'un cran, à côté des vitres et non au-dessus d'elles.
+   */
+  private readonly voie = new Container()
+  private readonly corps = new Container()
   private readonly loco = new Sprite()
   /** Du plus proche de la locomotive au plus éloigné. */
   private readonly wagons = Array.from({ length: WAGONS }, () => new Sprite())
@@ -217,14 +232,17 @@ export class Train {
     })
     this.loco.position.set(spec.loco.x, spec.loco.y)
     // Du fond vers l'avant : les tampons se recouvrent dans le bon sens.
-    this.rame.addChild(...[...this.wagons].reverse(), this.loco)
+    this.corps.label = 'corps'
+    this.corps.addChild(...[...this.wagons].reverse(), this.loco)
+    this.rame.addChild(this.corps)
 
     const ancre = ancrageRame(spec.loco, spec.wagon, ECHELLE_TRAIN, WAGONS)
     this.rame.scale.set(ECHELLE_TRAIN)
     this.rame.position.set(ancre.x, ancre.y)
 
     // La voie n'est pas dans la rame : elle garde la pleine largeur du cadre.
-    this.racine.addChild(this.rame)
+    this.voie.label = 'voie'
+    this.racine.addChild(this.voie, this.rame)
     parent.addChild(this.racine)
   }
 
@@ -232,9 +250,17 @@ export class Train {
     return this.racine
   }
 
-  /** La rame, pour y poser les vitres allumées des wagons et la fumée. */
+  /**
+   * La rame, pour y poser les vitres allumées des wagons et la fumée. Elle ne
+   * porte pas de teinte : voir `voie` et `corps`.
+   */
   get rameContainer(): Container {
     return this.rame
+  }
+
+  /** Ce que la nuit assombrit dans le train : tout, sauf les vitres. */
+  get sombres(): readonly Container[] {
+    return [this.voie, this.corps]
   }
 
   get state(): TrainState {
@@ -259,7 +285,7 @@ export class Train {
       })
       this.rails.position.set(0, HORIZON)
       this.rails.tileScale.set(ECHELLE_TRAIN / voieSpec.scale)
-      this.racine.addChildAt(this.rails, 0)
+      this.voie.addChild(this.rails)
     }
 
     // La séquence d'arrêt d'abord : le train est à quai quand on arrive, et

@@ -51,10 +51,16 @@ export const DENSITE_BAS = 0.95
 export const DENSITE_HAUT = 0.55
 
 /**
- * Le halo est un **dégradé**, donc des mi-teintes : c'est la seule entorse
+ * Le halo est un **dégradé**, donc des mi-teintes : c'est la première entorse
  * assumée à « le noir devient le fond, blanc ou absent » (CONCEPT.md §6).
  * Choisie à l'œil contre un halo en grain, qui respectait la règle mais se
  * lisait moins bien.
+ *
+ * Au réglage 3, la propriétaire a étendu cette entorse aux **deux dégradés**
+ * de la gare d'« ailleurs » — cône du faisceau, halo de l'horloge
+ * (`QuaiLayer`, `Faisceau`) —, et à eux seuls. Ils étaient trois : le halo rond
+ * de la lanterne a été retiré le 21 novembre 2026, et la lanterne est depuis un
+ * blanc plein, qui ne fait pas de mi-teinte.
  */
 export const HALO_ALPHA = 0.5
 
@@ -268,6 +274,9 @@ export class Vitres {
     positionsWagons: number[],
     reducedMotion: boolean,
   ) {
+    // Nommée : c'est la seule branche de la scène qui ne porte aucune teinte,
+    // ni sur elle ni sur un ancêtre, et un test doit pouvoir le dire.
+    this.racine.label = 'vitres'
     parent.addChild(this.racine)
     const spec = manifest.train.wagon
     this.origine = { x: spec.x, y: spec.y }

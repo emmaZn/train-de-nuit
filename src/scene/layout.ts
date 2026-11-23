@@ -72,8 +72,15 @@ export const ECHELLE_MONTAGNES = 2.2
  * wagon — la rame s'allonge vers l'arrière, jamais vers l'avant. En
  * contrepartie, elle déborde du cadre à gauche, et c'est voulu : le train
  * continue hors champ.
+ *
+ * **0,56 et non 0,5** depuis le 20 novembre 2026 : la propriétaire a demandé
+ * que la rame avance vers la droite, pour que réverbère, train, gare et panneau
+ * tiennent à peu près dans la même zone. Le nez passe de 1160 à 1299, et vient
+ * se ranger juste à gauche du réverbère, lui aussi décalé. (Le panneau a quitté
+ * le mur depuis : c'est un rideau de la scène, voir `rideau.ts`. La raison du
+ * 0,56 est datée, elle n'a pas été rejugée sans lui.)
  */
-export const TETE_LOCO = 0.5
+export const TETE_LOCO = 0.56
 
 /**
  * Hauteur du voile qui éteint le pied du massif, en pixels de cadre, mesurée
@@ -115,12 +122,20 @@ export const ANCRE_FRISE_MOBILE = 44
 
 /** Ce qu'on garde à droite, pour que la dernière mention ait sa place. */
 /**
- * Ce que l'œil occupe au bord droit : 24 px d'icône, 6 de rembourrage de chaque
- * côté, et 16 px de dégagement. La voie s'effaçait jusqu'ici à `MARGE_VOIE` du
- * bord, c'est-à-dire exactement là où l'œil commence — ils se superposaient par
- * construction.
+ * Ce que les commandes occupent au bord droit.
+ *
+ * Il y en a **deux** depuis le 24 novembre 2026 : l'œil, et le sélecteur de
+ * langue qui a pris le coin. Chacune fait 36 px — 24 px d'icône ou de texte, et
+ * 6 de rembourrage de chaque côté —, avec 14 px entre elles ; puis 16 px de
+ * dégagement avant que la voie ne commence.
+ *
+ * La voie s'effaçait jusqu'ici à `MARGE_VOIE` du bord, c'est-à-dire exactement
+ * là où l'œil commençait — ils se superposaient par construction. Et quand le
+ * sélecteur est arrivé, l'œil s'est décalé vers la gauche sans que ce nombre
+ * suive : la voie repassait dessous. Si une commande change de taille ou qu'il
+ * s'en ajoute une, c'est ici qu'il faut recompter.
  */
-export const DEGAGEMENT_OEIL = 36 + 16
+export const DEGAGEMENT_COMMANDES = 36 + 14 + 36 + 16
 
 export const MARGE_FRISE = 200
 export const MARGE_FRISE_MOBILE = 175
@@ -153,7 +168,7 @@ export function margeVoie(largeur: number): number {
 
 /** Idem à droite, où l'œil se tient : la voie doit s'arrêter avant lui. */
 export function margeVoieDroite(largeur: number): number {
-  return margeVoie(largeur) + DEGAGEMENT_OEIL
+  return margeVoie(largeur) + DEGAGEMENT_COMMANDES
 }
 
 /** Écartement minimal : en dessous, deux gares se chevaucheraient. */
@@ -169,15 +184,25 @@ export function garesVisibles(largeur: number): number {
 }
 
 /**
- * Écart entre deux gares, pour que `visibles` gares occupent exactement la
- * largeur, de l'ancre jusqu'à la marge de droite.
+ * De combien les gares sont resserrées par rapport à la largeur disponible.
+ *
+ * Emmanuelle, le 24 novembre 2026 : « tu peux resserrer très légèrement les
+ * gares (5 % disons) ». La frise ne va donc plus tout à fait jusqu'à la marge
+ * de droite : elle s'arrête un peu avant, et c'est voulu.
+ */
+export const RESSERREMENT = 0.95
+
+/**
+ * Écart entre deux gares : ce qu'il faudrait pour que `visibles` gares
+ * occupent exactement la largeur, de l'ancre à la marge de droite, moins le
+ * `RESSERREMENT`.
  */
 export function ecartFrise(largeur: number, visibles: number): number {
   const mobile = largeur < SEUIL_MOBILE
   const ancre = mobile ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
   const marge = mobile ? MARGE_FRISE_MOBILE : MARGE_FRISE
   const intervalles = Math.max(1, visibles - 1)
-  return Math.max(ECART_MINIMUM, (largeur - ancre - marge) / intervalles)
+  return Math.max(ECART_MINIMUM, ((largeur - ancre - marge) / intervalles) * RESSERREMENT)
 }
 
 
@@ -517,4 +542,37 @@ export function cadrageScene(
  */
 export function versCadre(px: number, py: number, frame: Frame): { x: number; y: number } {
   return { x: (px - frame.offsetX) / frame.scale, y: (py - frame.offsetY) / frame.scale }
+}
+
+/**
+ * L'assombrissement d'« ailleurs » : deux profondeurs de teinte, qui suivent
+ * `nuitDeLaGare`. Chacune multiplie vers le noir les plans qui la portent
+ * (`Nuit`, dans `Scene.ts`), et le noir devient la couleur du fond sous le
+ * shader de recoloration — comme le voile du pied. « Opacité » se lit donc ici
+ * « ce que la teinte retire » : à 0,45, il reste 55 % de la clarté.
+ *
+ * Ce bloc a longtemps décrit « deux voiles noirs », un design abandonné depuis
+ * longtemps : un rectangle plein cadre aurait assombri tout ce qui est dessiné
+ * dessous, lumières comprises.
+ *
+ * VALEURS DE DÉPART PROVISOIRES — à régler à l'œil avec Emmanuelle dans la
+ * scène en mouvement (spec §7). Ne pas les figer sans son accord.
+ *
+ * Réglage 3 : elles valaient 0,72 et 0,35. À 0,72 il ne restait que 28 % de la
+ * luminance, et la maquette, elle, garde le train, le banc, la valise et le
+ * grain du bâtiment lisibles. Descendues à 0,45 et 0,15 : la gare reste une
+ * gare de nuit, mais on y voit encore ce qui est dessiné.
+ */
+/** Ce que la nuit retire au décor : massif, quai, rails, corps du train. */
+export const NUIT_PROFONDEUR = 0.45
+/** Ce que la nuit retire au ciel : poussière et étoiles. Plus léger. */
+export const NUIT_CIEL = 0.15
+
+/**
+ * L'opacité d'un voile pour une nuit donnée (0 à 1) et son maximum. La nuit
+ * est bornée : une valeur hors de [0, 1] ne rend jamais le voile plus opaque
+ * que son maximum, ni négatif.
+ */
+export function opaciteVoile(nuit: number, max: number): number {
+  return Math.min(1, Math.max(0, nuit)) * max
 }

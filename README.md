@@ -165,7 +165,9 @@ L'**étape 1** du §13 de `CONCEPT.md` est faite : squelette, scène, montagnes,
 
 L'**étape 2** l'est aussi : le ciel des voyageurs et « là-haut ». Une phrase se défait en grains, un seul monte jusqu'à sa place et s'allume ; chaque étoile se lit au survol, à l'appui du doigt ou au clavier ; et le ciel, borné à 120 étoiles sur un bureau et 50 sur un téléphone, se lit en une seule requête Firestore.
 
-Restent les étapes 3 à 5 : les oiseaux de « plus loin », les textes d'« ici » et le poteau d'« ailleurs », puis les finitions.
+L'**étape 3** (les oiseaux de « plus loin ») et l'**étape 4** (« ailleurs » : le quai, son panneau des départs, l'assombrissement à l'arrivée, et le CV écrit dans le site à `/ailleurs/cv`) sont faites. Reste l'étape 5, les finitions : mouvement réduit, mobile, clavier, poids des assets, métadonnées.
+
+Deux choses manquent avant tout déploiement : l'**adresse mail** et l'**URL LinkedIn** sont des bouchons dans `src/contenu/liens.ts`.
 
 ### Lancer le ciel en local
 

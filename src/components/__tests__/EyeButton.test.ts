@@ -1,6 +1,10 @@
 import { mount } from '@vue/test-utils'
 import EyeButton from '@/components/EyeButton.vue'
 import { PALETTE } from '@/scene/palette'
+import { createPinia, setActivePinia } from 'pinia'
+
+// Le bouton lit maintenant son libellé dans le dictionnaire, donc un magasin.
+beforeEach(() => setActivePinia(createPinia()))
 
 test('le bouton annonce ce qu’il fait aux lecteurs d’écran', () => {
   const wrapper = mount(EyeButton)

@@ -1,3 +1,8 @@
+import type { Textes } from '@/i18n/textes'
+
+/** Ce que le dictionnaire donne à `ageRelatif` : juste de quoi écrire un âge. */
+export type MotsDAge = Textes['age']
+
 const JOUR = 86_400_000
 
 /** Local calendar day number: midnight to midnight, immune to DST shifts. */
@@ -16,17 +21,21 @@ function moisEcoules(creeLe: number, maintenant: number): number {
 }
 
 /**
- * How long ago, in French. Compares local calendar days, not 24-hour slices:
- * « hier » is yesterday, even at 23:50.
+ * How long ago, in the site's language. Compares local calendar days, not
+ * 24-hour slices: « hier » is yesterday, even at 23:50.
+ *
+ * The wording comes from the dictionary and the module stays pure: the caller
+ * passes it in, so no store is reached from here and the function keeps being
+ * testable with a plain object.
  */
-export function ageRelatif(creeLe: number, maintenant: number): string {
-  if (maintenant - creeLe < 60_000) return 'à l’instant'
+export function ageRelatif(creeLe: number, maintenant: number, mots: MotsDAge): string {
+  if (maintenant - creeLe < 60_000) return mots.instant
   const jours = jourCalendaire(maintenant) - jourCalendaire(creeLe)
-  if (jours <= 0) return 'aujourd’hui'
-  if (jours === 1) return 'hier'
-  if (jours < 30) return `il y a ${jours} jours`
+  if (jours <= 0) return mots.aujourdhui
+  if (jours === 1) return mots.hier
+  if (jours < 30) return mots.jours(jours)
   const mois = Math.max(1, moisEcoules(creeLe, maintenant))
-  if (mois < 12) return `il y a ${mois} mois`
+  if (mois < 12) return mots.mois(mois)
   const ans = Math.floor(mois / 12)
-  return ans === 1 ? 'il y a 1 an' : `il y a ${ans} ans`
+  return ans === 1 ? mots.an : mots.ans(ans)
 }

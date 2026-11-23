@@ -14,6 +14,11 @@
  * montagne au lieu de s'ajouter à son grain. Quelques points blancs dessus lui
  * donnent la même matière que le train.
  *
+ * Et elle est **fermée par un trait grainé** (`TRAIT`), sans quoi elle n'existe
+ * que là où elle masse du grain : sur le ciel vide, une bouffée noire sur fond
+ * noir ne se voit pas. C'est la fumée dessinée des PNG de la loco, celle que
+ * `--coupe=492` retire, rendue au trait et animée.
+ *
  * Elle vit dans la rame : la cheminée est à ses coordonnées du cadre source, et
  * l'échelle du train s'applique toute seule.
  *
@@ -50,6 +55,46 @@ export const CROISSANCE = 20
 /** Lobes et points blancs par bouffée. */
 export const LOBES = 5
 export const POINTS = 9
+
+/**
+ * Le trait qui ferme la bouffée, en cellules de grain.
+ *
+ * C'est lui qui la rend lisible. Elle est de la couleur du fond : sans
+ * contour, elle n'existe que là où elle masse le grain du massif, et s'efface
+ * complètement dès qu'elle en sort. Ses points blancs n'y suffisent pas —
+ * ils sont en nombre fixe pendant que la bouffée triple de rayon, si bien
+ * qu'elle est la plus vide au moment où elle est la plus grande.
+ *
+ * Mesuré en cellules, donc constant à l'écran : le trait ne grossit pas avec
+ * la bouffée, comme celui du train ne grossit pas avec le train.
+ */
+export const TRAIT = 2
+
+/**
+ * Ce que le trait ne dépasse jamais, en part du lobe qu'il ferme.
+ *
+ * Sans ce plafond, les deux bords du trait se rejoignent quand la bouffée se
+ * referme : elle finit en **pastille blanche pleine** d'une poignée de pixels,
+ * deux à cinq fois par seconde. Le disque noir d'avant, lui, s'éteignait sans
+ * qu'on le voie. Le plafond mord aussi sur les petits écrans, où la cellule de
+ * grain pèse plus lourd en pixels du cadre source.
+ */
+export const TRAIT_PART_MAX = 0.35
+
+/** Part du trait que les trous effacent, et leur côté en cellules. */
+export const TROUS = 0.14
+export const TROU = 2
+
+/**
+ * Les angles de trous tirés à la naissance. Le dessin y puise selon le
+ * périmètre du lobe : les trous suivent donc la bouffée en grandissant, au
+ * lieu d'être retirés au hasard à chaque image — c'est ce qui les empêche de
+ * grouiller.
+ */
+export const TROUS_RESERVE = 40
+
+/** Ce dont la réserve est décalée d'un lobe au suivant, pour les décorréler. */
+const DECALAGE_TROUS = 7
 
 /**
  * Vitesse de montée, en pixels du cadre source par seconde. Assez vive pour
@@ -92,6 +137,8 @@ export type Bouffee = {
   lobes: Lobe[]
   /** Points blancs, en parts du rayon : ils suivent la bouffée. */
   points: { dx: number; dy: number }[]
+  /** Où percer le trait, en tours de cercle : voir `TROUS_RESERVE`. */
+  trous: number[]
 }
 
 /**
@@ -111,6 +158,8 @@ export function naitre(r: () => number, vitesse = 0): Bouffee {
     const d = Math.sqrt(r()) * 0.95
     points.push({ dx: Math.cos(a) * d, dy: Math.sin(a) * d * 0.8 })
   }
+  const trous: number[] = []
+  for (let i = 0; i < TROUS_RESERVE; i += 1) trous.push(r())
   return {
     x: CHEMINEE.x + (r() - 0.5) * 14,
     y: CHEMINEE.y,
@@ -121,6 +170,7 @@ export function naitre(r: () => number, vitesse = 0): Bouffee {
     repos: 1 - Math.min(1, Math.max(0, vitesse)),
     lobes,
     points,
+    trous,
   }
 }
 
@@ -136,6 +186,49 @@ export function fermeture(b: Bouffee): number {
 /** Le rayon d'une bouffée, en pixels du cadre source. */
 export function rayon(b: Bouffee): number {
   return (RAYON + CROISSANCE * b.age) * fermeture(b)
+}
+
+/** L'épaisseur du trait d'un lobe, en pixels du cadre source. */
+export function epaisseurTrait(rayonLobe: number, cellule: number): number {
+  return Math.min(TRAIT * cellule, rayonLobe * TRAIT_PART_MAX)
+}
+
+/** Le cercle blanc d'un lobe : son bord, épaissi du trait. */
+export function rayonTrait(rayonLobe: number, cellule: number): number {
+  return rayonLobe + epaisseurTrait(rayonLobe, cellule)
+}
+
+/**
+ * Combien de trous un lobe porte. Leur nombre suit le périmètre : la part du
+ * trait effacée reste la même quand la bouffée enfle, sans quoi un trait neuf
+ * finirait criblé ou lisse selon l'âge.
+ */
+export function nombreDeTrous(rayonLobe: number, cellule: number): number {
+  const cote = TROU * cellule
+  if (cote <= 0) return 0
+  return Math.min(TROUS_RESERVE, Math.round((TROUS * 2 * Math.PI * rayonLobe) / cote))
+}
+
+/**
+ * Où percer le trait d'un lobe, en pixels du cadre source depuis le centre de
+ * la bouffée.
+ */
+export function trousDuLobe(
+  b: Bouffee,
+  lobe: number,
+  R: number,
+  cellule: number,
+): { x: number; y: number }[] {
+  const l = b.lobes[lobe]
+  // Au milieu du trait, et non sur son bord : un trou posé sur le bord
+  // extérieur laisse survivre la moitié intérieure et ne fait que l'amincir.
+  const milieu = l.r * R + epaisseurTrait(l.r * R, cellule) / 2
+  const trous: { x: number; y: number }[] = []
+  for (let i = 0; i < nombreDeTrous(l.r * R, cellule); i += 1) {
+    const a = b.trous[(i + lobe * DECALAGE_TROUS) % TROUS_RESERVE] * Math.PI * 2
+    trous.push({ x: l.dx * R + Math.cos(a) * milieu, y: l.dy * R + Math.sin(a) * milieu })
+  }
+  return trous
 }
 
 export function avancer(b: Bouffee, dt: number, vitesse: number): void {
@@ -188,19 +281,41 @@ export class Fumee {
     this.dessiner()
   }
 
+  /**
+   * Trois passes, dans cet ordre : le trait, puis tout ce qui s'éteint — le
+   * corps de la bouffée et les trous du trait — puis la matière.
+   *
+   * Le contour sort de l'**union** des lobes sans être calculé : on peint les
+   * lobes épaissis en blanc, on repeint les mêmes par-dessus en noir, et il ne
+   * reste que l'anneau extérieur.
+   */
   private dessiner(): void {
     const g = this.gfx
     g.clear()
-    for (const b of this.bouffees) {
-      const R = rayon(b)
-      if (R < 1) continue
+    const c = this.cellule
+    const vivantes = this.bouffees
+      .map((b) => ({ b, R: rayon(b) }))
+      .filter(({ R }) => R >= 1)
+
+    for (const { b, R } of vivantes) {
+      for (const l of b.lobes) {
+        g.circle(b.x + l.dx * R, b.y + l.dy * R, rayonTrait(l.r * R, c))
+      }
+    }
+    g.fill({ color: GRIS })
+
+    const cote = TROU * c
+    for (const { b, R } of vivantes) {
       for (const l of b.lobes) g.circle(b.x + l.dx * R, b.y + l.dy * R, l.r * R)
+      for (let i = 0; i < b.lobes.length; i += 1) {
+        for (const t of trousDuLobe(b, i, R, c)) {
+          g.rect(b.x + t.x - cote / 2, b.y + t.y - cote / 2, cote, cote)
+        }
+      }
     }
     g.fill({ color: 0x000000 })
-    const c = this.cellule
-    for (const b of this.bouffees) {
-      const R = rayon(b)
-      if (R < 1) continue
+
+    for (const { b, R } of vivantes) {
       for (const p of b.points) g.rect(b.x + p.dx * R, b.y + p.dy * R, c, c)
     }
     g.fill({ color: GRIS })

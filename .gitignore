@@ -30,3 +30,6 @@ dist-ssr
 # racontées par les commits. Les cadrages (`specs/`) et les journaux, eux,
 # restent suivis : ils disent le pourquoi et les décisions prises en chemin.
 docs/superpowers/plans/
+
+# Maquettes jetables du compagnon visuel.
+.superpowers/

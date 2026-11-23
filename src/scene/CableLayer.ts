@@ -20,32 +20,60 @@ import { HORIZON, STAGE } from './layout'
 import type { Frame } from './layout'
 import { FILS, POTEAU, TRAVEE, amortir, u, yFil } from './cables'
 import type { Secousse } from './cables'
+import { NOIR, cellule, cellulesClaires, peindreClaires } from './grain'
 
 /** Trois poteaux : deux travées, à peine une largeur de cadre. */
 export const POTEAUX = 3
 
-/** Où se pose le premier poteau porteur de fils, à l'arrêt. */
-export const POSITION_A_QUAI = 60
+/**
+ * Où se pose le premier poteau porteur de fils, à l'arrêt.
+ *
+ * **180 et non 60** depuis que la rame avance (20 novembre 2026, `TETE_LOCO`
+ * passé de 0,5 à 0,56). Ce nombre n'est pas libre : il suit le nez de la loco.
+ * Deux gardes le tiennent — les fils doivent être dans le champ libre à sa
+ * droite, et la deuxième travée entière aussi —, et à 60 la seconde tombait de
+ * trois pixels. Il faut `POSITION_A_QUAI + TRAVEE ≥ TETE_LOCO × STAGE.width`,
+ * soit au moins 176 ; 180 laisse quatre pixels. Avancer encore la rame redemande
+ * de l'avancer, lui aussi.
+ */
+export const POSITION_A_QUAI = 180
 
 /**
  * Combien de poteaux seuls, sans fils, de chaque côté de l'île.
  *
- * Un de chaque côté, et pas deux : la boucle fait quatre étapes de sol, et
- * l'installation doit pouvoir sortir entièrement par la gauche **avant** que
- * la suivante n'entre par la droite. À deux poteaux seuls, les deux fenêtres
- * se chevauchent et l'île devrait sauter sous les yeux du visiteur.
+ * **Zéro depuis le 23 novembre 2026.** Ils venaient du §4.2 — « un poteau isolé
+ * passe, puis les fils, puis les oiseaux : la gare s'annonce au lieu de
+ * surgir » —, mais à l'arrêt ils ne s'annonçaient plus : celui d'avant l'île se
+ * plantait en plein écran contre la loco à « ici », celui d'après traversait le
+ * formulaire à « là-haut », et ni l'un ni l'autre ne portait de fils.
+ * Emmanuelle : « enlève le premier poteau qui ne sert à rien sur "ici" et le
+ * dernier sur "là-haut" qui sert à rien ». **Le §4.2 ne décrit donc plus la
+ * scène sur ce point.**
+ *
+ * Ce que la valeur 1 protégeait, et qui n'a plus d'objet : la boucle fait
+ * quatre étapes de sol, et l'installation doit sortir entièrement par la gauche
+ * avant que la suivante n'entre par la droite. À zéro, l'emprise est la plus
+ * étroite possible et la contrainte est tenue avec de la marge.
  */
-export const POTEAUX_SEULS = 1
+export const POTEAUX_SEULS = 0
 
 /** Sur quelle longueur les bouts de l'île se dissolvent, au lieu de se couper. */
 export const DISSOLUTION = u(220)
 
-/** Cellule de grain, en texels du rendu — celle du massif et de la terre. */
+/** Ce qu'on laisse de toile de chaque côté du poteau, en pixels de cadre. */
+export const MARGE = u(70)
+
+/**
+ * Cellule de grain des **fils**, en texels du rendu — celle du massif.
+ *
+ * Elle ne vaut plus pour le poteau : lui est cuit à la cellule du train, qui se
+ * compte en pixels de cadre (`grain.CELLULE_CADRE`). Les fils gardent celle-ci
+ * parce qu'ils ne sont pas un trait mais un semis — une transparence devenue
+ * densité (`cables.FILS`) —, et qu'un semis se règle à l'écran.
+ */
 export const GRAIN_ECRAN = 1.5
 
 const GRIS = 0xededed
-const GRIS_CSS = '#EDEDED'
-const NOIR = '#0b0b0c'
 
 /** Un générateur déterministe : les mêmes câbles d'une visite à l'autre. */
 function alea(graine: number): () => number {
@@ -144,6 +172,99 @@ export function dessinerPoteau(x: number, p: Pinceau): void {
   // Le pied, là où le bois entre dans le ballast : un peu plus large.
   p.masse(x - bas - u(2), HORIZON - u(10), x + bas + u(2), HORIZON)
   p.ligne(x - bas - u(2), HORIZON - u(10), x + bas + u(2), HORIZON - u(10))
+}
+
+/** Un bloc de masse à peindre, en texels de la toile du poteau. */
+export type Bloc = { x: number; y: number; largeur: number; hauteur: number }
+
+/**
+ * Le poteau relevé : ce qui masse, ce qui trait, et où la masse se peint.
+ *
+ * Le poteau ne se peint plus au fur et à mesure. Il se relève d'abord en
+ * cellules, et la recette du projet décide ensuite (`grain.ts`) : c'est ce
+ * détour qui lui vaut les trous et la matière du train, et qui lui enlève ses
+ * mi-teintes. Une cellule large de 1,5 px posée à `Math.round(x)` débordait
+ * d'un demi-pixel, que la toile lissait : le poteau sortait avec 5 % de gris
+ * moyens et 13 % de pixels à moitié transparents, là où la décision 12.2 n'en
+ * veut aucun.
+ *
+ * Rien ici ne touche à une toile : tout se vérifie sans canvas.
+ */
+export function releverPoteau(
+  k: number,
+  largeur: number,
+  hauteur: number,
+  taille: number,
+): { masse: Uint8Array; trait: Uint8Array; colonnes: number; lignes: number; blocs: Bloc[] } {
+  const colonnes = Math.floor(largeur / taille)
+  const lignes = Math.floor(hauteur / taille)
+  const masse = new Uint8Array(Math.max(0, colonnes * lignes))
+  const trait = new Uint8Array(Math.max(0, colonnes * lignes))
+  const blocs: Bloc[] = []
+
+  const px = (v: number) => (v + MARGE) * k
+  const py = (v: number) => (v - POTEAU.sommet) * k
+
+  const marquer = (grille: Uint8Array, c: number, l: number) => {
+    if (c < 0 || l < 0 || c >= colonnes || l >= lignes) return
+    grille[l * colonnes + c] = 1
+  }
+
+  /** Les cellules d'un rectangle : celles qu'il effleure, ou celles qu'il remplit. */
+  const rectangle = (
+    grille: Uint8Array,
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    entiere: boolean,
+  ) => {
+    // `entiere` : les cellules que la masse remplit d'un bord à l'autre.
+    // Sinon : celles où la pièce pèse le plus, bords **arrondis** et non
+    // débordés. `floor`/`ceil` ajoutaient jusqu'à une cellule de chaque côté,
+    // ce qui enflait un boulon de 5 px de cadre de moitié ; les isolateurs du
+    // poteau sortaient en gros carrés pleins.
+    const premier = (v: number) => (entiere ? Math.ceil(v / taille) : Math.round(v / taille))
+    const dernier = (v: number) => (entiere ? Math.floor(v / taille) : Math.round(v / taille)) - 1
+    const [c0, c1] = [premier(px(x0)), dernier(px(x1))]
+    const [l0, l1] = [premier(py(y0)), dernier(py(y1))]
+    // Une pièce plus petite qu'une cellule en garde quand même une : le
+    // chapeau d'un isolateur ne doit pas disparaître sur un petit écran.
+    const finC = entiere ? c1 : Math.max(c0, c1)
+    const finL = entiere ? l1 : Math.max(l0, l1)
+    for (let l = l0; l <= finL; l += 1) {
+      for (let c = c0; c <= finC; c += 1) marquer(grille, c, l)
+    }
+  }
+
+  const pinceau: Pinceau = {
+    masse: (x0, y0, x1, y1) => {
+      // La silhouette reste au pixel, bords arrondis : un rectangle droit posé
+      // sur des entiers ne laisse aucun bord à moitié transparent, et le fût
+      // garde son effilement au lieu de monter par marches d'une cellule.
+      const x = Math.round(px(x0))
+      const y = Math.round(py(y0))
+      blocs.push({ x, y, largeur: Math.round(px(x1)) - x, hauteur: Math.round(py(y1)) - y })
+      // La matière, elle, se sème par cellules — et seulement dans celles que
+      // la masse remplit d'un bord à l'autre, sinon un point déborderait du fût.
+      rectangle(masse, x0, y0, x1, y1, true)
+    },
+    plein: (x0, y0, x1, y1) => rectangle(trait, x0, y0, x1, y1, false),
+    ligne: (x0, y0, x1, y1) => {
+      const n = Math.max(2, Math.ceil((Math.hypot(x1 - x0, y1 - y0) * k) / taille))
+      for (let i = 0; i <= n; i += 1) {
+        const t = i / n
+        marquer(
+          trait,
+          Math.floor(px(x0 + (x1 - x0) * t) / taille),
+          Math.floor(py(y0 + (y1 - y0) * t) / taille),
+        )
+      }
+    },
+  }
+
+  dessinerPoteau(0, pinceau)
+  return { masse, trait, colonnes, lignes, blocs }
 }
 
 export class Cables {
@@ -311,8 +432,7 @@ export class Cables {
    */
   private cuirePoteau(): void {
     const k = this.parCadre
-    const marge = u(70)
-    const largeur = Math.round(marge * 2 * k)
+    const largeur = Math.round(MARGE * 2 * k)
     const hauteur = Math.round((HORIZON - POTEAU.sommet + u(20)) * k)
     const canvas = document.createElement('canvas')
     canvas.width = Math.max(1, largeur)
@@ -320,37 +440,17 @@ export class Cables {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const px = (v: number) => (v + marge) * k
-    const py = (v: number) => (v - POTEAU.sommet) * k
-    const cellule = Math.max(1, GRAIN_ECRAN)
+    const taille = cellule(k)
+    const releve = releverPoteau(k, largeur, hauteur, taille)
 
-    const masse = (x0: number, y0: number, x1: number, y1: number) => {
-      ctx.fillStyle = NOIR
-      ctx.fillRect(px(x0), py(y0), (x1 - x0) * k, (y1 - y0) * k)
-    }
-    const plein = (x0: number, y0: number, x1: number, y1: number) => {
-      ctx.fillStyle = GRIS_CSS
-      for (let yy = py(y0); yy < py(y1); yy += cellule) {
-        for (let xx = px(x0); xx < px(x1); xx += cellule) {
-          ctx.fillRect(Math.round(xx), Math.round(yy), cellule, cellule)
-        }
-      }
-    }
-    const ligne = (x0: number, y0: number, x1: number, y1: number) => {
-      ctx.fillStyle = GRIS_CSS
-      const n = Math.max(2, Math.ceil((Math.hypot(x1 - x0, y1 - y0) * k) / cellule))
-      for (let i = 0; i <= n; i += 1) {
-        const t = i / n
-        ctx.fillRect(
-          Math.round(px(x0 + (x1 - x0) * t)),
-          Math.round(py(y0 + (y1 - y0) * t)),
-          cellule,
-          cellule,
-        )
-      }
-    }
+    // La masse d'abord, au pixel : c'est elle qui éteint la montagne.
+    ctx.fillStyle = NOIR
+    for (const b of releve.blocs) ctx.fillRect(b.x, b.y, b.largeur, b.hauteur)
 
-    dessinerPoteau(0, { masse, ligne, plein })
+    // Puis ce qui est clair : le trait troué, et la matière semée dans la masse.
+    const { colonnes, lignes } = releve
+    const claires = cellulesClaires(releve.trait, releve.masse, colonnes, lignes)
+    peindreClaires(ctx, claires, colonnes, lignes, taille)
 
     const texture = Texture.from(canvas)
     texture.source.scaleMode = 'nearest'
@@ -364,7 +464,7 @@ export class Cables {
     this.poteaux.forEach((sprite, i) => {
       sprite.texture = texture
       sprite.setSize(largeur / k, hauteur / k)
-      sprite.position.set((i - POTEAUX_SEULS) * TRAVEE - marge, POTEAU.sommet)
+      sprite.position.set((i - POTEAUX_SEULS) * TRAVEE - MARGE, POTEAU.sommet)
     })
 
     // L'ancienne n'est détruite qu'une fois la neuve montée partout : une

@@ -1,9 +1,17 @@
 import { Container } from 'pixi.js'
 import { describe, expect, it } from 'vitest'
 
-import { Cables, POSITION_A_QUAI, POTEAUX, POTEAUX_SEULS } from '@/scene/CableLayer'
-import { FILS, TRAVEE } from '@/scene/cables'
-import { STAGE, TETE_LOCO } from '@/scene/layout'
+import {
+  Cables,
+  MARGE,
+  POSITION_A_QUAI,
+  POTEAUX,
+  POTEAUX_SEULS,
+  releverPoteau,
+} from '@/scene/CableLayer'
+import { FILS, POTEAU, TRAVEE, u } from '@/scene/cables'
+import { cellule, cellulesClaires } from '@/scene/grain'
+import { HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
 
 function cables(): Cables {
   return new Cables(new Container())
@@ -55,20 +63,26 @@ describe('Cables', () => {
     }
   })
 
-  it('des poteaux seuls annoncent la gare avant les fils, et la referment après', () => {
-    // « Pour que ça ne surgisse pas de nulle part » : un poteau isolé passe,
-    // puis les fils, puis les oiseaux (CONCEPT.md §4.2).
+  it('l’île s’arrête à ses poteaux porteurs, sans poteau seul devant ni derrière', () => {
+    // Les poteaux seuls annonçaient la gare avant les fils (CONCEPT.md §4.2 :
+    // « un poteau isolé passe, puis les fils, puis les oiseaux »). Retirés le
+    // 23 novembre 2026 sur demande d'Emmanuelle : celui d'avant se plantait en
+    // plein écran à côté de la loco à « ici », celui d'après traversait le
+    // formulaire à « là-haut », et ni l'un ni l'autre ne portait quoi que ce
+    // soit. Le §4.2 ne dit donc plus ce que la scène fait.
     const c = cables()
-    expect(POTEAUX_SEULS).toBeGreaterThan(0)
-    expect(c.emprise.gauche).toBeLessThan(0)
-    expect(c.emprise.droite).toBeGreaterThan(TRAVEE * c.travees)
+    expect(POTEAUX_SEULS).toBe(0)
+    expect(c.emprise.gauche).toBeCloseTo(0)
+    expect(c.emprise.droite).toBe(TRAVEE * c.travees)
   })
 
-  it('les fils ne vont que d’un poteau de l’île à l’autre, jamais jusqu’aux poteaux seuls', () => {
+  it('l’emprise commence et finit sur les poteaux porteurs, maintenant qu’ils sont seuls', () => {
+    // Avant le 23/11 elle les débordait des deux côtés, de la travée d'un
+    // poteau seul. Il n'y en a plus : elle coïncide avec eux.
     const c = cables()
     c.placer(0)
-    expect(c.emprise.gauche).toBeLessThan(c.positionSur(0, 0).x - c.decalage)
-    expect(c.emprise.droite).toBeGreaterThan(c.positionSur(0, c.travees).x - c.decalage)
+    expect(c.emprise.gauche).toBeCloseTo(c.positionSur(0, 0).x - c.decalage)
+    expect(c.emprise.droite).toBeCloseTo(c.positionSur(0, c.travees).x - c.decalage)
   })
 
   it('une secousse écarte le fil de son repos, puis s’éteint', () => {
@@ -178,7 +192,86 @@ describe('horsChamp', () => {
   it('dit faux dès qu’un seul poteau est à l’écran', () => {
     const c = cables()
     expect(c.horsChamp(0)).toBe(false)
-    // Un poteau seul qui dépasse à droite suffit à nous interdire de bouger.
-    expect(c.horsChamp(STAGE.width - 10)).toBe(false)
+    // Le premier poteau de l'île tout juste au bord droit suffit à nous
+    // interdire de bouger. Avant le 23/11 c'était un poteau seul, et l'île
+    // restait donc à l'écran une travée de plus.
+    expect(c.horsChamp(STAGE.width - POSITION_A_QUAI)).toBe(false)
+  })
+})
+
+describe('releverPoteau', () => {
+  /** Le relevé tel que `cuirePoteau` le demande, à une résolution donnée. */
+  function releve(k: number) {
+    const largeur = Math.round(MARGE * 2 * k)
+    const hauteur = Math.round((HORIZON - POTEAU.sommet + u(20)) * k)
+    return releverPoteau(k, largeur, hauteur, cellule(k))
+  }
+
+  it('relève à la fois de la masse et du trait', () => {
+    const r = releve(2)
+    expect(r.masse.some((v) => v === 1)).toBe(true)
+    expect(r.trait.some((v) => v === 1)).toBe(true)
+    expect(r.blocs.length).toBeGreaterThan(0)
+  })
+
+  it('n’écrit que des cellules allumées ou éteintes, jamais entre les deux', () => {
+    const r = releve(2)
+    expect([...r.masse].every((v) => v === 0 || v === 1)).toBe(true)
+    expect([...r.trait].every((v) => v === 0 || v === 1)).toBe(true)
+  })
+
+  it('garde le même quadrillage d’une résolution à l’autre', () => {
+    // C'est ce qui permet au grain de ne pas se rebattre quand la fenêtre
+    // change de taille : le bruit est tiré sur la cellule, pas sur le pixel.
+    const a = releve(1)
+    const b = releve(2)
+    expect([b.colonnes, b.lignes]).toEqual([a.colonnes, a.lignes])
+  })
+
+  it('pose la même matière à 1× et à 2×', () => {
+    const a = releve(1)
+    const b = releve(2)
+    expect([...cellulesClaires(b.trait, b.masse, b.colonnes, b.lignes)]).toEqual([
+      ...cellulesClaires(a.trait, a.masse, a.colonnes, a.lignes),
+    ])
+  })
+
+  it('pose les blocs de masse sur des pixels entiers', () => {
+    // Un bord à la moitié d'un pixel sort lissé par la toile, donc à moitié
+    // transparent : le mur laisserait passer les étoiles (décision 12.2).
+    for (const b of releve(2).blocs) {
+      expect(Number.isInteger(b.x) && Number.isInteger(b.y)).toBe(true)
+      expect(Number.isInteger(b.largeur) && Number.isInteger(b.hauteur)).toBe(true)
+    }
+  })
+
+  it('tient le poteau dans sa toile, marge comprise', () => {
+    const k = 2
+    const largeur = Math.round(MARGE * 2 * k)
+    const hauteur = Math.round((HORIZON - POTEAU.sommet + u(20)) * k)
+    for (const b of releverPoteau(k, largeur, hauteur, cellule(k)).blocs) {
+      expect(b.x).toBeGreaterThanOrEqual(0)
+      expect(b.y).toBeGreaterThanOrEqual(0)
+      expect(b.x + b.largeur).toBeLessThanOrEqual(largeur)
+      expect(b.y + b.hauteur).toBeLessThanOrEqual(hauteur)
+    }
+  })
+
+  it('sème la matière dans la masse, et le trait en garde l’essentiel', () => {
+    const r = releve(2)
+    const claires = cellulesClaires(r.trait, r.masse, r.colonnes, r.lignes)
+    let traitPose = 0
+    let matiere = 0
+    for (let i = 0; i < claires.length; i += 1) {
+      if (!claires[i]) continue
+      if (r.trait[i]) traitPose += 1
+      else matiere += 1
+    }
+    const trait = r.trait.reduce((n, v) => n + v, 0)
+    // Le trait respire — quelques cellules sautent — sans se pointiller.
+    expect(traitPose).toBeLessThan(trait)
+    expect(traitPose).toBeGreaterThan(trait * 0.9)
+    // Et la masse n'est plus un aplat.
+    expect(matiere).toBeGreaterThan(0)
   })
 })
