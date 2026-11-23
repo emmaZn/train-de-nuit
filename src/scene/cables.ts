@@ -55,7 +55,12 @@ export const FILS = [
 export const POTEAU = {
   sommet: yCadre(294),
   epaule: yCadre(300),
-  demiFut: u(3.5),
+  // 3,15 et non 3,5 (21 novembre 2026) : le SVG mesurait 3,5, elle a demandé le
+  // tronc « 10 % moins épais » après l'avoir vu grainé. Le fût maigrit sur
+  // toute sa hauteur — `dessinerPoteau` en tire sa demi-largeur en haut et, à
+  // 1,6 fois, en bas. Le pied, lui, ne maigrit que de 7 % : son élargissement
+  // au ballast ajoute un `u(2)` qui ne dépend pas du fût, et c'est voulu.
+  demiFut: u(3.15),
   bras: [
     { y: yCadre(322), demi: u(34), epaisseur: u(5), isolateurs: u(30), hauban: u(16) },
     { y: yCadre(356), demi: u(26), epaisseur: u(5), isolateurs: u(22), hauban: u(16) },

@@ -42,7 +42,7 @@ const HAUTEUR_CADRE = CADRES.reverbere.hauteur
  */
 const DEMI_BASE = 230
 /** De combien le cône s'arrête au-dessus du sol, en pixels. PROVISOIRE (§7) : à régler à vue. */
-const GARDE_AU_SOL = 36
+const GARDE_AU_SOL = 30
 
 export function coneDuFaisceau(piece: typeof PIECES.reverbere): Cone {
   const sommet = {
