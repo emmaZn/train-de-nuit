@@ -55,7 +55,7 @@ const promesse = (l: Langue): string =>
   background: none;
   color: var(--trait);
   font-family: var(--police-mono);
-  font-size: 10.5px;
+  font-size: 14px;
   letter-spacing: 0.08em;
   line-height: 1;
   opacity: var(--murmure);
