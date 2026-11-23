@@ -21,7 +21,16 @@ export const DUREE_ECLAT = 0.4
 export const DUREE_TOTALE = DUREE_DEFAIT + DUREE_MONTEE + DUREE_ECLAT
 
 /** La police et la taille du formulaire (§4.3, `--police-texte` en Light). */
-const POLICE = "300 17px 'Inter', system-ui, sans-serif"
+/**
+ * **Exactement ce que `.phrase` déclare dans `GareLaHaut.vue`**, et un test
+ * compare les deux fichiers : si elles divergent, les grains tombent à côté
+ * des lettres et rien ne le dit.
+ *
+ * En mono depuis le 24 novembre 2026 — « on utilise la font mono partout,
+ * même sur là-haut ». Le formulaire est devenu une plaque, et une plaque est
+ * un objet de la gare : elle parle la langue de la frise et du panneau.
+ */
+const POLICE = "400 15px 'JetBrains Mono', ui-monospace, monospace"
 /** Un pixel sur deux, dans les deux sens : assez dense, quatre fois moins lourd. */
 const PAS = 2
 /** En deçà, c'est l'anticrénelage du bord d'une lettre, pas de l'encre. */
@@ -133,6 +142,40 @@ export function poigneeSansAnimation(allumer: (trace: Trace) => void): Poignee {
     async revert(): Promise<void> {
       tenue = true
     },
+  }
+}
+
+/**
+ * De combien le grain remonte au-dessus de son départ quand sa place est plus
+ * basse que lui, en part de la descente à parcourir. La Bézier quadratique
+ * culmine alors à ~16 % de cette descente au-dessus du départ.
+ *
+ * Réglage d'œil, **pas encore soumis à Emmanuelle** : elle a tranché le geste
+ * (le grain monte d'abord), pas le nombre. À montrer en mouvement.
+ */
+export const ARC = 0.6
+
+/**
+ * Le point de contrôle qui courbe la montée : droit d'abord, penché ensuite.
+ *
+ * Depuis la bande du ciel, presque toutes les places libres sont **en dessous**
+ * du formulaire. Avec le seul calcul d'origine — un contrôle posé entre le
+ * départ et la cible — le grain descendrait tout du long, et le « seul grain
+ * qui monte » du §4.3 deviendrait une chute. Quand la place est plus basse, le
+ * contrôle passe donc au-dessus du départ : le grain monte, puis redescend vers
+ * son étoile. Au-dessus, rien ne change — c'est le geste déjà validé.
+ *
+ * Fonction pure et exportée parce que c'est la seule part de la trajectoire
+ * qu'un test peut épingler au point près : le reste se juge à l'œil.
+ */
+export function controlePour(
+  depart: { x: number; y: number },
+  cible: { x: number; y: number },
+): { x: number; y: number } {
+  const montee = depart.y - cible.y
+  return {
+    x: depart.x + (cible.x - depart.x) * 0.12,
+    y: montee >= 0 ? depart.y - montee * 0.78 : depart.y + montee * ARC,
   }
 }
 
@@ -334,12 +377,9 @@ export class Dissolve implements Poignee {
     if (this.phase === 'attente') this.dessiner()
   }
 
-  /** Le point de contrôle qui courbe la montée : droit d'abord, penché ensuite. */
+  /** Le point de contrôle qui courbe la montée (voir `controlePour`). */
   private controleVers(depart: { x: number; y: number }): { x: number; y: number } {
-    return {
-      x: depart.x + (this.cible.x - depart.x) * 0.12,
-      y: depart.y - (depart.y - this.cible.y) * 0.78,
-    }
+    return controlePour(depart, this.cible)
   }
 
   /** Où en est un grain : ceux de droite partent après ceux de gauche. */

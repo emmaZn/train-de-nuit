@@ -10,6 +10,8 @@ import { tirerPlace } from '@/scene/stars'
 import { useTraces } from '@/stores/traces'
 import type { Envoi } from '@/stores/traces'
 import { useVoyage } from '@/stores/voyage'
+import { useTextes } from '@/i18n'
+import PlaqueGrainee from '@/components/PlaqueGrainee.vue'
 
 /**
  * Le formulaire de « là-haut » (CONCEPT.md §4.3) et l'ordre des opérations de
@@ -31,9 +33,10 @@ const DELAI = 10_000
  * serait un mensonge à retardement — le visiteur réécrirait, et Emmanuelle
  * modérerait un doublon.
  */
-const MESSAGE = "on n'a pas pu confirmer"
-
 const traces = useTraces()
+const t = useTextes()
+/** Ce que dit la ligne, dans la langue du moment. */
+const MESSAGE = computed(() => t.value.laHaut.nonConfirmee)
 /**
  * L'envoi parti et non réglé, et la phrase dont on n'a pas pu confirmer le
  * sort. Ils vivent dans le magasin et non ici, parce qu'ils **survivent au
@@ -84,7 +87,9 @@ function annulerPose(): void {
 }
 
 watch(
-  [nonConfirmee, enRoute],
+  // `MESSAGE` est dans les sources : changer de langue pendant qu'une phrase
+  // est en souffrance doit retraduire la ligne, pas la laisser en route.
+  [nonConfirmee, enRoute, MESSAGE],
   ([souci, route]) => {
     annulerPose()
     const etaitLa = regionEnPlace
@@ -96,13 +101,13 @@ watch(
     // Déjà en place : son texte peut changer tout de suite, c'est bien un
     // changement de contenu dans une région qui existait.
     if (etaitLa) {
-      dit.value = MESSAGE
+      dit.value = MESSAGE.value
       return
     }
     // Fraîchement insérée, et déjà quelque chose à dire : on attend.
     posePid = setTimeout(() => {
       posePid = null
-      dit.value = MESSAGE
+      dit.value = MESSAGE.value
     }, DELAI_REGION)
   },
   { immediate: true },
@@ -338,49 +343,50 @@ onBeforeUnmount(() => {
     <!-- On n'écrit pas depuis un train qui roule : le formulaire arrive à
          quai, par dissolution, comme le reste des gares. -->
     <Transition name="dissoudre">
-      <form
-        v-if="!enRoute"
-        class="trace"
-        :data-envoi="enVol"
-        @submit.prevent="laisser"
-        @keydown.enter.prevent="laisser"
-      >
-        <h2 class="titre">Laisser une trace ?</h2>
-        <input
-          ref="champ"
-          class="phrase"
-          data-champ="phrase"
-          type="text"
-          autocomplete="off"
-          aria-label="votre phrase"
-          placeholder="une phrase, un mot, une pensée…"
-          :value="phrase"
-          :readonly="envoi !== null"
-          @input="saisirPhrase"
-        />
-        <input
-          class="prenom"
-          data-champ="prenom"
-          type="text"
-          autocomplete="off"
-          aria-label="votre prénom"
-          placeholder="un prénom, si vous voulez"
-          :value="prenom"
-          :readonly="envoi !== null"
-          @input="saisirPrenom"
-        />
-        <p class="meta">
-          <span data-role="compteur">{{ compte }} / {{ MAX_PHRASE }}</span>
-          <!-- Un vrai bouton, pas une mention : un champ en lecture seule ne
-               fait pas remonter le clavier d'un téléphone, et après le délai
-               ce serait le seul geste encore possible. -->
-          <button type="submit" class="laisser" data-role="laisser">laisser ↵</button>
-        </p>
-        <!-- Toujours là, même muette : une région live insérée en même temps
-             que son texte n'est souvent pas annoncée, et c'est par elle seule
-             que « on n'a pas pu confirmer » se dit. -->
-        <p class="dit" data-role="dit" aria-live="polite">{{ dit }}</p>
-      </form>
+      <PlaqueGrainee v-if="!enRoute" class="plaque-trace" :data-envoi="enVol">
+        <form
+            class="trace"
+            :data-envoi="enVol"
+            @submit.prevent="laisser"
+            @keydown.enter.prevent="laisser"
+          >
+          <h2 class="titre">{{ t.laHaut.titre }}</h2>
+          <input
+            ref="champ"
+            class="phrase"
+            data-champ="phrase"
+            type="text"
+            autocomplete="off"
+            :aria-label="t.laHaut.phraseAria"
+            :placeholder="t.laHaut.phrasePlaceholder"
+            :value="phrase"
+            :readonly="envoi !== null"
+            @input="saisirPhrase"
+          />
+          <input
+            class="prenom"
+            data-champ="prenom"
+            type="text"
+            autocomplete="off"
+            :aria-label="t.laHaut.prenomAria"
+            :placeholder="t.laHaut.prenomPlaceholder"
+            :value="prenom"
+            :readonly="envoi !== null"
+            @input="saisirPrenom"
+          />
+          <p class="meta">
+            <span data-role="compteur">{{ compte }} / {{ MAX_PHRASE }}</span>
+            <!-- Un vrai bouton, pas une mention : un champ en lecture seule ne
+                 fait pas remonter le clavier d'un téléphone, et après le délai
+                 ce serait le seul geste encore possible. -->
+            <button type="submit" class="laisser" data-role="laisser">{{ t.laHaut.laisser }}</button>
+          </p>
+          <!-- Toujours là, même muette : une région live insérée en même temps
+               que son texte n'est souvent pas annoncée, et c'est par elle seule
+               que « on n'a pas pu confirmer » se dit. -->
+          <p class="dit" data-role="dit" aria-live="polite">{{ dit }}</p>
+          </form>
+      </PlaqueGrainee>
     </Transition>
   </div>
 </template>
@@ -392,76 +398,43 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* À droite, dans le ciel, sans cadre (§4.3). */
-.trace {
-  position: absolute;
-  /* Sans ça, le `z-index: -1` de la tache ne la met pas derrière ce texte-ci :
-     faute d'ancêtre qui crée un contexte d'empilement, il l'envoie derrière le
-     canvas de la scène, où elle ne se voit plus du tout. */
-  isolation: isolate;
-  top: 176px;
-  right: 56px;
-  width: 280px;
-  pointer-events: auto;
+/*
+ * La plaque de « là-haut » — Emmanuelle, le 24 novembre 2026 : « on utilise la
+ * même chose pour là-haut ». Le formulaire devient l'objet frère de la plaque
+ * de « ici » : même cadre cuit au grain, même fond opaque, même mono.
+ *
+ * **Il n'y a plus de tache de nuit** : le dégradé de la spec du 14 novembre
+ * est retiré, et avec lui l'arête qu'il laissait sur le massif. C'est le fond
+ * de la plaque qui éteint ce qu'il y a derrière, comme le corps du train et
+ * comme le cartouche du panneau des départs.
+ *
+ * La place, elle, est celle qu'elle a posée le 23 au soir et confirmée depuis.
+ */
+.plaque-trace {
+  top: 204px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(550px, calc(100vw - 2 * var(--marge-ecran)));
   /* Temps 1 et 5 : le formulaire s'efface, puis revient. */
   transition: opacity 0.7s ease;
 }
 
-/*
- * A patch of night behind the form, so its four texts can be read over the
- * white grain of the massif — the placeholder, the counter and « laisser ↵ »
- * are the palest of them and go first. Black becomes the colour of the night
- * everywhere (CONCEPT §6), so the patch is mixed from `--fond` and follows the
- * eye on its own.
- *
- * Same derogation as the bubble's: the site has one material and its forms are
- * frameless (§2, §4.3), yet this patch has an edge. Traded for legibility, on
- * purpose — docs/superpowers/specs/2026-11-14-formulaire-lisible-design.md.
- *
- * `pointer-events: none` is not decoration. `.trace` is `pointer-events: auto`
- * and a positioned ::before belongs to its box: without it, the patch would
- * steal the hover from stars lying in the band it overhangs.
- *
- * The stops are the bubble's, to the number. They set the EDGE: with
- * `ellipse at center` the implicit `farthest-corner` puts the middle of each
- * side at 1/√2 ≈ 71 % of the ray whatever the box's size, so the box cuts a
- * gradient still ~60 % opaque — the straight step Emmanuelle looked at and
- * accepted for the bubble. Moving them further out would harden that step, and
- * on a phone the block spans the screen: its top and bottom edges would draw
- * two lines right across it.
- *
- * What the block does need is cover at its corners, where the title and the
- * meta line sit and where a bubble has nothing. That is bought with a wider
- * `inset`, not with later stops: at -40/-56 the block's own corner falls at
- * ~68 % of the ray instead of ~75 %, which is ~65 % opaque instead of ~51 %.
- * Geometry, not a harder edge.
- */
-.trace::before {
-  content: '';
-  position: absolute;
-  inset: -40px -56px;
-  z-index: -1;
-  pointer-events: none;
-  background: radial-gradient(
-    ellipse at center,
-    color-mix(in srgb, var(--fond) 94%, transparent) 0%,
-    color-mix(in srgb, var(--fond) 88%, transparent) 35%,
-    color-mix(in srgb, var(--fond) 78%, transparent) 62%,
-    color-mix(in srgb, var(--fond) 0%, transparent) 100%
-  );
+.plaque-trace :deep(.dedans) {
+  padding: 22px 24px 19px;
 }
 
-.trace[data-envoi='true'] {
+.plaque-trace[data-envoi='true'] {
   opacity: 0;
   pointer-events: none;
 }
 
 .titre {
   margin: 0 0 18px;
-  font-size: 17px;
-  font-weight: 300;
-  letter-spacing: 0.01em;
-  opacity: var(--moyen);
+  font-family: var(--police-mono);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  opacity: var(--fort);
 }
 
 .phrase,
@@ -472,7 +445,7 @@ onBeforeUnmount(() => {
   /* Pas de marge à gauche : l'encre commence au bord du cadre qu'on mesure. */
   padding: 0 0 9px;
   border: 0;
-  border-bottom: 1px solid rgb(from var(--trait) r g b / var(--murmure));
+  border-bottom: 1px solid rgb(from var(--trait) r g b / var(--faible));
   background: none;
   color: var(--texte);
   caret-color: var(--trait);
@@ -484,19 +457,24 @@ onBeforeUnmount(() => {
  * divergent, les grains tombent à côté des lettres, et rien ne le dit : un
  * test compare les deux fichiers.
  */
+/**
+ * Exactement la police que `Dissolve.ts` rastérise (`POLICE`). Si les deux
+ * divergent, les grains tombent à côté des lettres, et rien ne le dit : un
+ * test compare les deux fichiers.
+ */
 .phrase {
-  font: 300 17px var(--police-texte);
+  font: 400 15px var(--police-mono);
 }
 
 .prenom {
-  margin-top: 26px;
-  font: 300 14px var(--police-texte);
+  margin-top: 24px;
+  font: 400 13px var(--police-mono);
 }
 
 .phrase::placeholder,
 .prenom::placeholder {
   color: var(--texte);
-  opacity: var(--faible);
+  opacity: var(--moyen);
 }
 
 .phrase:focus,
@@ -508,9 +486,9 @@ onBeforeUnmount(() => {
 .meta,
 .dit {
   font-family: var(--police-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.04em;
-  opacity: var(--faible);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  opacity: var(--moyen);
 }
 
 .meta {
@@ -538,10 +516,14 @@ onBeforeUnmount(() => {
 }
 
 /* La ligne n'est posée qu'une fois le formulaire revenu : elle ne s'efface
-   donc jamais avec lui, et elle se lit sous le compteur. */
+   donc jamais avec lui, et elle se lit sous le compteur.
+
+   À `--fort` et non à `--moyen` : depuis que la ligne méta est montée d'un
+   cran, les deux seraient à la même intensité, et c'est le seul message
+   d'erreur du site — il doit se détacher du décor qu'il surplombe. */
 .dit {
   margin: 10px 0 0;
-  opacity: var(--moyen);
+  opacity: var(--fort);
 }
 
 /* Muette, elle ne doit pas écarter la ligne méta du bas du formulaire : un
@@ -564,11 +546,32 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
+/*
+ * Un écran court, quelle que soit sa largeur : un téléphone en paysage fait
+ * 844 px de large et prend donc la branche bureau. Mesuré à 844 × 346 : la
+ * ligne méta tombait à 338-354 pour 346 px de haut, `body` est en
+ * `overflow: hidden`, et « laisser ↵ » se trouvait coupé en deux — alors
+ * qu'après le délai de dix secondes c'est le seul geste encore possible, les
+ * champs étant en lecture seule. Seule la hauteur du bloc change ; la
+ * composition reste celle du bureau.
+ */
+@media (max-height: 480px) {
+  .plaque-trace {
+    top: 118px;
+  }
+}
+
 @media (max-width: 720px) {
-  .trace {
+  .plaque-trace {
+    top: 118px;
     right: 16px;
     left: 16px;
     width: auto;
+    transform: none;
+  }
+
+  .plaque-trace :deep(.dedans) {
+    padding: 18px 18px 16px;
   }
 }
 
