@@ -2,6 +2,7 @@ import { markRaw, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue
 import type { InjectionKey, Ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
+import { retirerEcran } from '@/chargement'
 import { Scene } from '@/scene/Scene'
 import type { Frame } from '@/scene/layout'
 import { loadFond, saveFond } from '@/scene/palette'
@@ -99,12 +100,22 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
   onMounted(async () => {
     document.documentElement.style.setProperty('--fond', fond.value)
-    if (!canvas.value) return
+    if (!canvas.value) {
+      // Pas de canevas, donc pas de scène, donc rien à attendre : l'écran
+      // d'attente n'a personne pour le relever.
+      retirerEcran(Promise.resolve())
+      return
+    }
 
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
     // markRaw : Pixi tient ses propres références, le rendre réactif le casserait.
     const instance = markRaw(new Scene(canvas.value, { reducedMotion }))
     scene.value = instance
+
+    // L'écran d'attente d'`index.html` s'efface quand le train et le massif
+    // sont posés — ni avant, ni au gré d'un délai inventé. On ne l'attend pas :
+    // le reste du montage n'a pas à en dépendre.
+    retirerEcran(instance.pret)
 
     detacher.push(instance.on('progress', (p) => voyage.setProgression(p)))
     detacher.push(instance.on('arrived', () => voyage.finirEtape()))

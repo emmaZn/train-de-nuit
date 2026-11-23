@@ -857,3 +857,36 @@ describe('la nuit, posée avant la première image', () => {
     expect(interne.quai!.lumiere.neige.racine.visible).toBe(true)
   })
 })
+
+describe('la scène dit quand le train et le massif sont posés', () => {
+  it('`pret` n’est pas tenue avant que la scène n’ait rien chargé', async () => {
+    // Le loader attend ce signal : s'il arrivait trop tôt, il s'effacerait sur
+    // un écran encore noir — c'est tout ce qu'on lui demande de ne pas faire.
+    const s = new Scene(document.createElement('canvas'), { reducedMotion: false })
+    let tenue = false
+    void s.pret.then(() => {
+      tenue = true
+    })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(tenue).toBe(false)
+    s.dispose()
+  })
+
+  it('elle est tenue même quand il n’y a rien à charger', async () => {
+    // Sans manifeste, `peupler` n'est jamais appelée ; sans WebGL, `init`
+    // renonce avant. Dans les deux cas le loader doit partir, sinon le site
+    // reste caché derrière lui pour toujours.
+    const s = new Scene(document.createElement('canvas'), { reducedMotion: false })
+    await s.init()
+    await expect(s.pret).resolves.toBeUndefined()
+    s.dispose()
+  })
+
+  it('`dispose` tient la promesse plutôt que de l’abandonner', async () => {
+    // Une gare démontée pendant le chargement laisserait sinon le loader en
+    // place, sur une scène qui n'existe plus.
+    const s = new Scene(document.createElement('canvas'), { reducedMotion: false })
+    s.dispose()
+    await expect(s.pret).resolves.toBeUndefined()
+  })
+})

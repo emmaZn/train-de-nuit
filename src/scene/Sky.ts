@@ -1,6 +1,6 @@
 import { Container, Graphics } from 'pixi.js'
 import { alea } from './alea'
-import { HORIZON, STAGE } from './layout'
+import { HORIZON, SEUIL_MOBILE, STAGE, cadrageScene } from './layout'
 import type { Frame } from './layout'
 import type { Grain } from './alea'
 
@@ -99,6 +99,31 @@ export function poussiereLibre(
 
 /** Garde-fou : une région libre quasi vide ne doit pas boucler. */
 const PLAFOND_TIRAGE = 20_000
+
+/**
+ * La graine du ciel. `Sky` la prend par défaut, et l'écran d'attente la
+ * recopie : les deux doivent semer le même ciel.
+ */
+export const GRAINE_CIEL = 7
+
+/**
+ * La poussière telle qu'elle est posée sur une fenêtre donnée — cadre compris.
+ *
+ * C'est la chaîne que `Scene.cadrer` suit : `cadrageScene` pour le cadre, puis
+ * `poussiereLibre`. Elle est ici, en une fonction, parce que **l'écran
+ * d'attente d'`index.html` la recopie en JavaScript nu** : il doit dessiner ce
+ * ciel-là avant que le bundle n'existe, et un test compare les deux grain par
+ * grain. Sans ce point unique, la comparaison porterait sur ma lecture du code
+ * plutôt que sur ce que la scène dessine.
+ */
+export function poussiereDeLaFenetre(
+  viewportW: number,
+  viewportH: number,
+  seed: number = GRAINE_CIEL,
+): Grain[] {
+  const { frame } = cadrageScene(viewportW, viewportH)
+  return poussiereLibre(frame, viewportW, viewportH, viewportW < SEUIL_MOBILE, seed)
+}
 
 export class Sky {
   private readonly racine = new Container()

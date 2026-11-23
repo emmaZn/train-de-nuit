@@ -426,9 +426,25 @@ export class Scene {
   private dernierSaut = -1
   private vivante = false
 
+  /**
+   * Tenue quand **le train et le massif sont posés** — ce que l'écran de
+   * chargement attend, et rien d'autre : ni les oiseaux, ni le quai, ni les
+   * étoiles des voyageurs, qui arrivent après sans qu'on les voie manquer.
+   *
+   * Elle est tenue **dans tous les cas**, y compris quand il n'y a rien à
+   * charger : pas de WebGL, pas de manifeste, ou la gare démontée en cours de
+   * route. Une promesse abandonnée laisserait le loader sur l'écran pour
+   * toujours, et le site derrière lui.
+   */
+  readonly pret: Promise<void>
+  private tenirPret: () => void = () => {}
+
   constructor(canvas: HTMLCanvasElement, opts: SceneOptions) {
     this.canvas = canvas
     this.reducedMotion = opts.reducedMotion
+    this.pret = new Promise<void>((resoudre) => {
+      this.tenirPret = resoudre
+    })
   }
 
   on<K extends keyof SceneEvents>(evt: K, cb: SceneEvents[K]): () => void {
@@ -450,6 +466,8 @@ export class Scene {
         resizeTo: window,
       })
     } catch {
+      // Pas de contexte : il n'y aura ni train ni massif, mais le site existe.
+      this.tenirPret()
       return
     }
 
@@ -494,8 +512,11 @@ export class Scene {
 
     const manifest = await loadManifest()
     // Sans `await` : le chargement des assets ne doit retarder ni la couleur
-    // mémorisée, ni le parallax, ni le premier cadrage.
+    // mémorisée, ni le parallax, ni le premier cadrage. C'est `pret` qui dit
+    // quand le train et le massif sont là, à qui veut l'attendre.
     if (manifest) void this.peupler(manifest)
+    // Rien à peupler : personne ne tiendra la promesse à notre place.
+    else this.tenirPret()
   }
 
   private async peupler(manifest: Manifest): Promise<void> {
@@ -566,6 +587,12 @@ export class Scene {
       relief?.detruire()
       this.relief = null
     }
+
+    // Le train est chargé plus haut, le massif juste au-dessus : c'est ici, et
+    // nulle part ailleurs, que l'écran de chargement a le droit de s'effacer.
+    // Le `catch` passe par ici lui aussi — sans WebGL il n'y a pas de massif,
+    // mais il y a un train, et le site vaut mieux qu'un écran d'attente.
+    this.tenirPret()
   }
 
   /**
@@ -1296,6 +1323,9 @@ export class Scene {
   }
 
   dispose(): void {
+    // Le loader attend `pret` : démontée avant d'avoir chargé, la scène le
+    // laisserait sur l'écran pour toujours.
+    this.tenirPret()
     this.oiseaux?.destroy()
     this.cables?.destroy()
     this.quai?.destroy()
