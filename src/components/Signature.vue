@@ -75,6 +75,31 @@ const t = useTextes()
   );
 }
 
+/*
+ * Sur un écran court — un téléphone couché fait 390 px de haut —, la frise en
+ * prend 96 et le massif tout le reste : à `--marge-ecran` du bas, la ligne
+ * tombe en plein sur le corps de la loco. La tache la tenait, mais on la
+ * voyait : un nuage noir posé sur le train.
+ *
+ * Emmanuelle, le 24 novembre 2026 : « on peut enlever le nuage noir derrière
+ * le texte, et descendre le texte plus bas ». Les deux vont ensemble — sans la
+ * tache et à sa hauteur d'avant, la ligne disparaissait dans le grain. Seize
+ * pixels la posent dans la bande sombre sous le reflet, où elle n'a plus
+ * besoin de rien derrière elle.
+ *
+ * Seize et non six : six la colle au bord, et sur un iPhone couché la barre
+ * d'accueil est là.
+ */
+@media (max-height: 480px) {
+  .signature {
+    bottom: 16px;
+  }
+
+  .signature::before {
+    display: none;
+  }
+}
+
 /* Sur un téléphone, le nom et le titre ne tiennent pas sur une ligne : le
    métier passe dessous plutôt que de déborder des deux bords. */
 @media (max-width: 460px) {

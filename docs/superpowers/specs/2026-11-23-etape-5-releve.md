@@ -328,13 +328,33 @@ téléphone : ils ont été réécrits, pas supprimés.
 Mesuré après coup : « PROCHAIN » finit **8 px avant le début du fondu**, aux
 trois largeurs.
 
-### Reste ouvert : l'iPhone couché
+### L'iPhone couché — tranché le 24 novembre
 
 `SEUIL_MOBILE` ne regarde que la **largeur**. Un téléphone couché — 844 × 390 —
-reçoit donc toute la mise en page de bureau dans 390 px de hauteur : la scène
-y est écrasée, et la signature tombe sur le reflet du train. L'iPad portrait
-(768 × 1024) reçoit lui aussi la mise en page de bureau, mais s'en sort : le
-cadrage y recadre fort à l'horizontale sans rien casser.
+reçoit donc toute la mise en page de bureau dans 390 px de hauteur. L'iPad
+portrait (768 × 1024) est dans le même cas et s'en sort : son cadrage recadre
+fort à l'horizontale sans rien casser. Le couché, lui, avait un vrai défaut :
+**la signature tombait sur le corps de la loco**, tenue par sa tache de nuit —
+un nuage noir posé sur le train.
 
-**Non tranché.** Les pistes : un seuil qui regarde aussi la hauteur ; ou une
-signature qui s'efface quand il n'y a plus de place sous les rails.
+Emmanuelle, devant les images : « on peut enlever le nuage noir derrière le
+texte, et descendre le texte plus bas ». Quatre états ont été rendus à
+844 × 390, et le troisième a été retenu.
+
+Ce que les images ont appris, et qui n'était pas évident : **les deux moitiés
+vont ensemble**. Sans la tache mais à `--marge-ecran` du bas, la ligne
+disparaît dans le grain de la loco — c'est précisément pourquoi la tache
+existait. Il a fallu descendre de 40 à 16 px pour qu'elle retrouve la bande
+sombre sous le reflet, où elle se lit sans rien derrière elle. Seize et non
+six : six la colle au bord, et la barre d'accueil de l'iPhone est là.
+
+La garde est un `@media (max-height: 480px)`, et elle ne touche qu'au pied de
+page. **Partout ailleurs la tache reste** : en portrait et sur un écran, la
+ligne tombe sur le reflet et c'est elle qui la tient. La recette elle-même ne
+bouge pas — ses arrêts sont ceux de la bulle, à la virgule, et un test les
+compare.
+
+La plaque de « ici », elle, n'a pas été touchée : la proposition d'en retirer
+le fond puis de la descendre a été essayée et écartée — en paysage le seul
+endroit sombre est celui où elle est déjà, et plus bas la phrase traverse la
+crête éclairée du massif, puis le train.
