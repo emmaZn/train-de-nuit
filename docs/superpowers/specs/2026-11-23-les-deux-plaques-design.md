@@ -1,6 +1,6 @@
 # Les deux plaques
 
-2026-11-24 · projet · étape 2 et 5
+2026-11-23 · projet · étape 2 et 5
 
 ## Intention
 
