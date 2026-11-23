@@ -149,3 +149,41 @@ test('en mouvement réduit, les trois transitions de la frise sont raccourcies e
   }
   expect(garde?.[0]).toMatch(/transition-duration:\s*0\.2s/)
 })
+
+/**
+ * Relevé au clavier le 23 novembre 2026, sur la page qui tourne : la frise
+ * offrait **six arrêts pour quatre gares**. La fenêtre est plus large que la
+ * boucle — six entrées, quatre gares — donc deux gares y figurent deux fois,
+ * sous le même nom et vers la même adresse. À l'œil, c'est la boucle qui
+ * continue des deux côtés ; au clavier et au lecteur d'écran, c'étaient deux
+ * destinations fantômes.
+ *
+ * Les copies restent dessinées — sans elles, la frise aurait un bord — mais
+ * elles sortent de la tabulation et de l'arbre d'accessibilité.
+ */
+test('la frise n’offre qu’un lien par gare, les copies restent décoratives', async () => {
+  const { wrapper } = await monter()
+  const liens = wrapper.findAll('a.gare')
+  expect(liens).toHaveLength(6)
+
+  const offerts = liens.filter((l) => l.attributes('aria-hidden') !== 'true')
+  expect(offerts.map((l) => l.attributes('href'))).toEqual([
+    '/ici',
+    '/plus-loin',
+    '/la-haut',
+    '/ailleurs',
+  ])
+
+  // Un nœud `aria-hidden` qui garde un enfant focalisable est une faute : le
+  // lecteur d'écran ne l'annonce pas, le clavier l'atteint quand même.
+  for (const copie of liens.filter((l) => l.attributes('aria-hidden') === 'true')) {
+    expect(copie.attributes('tabindex')).toBe('-1')
+  }
+})
+
+test('la gare à quai reste offerte, même si c’est la page courante', async () => {
+  const { wrapper } = await monter()
+  const quai = wrapper.get('[data-etat="a-quai"]')
+  expect(quai.attributes('aria-hidden')).toBeUndefined()
+  expect(quai.attributes('tabindex')).toBeUndefined()
+})

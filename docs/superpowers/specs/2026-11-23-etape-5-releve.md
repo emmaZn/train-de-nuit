@@ -11,9 +11,10 @@ part. Ce document dit **ce qui est déjà là et ce qui ne l'est pas**, mesuré 
 Il ne décide de rien. Les chiffres sont à revérifier avant d'y toucher : ils
 vieillissent.
 
-**Le chantier « mouvement réduit » a été mené le 23 novembre au soir : ses trois
-alertes étaient fausses.** Voir la section datée en fin de document ; le §1
-ci-dessous est laissé tel qu'il a été écrit.
+**Les chantiers « mouvement réduit » et « clavier » ont été menés le
+23 novembre au soir.** Voir les sections datées en fin de document ; les §1 et
+§3 ci-dessous sont laissés tels qu'ils ont été écrits — leurs alertes étaient
+fausses, et le vrai défaut du clavier n'y figurait pas.
 
 ## 1. Mouvement réduit — largement fait, trois trous à vérifier
 
@@ -213,3 +214,61 @@ Affichage, **recharge**, et fait le tour : un voyage entre deux gares, un clic
 sur un oiseau, une phrase envoyée depuis « là-haut », le panneau des départs
 baissé, le CV ouvert. Rien ne doit bouger tout seul, et le site doit rester
 entier — le train est là, les textes s'affichent, les phrases répondent.
+
+## Vérifié le 23 novembre 2026 — chantier « clavier »
+
+Parcouru à la tabulation sur la page qui tourne, les quatre gares, panneau des
+départs ouvert et CV ouvert. Les deux trous annoncés au §3 n'en sont pas ; le
+vrai défaut n'y était pas.
+
+### Ce que le §3 annonçait, et qui va bien
+
+- **Le CV piège le focus, correctement.** `App.vue` pose `inert` sur ses deux
+  boîtes dès que la route est `cv`, et `GareAilleurs` ne rend rien d'autre que
+  le CV : il ne reste donc rien de focalisable au dehors. Mesuré : le cycle
+  fait quatre arrêts — fermer, retour à la gare, l'adresse, GitHub — et
+  revient au premier. Le focus entre dans le conteneur à l'ouverture et
+  retourne au lien d'où il venait à la fermeture.
+- **Le panneau des départs n'en piège pas, et c'est écrit.**
+  `PanneauDeparts.vue:381` : « Ce n'est pas un piège : rien ne retient Tab ».
+  C'est un panneau de gare, `role="region"`, pas une boîte de dialogue. Sa
+  croix est bien dans la tabulation, juste après la frise et avant les trois
+  lignes.
+- **L'ordre est bon partout ailleurs** : la frise, puis ce qui appartient à la
+  gare, puis la liste des étoiles, l'œil, FR/EN. À « là-haut » le formulaire
+  s'intercale dans son ordre de lecture — la phrase, le prénom, « laisser ».
+
+### Le défaut, qui ne se lisait pas dans le code
+
+**La frise offrait six arrêts pour quatre gares.** La fenêtre compte six
+entrées (`AVANT = 1`, `APRES = 4`) et la boucle quatre gares : deux y
+figuraient donc deux fois, même nom, même adresse. Relevé à « ici » :
+
+```
+ailleurs · ici À QUAI · plus loin PROCHAIN ARRÊT · là-haut · ailleurs · ici
+```
+
+À l'œil ce sont les deux bords tenus de la boucle — sans eux la frise aurait
+une fin. Au clavier et au lecteur d'écran, c'étaient deux destinations
+fantômes, impossibles à distinguer des vraies.
+
+**Corrigé** : les copies qui débordent de part et d'autre du tour complet
+(`decalage < 0` ou `>= GARES.length`) restent dessinées mais passent en
+`aria-hidden` et `tabindex="-1"`. La gare à quai reste offerte, même si c'est
+la page courante : c'est elle qui porte « À QUAI ».
+
+Vérifié après coup sur la page qui tourne :
+
+```
+ici À QUAI · plus loin PROCHAIN ARRÊT · là-haut · ailleurs
+  · liste des étoiles · œil · FR · EN
+```
+
+Huit arrêts, une gare chacun, dans l'ordre du voyage.
+
+### Su et non corrigé
+
+Un `<div></div>` vide apparaît dans la tabulation de toutes les pages. Il
+n'est pas du site : rien dans `src` ni dans `index.html` n'ajoute de nœud à
+`body`. C'est l'extension du navigateur qui s'en sert pendant la mesure — à ne
+pas confondre avec un défaut au prochain passage.

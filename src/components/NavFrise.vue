@@ -77,9 +77,24 @@ const entrees = computed(() => {
     else if (decalage === 1) etat = 'prochain'
     else etat = 'a-venir'
 
+    // La fenêtre est plus large que la boucle — six entrées pour quatre gares
+    // — donc deux gares y figurent deux fois. À l'œil c'est ce qui donne à la
+    // frise ses deux bords tenus ; au clavier, c'étaient deux destinations de
+    // plus, du même nom et vers la même adresse. On garde donc le tour
+    // complet, de la gare à quai à la dernière avant de revenir : les copies
+    // qui débordent de part et d'autre ne sont plus que du dessin.
+    const repete = decalage < 0 || decalage >= GARES.length
+
     // La clé est l'étape absolue : elle survit au glissement, donc la gare
     // garde son nœud du DOM et se déplace au lieu d'être recréée.
-    return { cle: legs.value + decalage, station, libelle: t.value.gares[station], etat, decalage }
+    return {
+      cle: legs.value + decalage,
+      station,
+      libelle: t.value.gares[station],
+      etat,
+      decalage,
+      repete,
+    }
   })
 })
 </script>
@@ -102,6 +117,8 @@ const entrees = computed(() => {
         :data-gare="entree.station"
         :data-decalage="entree.decalage"
         :style="{ '--cle': entree.cle }"
+        :aria-hidden="entree.repete || undefined"
+        :tabindex="entree.repete ? -1 : undefined"
       >
         <span class="point" aria-hidden="true"></span>
         <span class="libelle">{{ entree.libelle }}</span>
