@@ -451,7 +451,18 @@ match /traces/{id} {
    une bande 2D qui défile, grainée comme le reste.
 4. ~~L'icône « œil »~~ : **décidé** — elle fait défiler un **cycle de couleurs de fond**, et rien d'autre. Palette validée (§6).
 5. **Contact** : le formulaire de message est devenu un `mailto:`, et **le PDF du CV disparaît** — le CV est une page du site (§4.5). Restent deux choses, **qui manquent toujours** : **l'adresse mail** (derrière `ÉCRIRE` et au bas du CV) et **l'URL LinkedIn**. Elles sont des **bouchons** dans `src/contenu/liens.ts` — l'adresse est celle d'un CV de 2021, pas une décision — et **rien ne se déploie sans elles**.
-6. **Hébergeur** : Vercel ou Netlify.
+6. ~~Hébergeur~~ : **décidé — Cloudflare Pages**, à l'adresse gratuite
+   `train-de-nuit.pages.dev` ; pas de nom de domaine acheté. Les deux noms
+   d'abord écrits ici ont été écartés le 23 novembre 2026 : l'offre gratuite de
+   Netlify se compte désormais en crédits — 300 par mois, 20 par gigaoctet, soit
+   une quinzaine de gigaoctets — et **met le site en pause** au-delà, ce qui, à
+   17 Mo la visite froide, arrive vers neuf cents visites ; celle de Vercel est
+   réservée par ses conditions à un usage **non commercial**, ce qu'un site qui
+   présente son travail n'est pas tout à fait. Chez Cloudflare les fichiers
+   statiques ne sont comptés ni en bande passante ni en requêtes. La
+   configuration — `_redirects`, pour que `/ailleurs/cv` ne rende pas un 404 à
+   qui ouvre le lien, et `_headers`, pour que le train reste en cache — s'écrit
+   au format de Netlify : elle suivrait si l'on changeait d'avis.
 
 ## 13. Étapes
 
