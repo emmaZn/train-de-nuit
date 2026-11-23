@@ -10,6 +10,7 @@ import App from '@/App.vue'
 import CvLigne from '@/components/CvLigne.vue'
 import GareAilleurs from '@/components/gares/GareAilleurs.vue'
 import { HORS_DE_LA_VOIE, PARCOURS } from '@/contenu/cv'
+import { TEXTES } from '@/i18n'
 import { brancherVoyage, createAppRouter } from '@/router'
 import { cadrageScene } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
@@ -246,6 +247,31 @@ describe('CvLigne', () => {
     const source = readFileSync('src/components/CvLigne.vue', 'utf8')
     const bloc = source.slice(source.indexOf('.retour:focus-visible'))
     expect(bloc.slice(0, bloc.indexOf('}'))).toMatch(/outline:\s*1px solid var\(--encre\)/)
+  })
+
+  /**
+   * Le lien « retour » est en haut de la feuille : une fois qu'on a lu, il est
+   * remonté hors de l'écran, et il fallait défiler pour sortir. La croix est
+   * **fixe** — c'est tout son intérêt, et c'est ce que ce test garde.
+   */
+  it('la croix ferme le CV, où qu’on en soit dans la lecture', async () => {
+    const { wrapper, router } = await monter('/ailleurs/cv')
+    const croix = wrapper.find('button.fermer')
+    expect(croix.exists()).toBe(true)
+    await croix.trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.path).toBe('/ailleurs')
+  })
+
+  it('la croix ne défile pas avec la feuille', () => {
+    const source = readFileSync('src/components/CvLigne.vue', 'utf8')
+    const bloc = source.slice(source.indexOf('.fermer {'))
+    expect(bloc.slice(0, bloc.indexOf('}'))).toMatch(/position:\s*fixed/)
+  })
+
+  it('la croix se nomme, pour qui ne la voit pas', async () => {
+    const { wrapper } = await monter('/ailleurs/cv')
+    expect(wrapper.find('button.fermer').attributes('aria-label')).toBe(TEXTES.fr.cv.fermer)
   })
 
   it('Échap ferme le CV et ramène à /ailleurs, comme « retour »', async () => {

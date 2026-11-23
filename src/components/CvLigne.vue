@@ -42,13 +42,18 @@ const HALTES = computed(() => parcours.value.filter((a) => a.halte))
 const mail = adresseMail()
 
 // Le focus entre dans le CV à l'ouverture : c'est le conteneur (tabindex -1)
+/** La sortie, par où qu'on la prenne : Échap, « retour », la croix. */
+function partir(): void {
+  router.push('/ailleurs')
+}
+
 // qui le reçoit, pas le lien « retour » — Page Down défile aussitôt, y compris
 // sous Safari qui ne rend pas les zones défilantes focusables d'elles-mêmes,
 // donc pas de tabindex="0" en plus. Échap ramène à /ailleurs, comme « retour ».
 const cv = ref<HTMLElement | null>(null)
 const router = useRouter()
 function surTouche(e: KeyboardEvent) {
-  if (e.key === 'Escape') router.push('/ailleurs')
+  if (e.key === 'Escape') partir()
 }
 
 /**
@@ -89,6 +94,16 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="cv" class="cv" tabindex="-1" role="region" :aria-label="t.cv.aria">
+    <!-- Le lien « retour » est en haut de la feuille : une fois qu'on a lu, il
+         est remonté hors de l'écran. La croix, elle, ne bouge pas — elle est
+         posée sur la fenêtre, à la place qu'occupent les commandes du site,
+         que le CV recouvre le temps de sa lecture. -->
+    <button type="button" class="fermer" :aria-label="t.cv.fermer" @click="partir">
+      <svg viewBox="0 0 13 13" aria-hidden="true" focusable="false">
+        <path d="M0.5 0.5 L12.5 12.5 M12.5 0.5 L0.5 12.5" />
+      </svg>
+    </button>
+
     <div class="feuille">
       <!-- Le bord perforé : du décor, et rien d'autre. Il disparaît sous 720 px,
            où la feuille n'a plus la largeur de se payer une marge vide. -->
@@ -260,6 +275,59 @@ onBeforeUnmount(() => {
 
 /* La commande principale de fermeture. Le remplissage puis la marge négative lui
    donnent une cible confortable au doigt sans rien déplacer autour. */
+/*
+ * La sortie. Le lien « retour » est en haut de la feuille : une fois qu'on a
+ * lu, il est remonté hors de l'écran, et il fallait défiler pour sortir.
+ *
+ * Elle est **fixe**, à la place qu'occupent les commandes du site — l'œil et
+ * la langue, que le CV recouvre le temps de sa lecture.
+ *
+ * Et elle porte une tache de nuit, carrée comme les plaques. Sans elle, il
+ * faudrait choisir sa couleur une fois pour toutes : au départ elle est sur
+ * le voile sombre, mais la feuille remonte en défilant et passe dessous. Une
+ * encre serait invisible avant, un trait clair invisible après. C'est la même
+ * dérogation que le pied de page et la bulle d'étoile.
+ */
+.fermer {
+  position: fixed;
+  top: calc(var(--haut-voie) - 16px);
+  right: calc(var(--marge-ecran) - 8px);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: color-mix(in srgb, var(--fond) 92%, transparent);
+  color: var(--trait);
+  cursor: pointer;
+  opacity: var(--moyen);
+  transition: opacity 0.2s;
+}
+
+.fermer:hover,
+.fermer:focus-visible {
+  opacity: var(--fort);
+}
+
+.fermer:focus-visible {
+  outline: 1px solid var(--trait);
+  outline-offset: 2px;
+}
+
+.fermer svg {
+  width: 13px;
+  height: 13px;
+}
+
+.fermer path {
+  stroke: currentColor;
+  stroke-width: 1;
+  fill: none;
+}
+
 .retour {
   display: inline-block;
   padding: 12px 6px;
