@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs'
 
+import { Assets, Container, Texture } from 'pixi.js'
+
 import {
+  SEQUENCES,
+  Train,
+  enMarche,
   ATTELAGE,
   FPS,
   IMAGES_TRANSITION,
@@ -17,7 +22,9 @@ import {
   trainSpeed,
   wagonX,
 } from '@/scene/Train'
+import { framePath } from '@/scene/assets'
 import { DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
+import type { Manifest } from '@/scene/types'
 
 test('le train quitte l’arrêt par le démarrage', () => {
   expect(nextTrainState('arret', 0, true)).toBe('demarrage')
@@ -363,4 +370,105 @@ test('la séquence d’arrêt se consomme exactement sur le freinage', () => {
     images += pas * DUREE_ETAPE * FPS * trainSpeed('freinage', p + pas / 2)
   }
   expect(images).toBeCloseTo(IMAGES_TRANSITION, 0)
+})
+
+/* ------------------------------------------------- ce qu'on attend à quai */
+
+/**
+ * Mesuré le 24 novembre 2026 sur le build de production : l'écran d'attente
+ * ne s'effaçait qu'après **261 requêtes et 18,2 Mo**, dont les 237 images du
+ * train. Or à quai, `frameIndex` épingle l'état `arret` à la **dernière**
+ * image de la séquence d'arrêt : ce qu'on regarde pendant tout ce temps, ce
+ * sont deux images.
+ *
+ * Le train se pose donc d'abord — la voie et ces deux images-là — et ses six
+ * séquences arrivent derrière, l'écran déjà effacé.
+ */
+function manifesteReel(): Manifest {
+  return JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as Manifest
+}
+
+function espionnerLesImages() {
+  const demandes: string[] = []
+  vi.spyOn(Assets, 'load').mockImplementation((async (url: unknown) => {
+    demandes.push(String(url))
+    // Une vraie texture, même vide : `poser` lui demande sa taille.
+    return Texture.EMPTY
+  }) as unknown as typeof Assets.load)
+  return demandes
+}
+
+afterEach(() => vi.restoreAllMocks())
+
+test('à quai, le train ne demande que ce qu’il montre', async () => {
+  const demandes = espionnerLesImages()
+  const manifeste = manifesteReel()
+  const train = new Train(new Container(), manifeste)
+  await train.poserAQuai()
+
+  // La voie, et la dernière image de chacune des deux séquences d'arrêt.
+  expect(demandes).toHaveLength(3)
+  expect(demandes).toContain(manifeste.rails.path)
+  for (const cle of ['loco-stop', 'wagon-stop'] as const) {
+    const spec = manifeste.train[cle]
+    expect(demandes, cle).toContain(framePath(spec.path, spec.count))
+  }
+})
+
+test('à quai, le train n’est pas encore complet', async () => {
+  espionnerLesImages()
+  const train = new Train(new Container(), manifesteReel())
+  await train.poserAQuai()
+  expect(train.complet).toBe(false)
+})
+
+test('les six séquences arrivent derrière, le départ d’abord', async () => {
+  const demandes = espionnerLesImages()
+  const train = new Train(new Container(), manifesteReel())
+  await train.poserAQuai()
+  demandes.length = 0
+  await train.chargerLesSequences()
+
+  const premiereVue = (cle: string) => demandes.findIndex((u) => u.includes(`/${cle}/`))
+  // Ce qu'il faut pour partir avant ce qu'il faut pour s'arrêter : le premier
+  // geste possible après l'arrivée, c'est repartir.
+  expect(premiereVue('loco-start')).toBeLessThan(premiereVue('loco'))
+  expect(premiereVue('loco')).toBeLessThan(premiereVue('loco-stop'))
+  expect(train.complet).toBe(true)
+})
+
+test('une séquence qui ne rend rien ne bloque pas le train pour toujours', async () => {
+  // Sinon le départ, qui attend `complet`, ne viendrait jamais : une image
+  // manquante arrêterait le voyage au lieu de l'abîmer un peu.
+  vi.spyOn(Assets, 'load').mockRejectedValue(new Error('réseau coupé'))
+  const train = new Train(new Container(), manifesteReel())
+  await train.poserAQuai()
+  await train.chargerLesSequences()
+  expect(train.complet).toBe(true)
+})
+
+test('les six séquences sont nommées une fois pour toutes', () => {
+  const manifeste = manifesteReel()
+  expect([...SEQUENCES].sort()).toEqual(Object.keys(manifeste.train).sort())
+})
+
+/* ------------------------------------------------- le départ retenu */
+
+test('un train sans ses images ne part pas', () => {
+  expect(enMarche(true, false)).toBe(false)
+})
+
+test('un train complet part', () => {
+  expect(enMarche(true, true)).toBe(true)
+})
+
+test('à quai, il ne part pas davantage', () => {
+  expect(enMarche(false, true)).toBe(false)
+})
+
+test('sans train du tout, rien n’est retenu', () => {
+  // Pas de manifeste, donc pas de train : la scène saute l'étape comme elle
+  // le fait déjà sans WebGL. Retenir un départ qui n'existe pas gèlerait le
+  // voyage pour toujours.
+  expect(enMarche(true, null)).toBe(true)
 })

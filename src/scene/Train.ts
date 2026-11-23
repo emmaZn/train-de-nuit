@@ -1,5 +1,5 @@
 import { Container, Sprite, Texture, TilingSprite } from 'pixi.js'
-import { loadSequence, loadTexture } from './assets'
+import { framePath, loadSequence, loadTexture } from './assets'
 import { DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE, TETE_LOCO } from './layout'
 import type { Manifest, SequenceSpec, TrainSequence } from './types'
 
@@ -194,6 +194,32 @@ export function ancrageRame(
 /** Stage pixels the track scrolls through per second at full size. */
 export const DEFILEMENT = 900
 
+/**
+ * Le voyage n'avance que si le train a de quoi le jouer.
+ *
+ * Depuis que l'écran d'attente ne retient plus que la pose à quai, on peut
+ * cliquer sur une gare avant que les images de démarrage ne soient là. Sans
+ * cette règle, le train glissait sur sa pose, roues figées — et le compteur
+ * d'images, lui, avançait : la séquence arrivée, il aurait sauté d'un coup à
+ * sa fin. On le tient donc à l'arrêt, et le départ a lieu entier.
+ *
+ * `null` quand il n'y a pas de train du tout — sans manifeste, rien à
+ * retenir : la scène saute l'étape comme elle le fait déjà sans WebGL.
+ */
+export function enMarche(enRoute: boolean, trainComplet: boolean | null): boolean {
+  return enRoute && (trainComplet ?? true)
+}
+
+/** Les six séquences du train, nommées une fois pour toutes. */
+export const SEQUENCES = [
+  'loco',
+  'wagon',
+  'loco-start',
+  'wagon-start',
+  'loco-stop',
+  'wagon-stop',
+] as const satisfies readonly TrainSequence[]
+
 export class Train {
   private readonly racine = new Container()
   /** Loco and carriage together: this is what the scale applies to. */
@@ -218,6 +244,8 @@ export class Train {
   private readonly wagons = Array.from({ length: WAGONS }, () => new Sprite())
   private rails: TilingSprite | null = null
   private readonly sequences = new Map<TrainSequence, Texture[]>()
+  /** Celles dont le chargement est **terminé**, qu'il ait donné des images ou non. */
+  private readonly chargees = new Set<TrainSequence>()
   private readonly manifest: Manifest
   private etat: TrainState = 'arret'
   private image = 0
@@ -272,40 +300,87 @@ export class Train {
     return this.derniereVitesse
   }
 
-  async load(): Promise<void> {
-    const voie = await loadTexture(this.manifest.rails.path)
-    if (voie) {
-      const voieSpec = this.manifest.rails
-      // La voie suit l'échelle du train : des traverses à taille réelle sous
-      // une locomotive réduite se verraient immédiatement.
-      this.rails = new TilingSprite({
-        texture: voie,
-        width: STAGE.width,
-        height: voieSpec.height * ECHELLE_TRAIN,
-      })
-      this.rails.position.set(0, HORIZON)
-      this.rails.tileScale.set(ECHELLE_TRAIN / voieSpec.scale)
-      this.voie.addChild(this.rails)
-    }
+  /**
+   * **Ce qu'on voit à quai, et rien de plus** : la voie, et la dernière image
+   * de chaque séquence d'arrêt.
+   *
+   * Mesuré le 24 novembre 2026 sur le build de production, l'écran d'attente
+   * n'était retiré qu'après 261 requêtes et 18,2 Mo — les 237 images du train
+   * comprises, alors que `frameIndex` épingle l'état `arret` à la **dernière**
+   * image de la séquence d'arrêt. Ce qu'on regardait pendant tout ce temps,
+   * c'étaient deux images d'une centaine de kilo-octets.
+   *
+   * Une seule image dans le tableau suffit, et ce n'est pas une ruse :
+   * `frameIndex('arret', …, count)` rend `count - 1`, donc 0 — la seule qu'on
+   * ait, qui est précisément celle qu'il faut. Quand la séquence entière
+   * arrivera, elle prendra sa place et l'image affichée ne changera pas.
+   */
+  async poserAQuai(): Promise<void> {
+    await Promise.all([this.poserLaVoie(), this.poserLaPose()])
+    this.appliquer()
+  }
 
-    // La séquence d'arrêt d'abord : le train est à quai quand on arrive, et
-    // `sequenceFor('arret')` ne demande qu'elle. Charger la boucle en premier
-    // laissait le train invisible le temps de 64 images.
+  private async poserLaVoie(): Promise<void> {
+    const voie = await loadTexture(this.manifest.rails.path)
+    if (!voie) return
+    const voieSpec = this.manifest.rails
+    // La voie suit l'échelle du train : des traverses à taille réelle sous
+    // une locomotive réduite se verraient immédiatement.
+    this.rails = new TilingSprite({
+      texture: voie,
+      width: STAGE.width,
+      height: voieSpec.height * ECHELLE_TRAIN,
+    })
+    this.rails.position.set(0, HORIZON)
+    this.rails.tileScale.set(ECHELLE_TRAIN / voieSpec.scale)
+    this.voie.addChild(this.rails)
+  }
+
+  private async poserLaPose(): Promise<void> {
+    await Promise.all(
+      (['loco-stop', 'wagon-stop'] as const).map(async (cle) => {
+        const spec = this.manifest.train[cle]
+        const texture = await loadTexture(framePath(spec.path, spec.count))
+        if (texture) this.sequences.set(cle, [texture])
+      }),
+    )
+  }
+
+  /**
+   * Les six séquences entières, **derrière l'écran déjà effacé**.
+   *
+   * Le départ d'abord : le premier geste possible après l'arrivée, c'est
+   * repartir. Puis la boucle, puis l'arrêt — qui a déjà sa pose, et dont on
+   * n'a besoin qu'au freinage, c'est-à-dire à la fin d'une étape.
+   *
+   * Une séquence est dite chargée **quand on a fini d'essayer**, et non quand
+   * elle rend des images : sinon une image manquante retiendrait le départ
+   * pour toujours (voir `complet`).
+   */
+  async chargerLesSequences(): Promise<void> {
     for (const paire of [
-      ['loco-stop', 'wagon-stop'],
-      ['loco', 'wagon'],
       ['loco-start', 'wagon-start'],
+      ['loco', 'wagon'],
+      ['loco-stop', 'wagon-stop'],
     ] as const) {
       await Promise.all(
         paire.map(async (cle) => {
-          const textures = await loadSequence(this.manifest.train[cle], {
-            onFrame: () => this.appliquer(),
-          })
+          const textures = await loadSequence(this.manifest.train[cle])
           if (textures.length) this.sequences.set(cle, textures)
+          this.chargees.add(cle)
         }),
       )
       this.appliquer()
     }
+  }
+
+  /**
+   * Vrai quand les six séquences ont fini d'arriver. C'est ce que la scène
+   * attend avant de laisser le train partir : sans ses images de démarrage,
+   * il glisserait sur sa pose à quai, roues figées.
+   */
+  get complet(): boolean {
+    return SEQUENCES.every((cle) => this.chargees.has(cle))
   }
 
   update(dt: number, phase: number, derniereEtape: boolean, enRoute: boolean): void {

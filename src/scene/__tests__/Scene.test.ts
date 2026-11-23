@@ -890,3 +890,36 @@ describe('la scène dit quand le train et le massif sont posés', () => {
     await expect(s.pret).resolves.toBeUndefined()
   })
 })
+
+/**
+ * Mesuré le 24 novembre 2026 sur le build de production : l'écran d'attente
+ * ne s'effaçait qu'après 261 requêtes et 18,2 Mo — les 237 images du train
+ * comprises, alors qu'à quai on n'en regarde que deux.
+ *
+ * L'ordre de `peupler` est donc devenu un contrat, et c'est lui qu'on tient
+ * ici : la pose à quai, puis l'écran retiré, puis seulement les six séquences.
+ */
+test('l’écran d’attente n’attend que la pose à quai', () => {
+  const source = readFileSync('src/scene/Scene.ts', 'utf8')
+  const corps = source.slice(source.indexOf('private async peupler('))
+  const pose = corps.indexOf('this.train.poserAQuai()')
+  const efface = corps.indexOf('this.tenirPret()')
+  const sequences = corps.indexOf('this.train.chargerLesSequences()')
+
+  expect(pose, 'la pose à quai est demandée').toBeGreaterThan(-1)
+  expect(pose).toBeLessThan(efface)
+  expect(sequences, 'les six séquences sont demandées').toBeGreaterThan(-1)
+  expect(sequences).toBeGreaterThan(efface)
+  // Et personne ne les attend : un `await` ici rendrait tout le reste inutile.
+  expect(corps.slice(sequences - 20, sequences)).toContain('void ')
+})
+
+test('le massif descend pendant que le train descend', () => {
+  // Chargé après le train, il ajoutait sa seconde à la sienne pour rien.
+  const source = readFileSync('src/scene/Scene.ts', 'utf8')
+  const corps = source.slice(source.indexOf('private async peupler('))
+  const lance = corps.indexOf('this.chargerLeMassif(')
+  const pose = corps.indexOf('await this.train.poserAQuai()')
+  expect(lance).toBeGreaterThan(-1)
+  expect(lance).toBeLessThan(pose)
+})

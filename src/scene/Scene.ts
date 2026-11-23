@@ -42,7 +42,7 @@ import { DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
-import { DEFILEMENT, Train, WAGONS, avancement, wagonX } from './Train'
+import { DEFILEMENT, Train, WAGONS, avancement, enMarche, wagonX } from './Train'
 import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { Neige } from './NeigeLayer'
@@ -555,8 +555,14 @@ export class Scene {
     this.assombrir()
     this.cadrer()
 
-    // La boucle du train d'abord : c'est elle qu'on voit en arrivant.
-    await this.train.load()
+    // Le massif part **en même temps** que le train : ils ne se gênent pas, et
+    // l'écran d'attente les attend tous les deux. Chargé après, il ajoutait sa
+    // seconde à la leur pour rien.
+    const massif = this.chargerLeMassif(manifest, fondDuDecor)
+
+    // Ce qu'on voit à quai, et rien de plus : la voie et deux images. Les six
+    // séquences entières arrivent plus bas, l'écran déjà effacé.
+    await this.train.poserAQuai()
 
     // Les vitres et la fumée se posent dans la rame, à leur place : elles en
     // suivent l'échelle et la position sans rien avoir à recalculer.
@@ -566,6 +572,27 @@ export class Scene {
     this.assombrir()
     this.cadrer()
 
+    await massif
+
+    // Le train est posé plus haut, le massif juste au-dessus : c'est ici, et
+    // nulle part ailleurs, que l'écran de chargement a le droit de s'effacer.
+    // Le `catch` du massif passe par ici lui aussi — sans WebGL il n'y a pas
+    // de massif, mais il y a un train, et le site vaut mieux qu'un écran
+    // d'attente.
+    this.tenirPret()
+
+    // Et maintenant seulement, les six séquences. Sans `await` : plus
+    // personne ne les attend, et le train ne repartira pas avant qu'elles ne
+    // soient là (`enMarche`).
+    void this.train.chargerLesSequences()
+  }
+
+  /**
+   * Le massif, de son import jusqu'à sa carte de relief. Rendu comme une
+   * promesse pour qu'il descende du réseau pendant que le train descend du
+   * sien ; `peupler` l'attend juste avant d'effacer l'écran.
+   */
+  private async chargerLeMassif(manifest: Manifest, fondDuDecor: Container): Promise<void> {
     let relief: Relief | null = null
     try {
       // Three n'est chargé qu'ici : il pèse 130 Ko compressés, dont la
@@ -587,12 +614,6 @@ export class Scene {
       relief?.detruire()
       this.relief = null
     }
-
-    // Le train est chargé plus haut, le massif juste au-dessus : c'est ici, et
-    // nulle part ailleurs, que l'écran de chargement a le droit de s'effacer.
-    // Le `catch` passe par ici lui aussi — sans WebGL il n'y a pas de massif,
-    // mais il y a un train, et le site vaut mieux qu'un écran d'attente.
-    this.tenirPret()
   }
 
   /**
@@ -1125,6 +1146,15 @@ export class Scene {
     return this.legsBase + this.avancementEtape
   }
 
+  /**
+   * Le train roule-t-il vraiment ? Il est en route selon l'URL, **et** il a
+   * ses images (`enMarche`). Entre les deux, il reste à quai : le monde
+   * attend avec lui plutôt que de le faire glisser, roues figées.
+   */
+  private get roule(): boolean {
+    return enMarche(this.enRoute, this.train ? this.train.complet : null)
+  }
+
   /** False without WebGL, and false when the visitor asked for less movement. */
   private get peutAnimer(): boolean {
     return this.vivante && !this.reducedMotion
@@ -1165,7 +1195,8 @@ export class Scene {
   private tick(dt: number): void {
     if (!this.vivante) return
 
-    if (this.enRoute && this.peutAnimer) {
+    const enMarche = this.roule
+    if (enMarche && this.peutAnimer) {
       this.phase += dt / DUREE_ETAPE
       // `!this.arriveeAnnoncee` : au terminus la phase reste **épinglée** à 1
       // (voir plus bas), si bien que `phase >= 1` resterait vraie à chaque
@@ -1215,7 +1246,7 @@ export class Scene {
       d.update(dt)
       if (d.fini) this.dissolutions.delete(d)
     }
-    this.train?.update(dt, this.phase, this.etapesRestantes <= 1, this.enRoute)
+    this.train?.update(dt, this.phase, this.etapesRestantes <= 1, enMarche)
     // Même horloge que la voie, à la distance et non au temps.
     this.terre?.avancer(dt, this.train?.vitesse ?? 0)
     // Les deux îles se calent sur le sol qui reste jusqu'à leur gare.
