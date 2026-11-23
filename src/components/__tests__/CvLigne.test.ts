@@ -263,10 +263,12 @@ describe('CvLigne', () => {
     expect(router.currentRoute.value.path).toBe('/ailleurs')
   })
 
-  it('la croix ne défile pas avec la feuille', () => {
+  it('la croix suit la lecture au lieu de remonter hors de l’écran', () => {
+    // Collante, et non fixée à la fenêtre : elle appartient au papier, et
+    // redescend avec la fin de la feuille.
     const source = readFileSync('src/components/CvLigne.vue', 'utf8')
     const bloc = source.slice(source.indexOf('.fermer {'))
-    expect(bloc.slice(0, bloc.indexOf('}'))).toMatch(/position:\s*fixed/)
+    expect(bloc.slice(0, bloc.indexOf('}'))).toMatch(/position:\s*sticky/)
   })
 
   it('la croix se nomme, pour qui ne la voit pas', async () => {

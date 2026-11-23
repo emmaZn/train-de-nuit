@@ -94,22 +94,21 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="cv" class="cv" tabindex="-1" role="region" :aria-label="t.cv.aria">
-    <!-- Le lien « retour » est en haut de la feuille : une fois qu'on a lu, il
-         est remonté hors de l'écran. La croix, elle, ne bouge pas — elle est
-         posée sur la fenêtre, à la place qu'occupent les commandes du site,
-         que le CV recouvre le temps de sa lecture. -->
-    <button type="button" class="fermer" :aria-label="t.cv.fermer" @click="partir">
-      <svg viewBox="0 0 13 13" aria-hidden="true" focusable="false">
-        <path d="M0.5 0.5 L12.5 12.5 M12.5 0.5 L0.5 12.5" />
-      </svg>
-    </button>
-
     <div class="feuille">
       <!-- Le bord perforé : du décor, et rien d'autre. Il disparaît sous 720 px,
            où la feuille n'a plus la largeur de se payer une marge vide. -->
       <div class="perfo" aria-hidden="true"></div>
 
       <div class="corps">
+        <!-- Dans le coin du papier, et collée : le lien « retour » est en haut
+             de la feuille et remonte hors de l'écran dès qu'on a lu. Elle
+             descend avec la fin du corps, et ne quitte donc jamais la feuille. -->
+        <button type="button" class="fermer" :aria-label="t.cv.fermer" @click="partir">
+          <svg viewBox="0 0 13 13" aria-hidden="true" focusable="false">
+            <path d="M0.5 0.5 L12.5 12.5 M12.5 0.5 L0.5 12.5" />
+          </svg>
+        </button>
+
         <div class="bandeau">
           <span class="titre">{{ t.cv.titre }}</span>
           <span class="numero">{{ t.cv.numero }}</span>
@@ -248,6 +247,8 @@ onBeforeUnmount(() => {
   gap: 4px 16px;
   align-items: baseline;
   justify-content: space-between;
+  /* La place de la croix, qui se pose dans ce coin sans occuper de hauteur. */
+  padding-right: 30px;
   padding-bottom: 10px;
   border-bottom: 2px solid var(--encre);
 }
@@ -279,41 +280,40 @@ onBeforeUnmount(() => {
  * La sortie. Le lien « retour » est en haut de la feuille : une fois qu'on a
  * lu, il est remonté hors de l'écran, et il fallait défiler pour sortir.
  *
- * Elle est **fixe**, à la place qu'occupent les commandes du site — l'œil et
- * la langue, que le CV recouvre le temps de sa lecture.
+ * Elle est **sur le papier**, dans son coin, et **collante** : elle suit la
+ * lecture au lieu de la suivre des yeux depuis la fenêtre. Son conteneur est
+ * `.corps`, donc elle redescend avec la fin de la feuille — elle ne la quitte
+ * jamais, et n'a pas à choisir entre l'encre et la nuit.
  *
- * Et elle porte une tache de nuit, carrée comme les plaques. Sans elle, il
- * faudrait choisir sa couleur une fois pour toutes : au départ elle est sur
- * le voile sombre, mais la feuille remonte en défilant et passe dessous. Une
- * encre serait invisible avant, un trait clair invisible après. C'est la même
- * dérogation que le pied de page et la bulle d'étoile.
+ * `margin-bottom` négatif : elle ne prend pas de hauteur, le bandeau reste à
+ * sa place. Et elle porte le papier en fond, pour que le texte qui défile
+ * dessous ne vienne pas s'y mêler.
  */
 .fermer {
-  position: fixed;
-  top: calc(var(--haut-voie) - 16px);
-  right: calc(var(--marge-ecran) - 8px);
+  position: sticky;
+  top: 14px;
   z-index: 2;
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
-  margin: 0;
+  width: 30px;
+  height: 30px;
+  margin: -4px -8px -26px auto;
   padding: 0;
   border: 0;
-  background: color-mix(in srgb, var(--fond) 92%, transparent);
-  color: var(--trait);
+  background: var(--papier);
+  color: var(--encre);
   cursor: pointer;
-  opacity: var(--moyen);
+  opacity: var(--leger);
   transition: opacity 0.2s;
 }
 
 .fermer:hover,
 .fermer:focus-visible {
-  opacity: var(--fort);
+  opacity: var(--plein);
 }
 
 .fermer:focus-visible {
-  outline: 1px solid var(--trait);
+  outline: 1px solid var(--encre);
   outline-offset: 2px;
 }
 
