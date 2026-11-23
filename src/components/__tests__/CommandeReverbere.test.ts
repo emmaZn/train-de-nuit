@@ -332,8 +332,18 @@ describe('la cible du réverbère et les étoiles', () => {
       return { haut: cy - r, etoiles: colonnes([cx - r, cx, cx + r], W, H) }
     }
 
+    /**
+     * Les hauteurs de fenêtre où chaque cible vient toucher la bande : la
+     * première où elle est encore franche, la première où elle croise.
+     *
+     * **Le mât est passé de 435 à 390** le 23 novembre 2026, quand Emmanuelle
+     * a raccourci le réverbère de 400 à 350 : plus court, il lui faut une
+     * fenêtre plus basse pour atteindre les étoiles. L'horloge n'a pas bougé.
+     * Ce ne sont pas des réglages mais des constats — ils se recalculent, ils
+     * ne se choisissent pas.
+     */
     const CIBLES = [
-      ['le mât', mat, 436, 435],
+      ['le mât', mat, 391, 390],
       ['l’horloge', horloge, 439, 438],
     ] as const
 
@@ -355,9 +365,11 @@ describe('la cible du réverbère et les étoiles', () => {
         const o = horloge(W, H)
         expect(o.haut - o.etoiles, `${W}×${H}`).toBeLessThan(m.haut - m.etoiles)
       }
-      // Le plus serré des écrans ci-dessus, en clair : 1920 × 500.
+      // Le plus serré des écrans ci-dessus, en clair : 1920 × 500. L'écart du
+      // mât est passé de 27,5 à 61,8 avec le réverbère raccourci ; celui de
+      // l'horloge n'a pas bougé, et c'est bien elle qui reste la plus proche.
       expect(horloge(1920, 500).haut - horloge(1920, 500).etoiles).toBeCloseTo(16.2, 1)
-      expect(mat(1920, 500).haut - mat(1920, 500).etoiles).toBeCloseTo(27.5, 1)
+      expect(mat(1920, 500).haut - mat(1920, 500).etoiles).toBeCloseTo(61.8, 1)
     })
   })
 })
