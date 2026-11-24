@@ -24,9 +24,14 @@
       description au montage, pour l'onglet et pour les lecteurs d'écran ; un
       test tient les deux ensemble.
 
-      Il manque `og:image` : l'image de partage n'est pas encore dessinée.
-      Sans elle, l'aperçu montre le titre et la phrase, ce qui est juste et
-      non cassé — mais c'est le dernier chantier de l'étape 5.
+      `og:image` est une **vraie capture de la scène**, en 1200 × 630 : le
+      train à quai, la plaque et sa phrase, le massif derrière. Choisie parmi
+      les quatre gares le 24 novembre 2026. En PNG et non en JPEG — le JPEG
+      lisse le grain, et le grain est le projet ; 460 ko pour une image de
+      partage ne coûte rien, elle n'est jamais chargée par un visiteur.
+
+      Son nom est dans l'URL et les réseaux la gardent longtemps en cache :
+      **la remplacer demande un autre nom de fichier**, pas une réécriture.
     -->
     <title>Train de nuit — Emmanuelle Zenou</title>
     <meta name="robots" content="noindex, follow" />
@@ -40,6 +45,12 @@
     <meta property="og:url" content="https://train-de-nuit.pages.dev/" />
     <meta property="og:locale" content="fr_FR" />
     <meta property="og:locale:alternate" content="en_GB" />
+    <meta property="og:image" content="https://train-de-nuit.pages.dev/partage.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Un train de nuit à quai devant un massif de grain, sous un ciel d’étoiles." />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

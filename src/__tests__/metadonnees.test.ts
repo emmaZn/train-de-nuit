@@ -56,6 +56,31 @@ test('l’aperçu du lien reprend les mêmes mots', () => {
   expect(meta('og:type', 'property')).toBe('website')
 })
 
+/**
+ * L'image de partage : une vraie capture de la scène, choisie parmi les
+ * quatre gares. Son URL doit être **absolue** — un aperçu se fabrique sur le
+ * serveur du réseau social, qui n'a pas de page courante contre laquelle
+ * résoudre un chemin relatif.
+ */
+test('l’aperçu porte une image, à une adresse absolue', () => {
+  const image = meta('og:image', 'property')
+  expect(image).toBe('https://train-de-nuit.pages.dev/partage.png')
+  expect(meta('og:image:width', 'property')).toBe('1200')
+  expect(meta('og:image:height', 'property')).toBe('630')
+  expect(meta('og:image:alt', 'property')).toBeTruthy()
+  expect(meta('twitter:card')).toBe('summary_large_image')
+})
+
+test('l’image de partage existe, et fait bien 1200 × 630', () => {
+  // Les deux nombres sont annoncés dans les balises : un aperçu les croit sur
+  // parole et réserve la place avant d'avoir l'image.
+  const fichier = readFileSync('public/partage.png')
+  expect(fichier.length).toBeGreaterThan(0)
+  // Les dimensions d'un PNG vivent dans son en-tête IHDR, octets 16 à 23.
+  expect(fichier.readUInt32BE(16)).toBe(1200)
+  expect(fichier.readUInt32BE(20)).toBe(630)
+})
+
 test('l’aperçu pointe sur l’adresse de l’hébergeur', () => {
   // Cloudflare Pages, adresse gratuite — CONCEPT.md §12.6.
   expect(meta('og:url', 'property')).toBe('https://train-de-nuit.pages.dev/')

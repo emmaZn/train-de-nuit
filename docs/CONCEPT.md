@@ -503,5 +503,11 @@ Chaque étape se termine par une version qui tourne et qu'Emmanuelle valide avan
 4. **ailleurs**
    - Le quai, le réverbère et son faisceau, le panneau des départs vivant, l'assombrissement à l'arrivée, les trois liens (LinkedIn, CV, `mailto:`), et le CV écrit dans le site (`/ailleurs/cv`).
    - Les textes d'« ici » en sortent : « ici c'est bon, pas besoin de faire quoi que ce soit pour le moment ».
-5. **Finitions**
+5. ~~**Finitions**~~ — **faite le 24 novembre 2026.**
    - Mouvement réduit, mobile, clavier, poids des assets, métadonnées et image de partage.
+   - *Fini quand* : le relevé `docs/superpowers/specs/2026-11-23-etape-5-releve.md` porte
+     les six chantiers, mesurés avant et après. L'écran d'attente ne retient plus que ce
+     qu'on voit à quai, la frise ne ment plus au clavier ni sur un téléphone, et le
+     document dit enfin ce qu'il est.
+   - **Ne se déploie pas sans** : l'adresse mail et l'URL LinkedIn (§12.5), et le choix
+     du cache des assets.

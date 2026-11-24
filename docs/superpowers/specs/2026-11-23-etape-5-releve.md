@@ -11,8 +11,8 @@ part. Ce document dit **ce qui est déjà là et ce qui ne l'est pas**, mesuré 
 Il ne décide de rien. Les chiffres sont à revérifier avant d'y toucher : ils
 vieillissent.
 
-**Cinq des six chantiers ont été menés dans la nuit du 23 au 24 novembre
-2026** — mouvement réduit, clavier, mobile, poids, métadonnées. Voir les sections datées en fin de
+**Les six chantiers ont été menés dans la nuit du 23 au 24 novembre 2026** —
+mouvement réduit, clavier, mobile, poids, métadonnées, image de partage. Voir les sections datées en fin de
 document ; les §1, §2 et §3 ci-dessous sont laissés tels qu'ils ont été écrits.
 Leurs alertes se sont révélées fausses toutes les trois fois, et les vrais
 défauts n'y figuraient pas.
@@ -477,7 +477,51 @@ fichier. Sans cette ligne, un lien partagé vers `/ailleurs/cv` rend un 404
 chez l'hébergeur. C'est le genre d'oubli qu'on découvre le jour de la mise en
 ligne.
 
-### Reste
 
-`og:image`. Sans elle, l'aperçu montre le titre et la phrase — juste, et non
-cassé. C'est le sixième et dernier chantier.
+## Vérifié le 24 novembre 2026 — chantier « image de partage »
+
+Le §6 posait la question : **une image fixe, ou une capture de la scène ?** Il
+penchait pour une image cuite à la recette de `grain.ts`, comme le favicon.
+
+C'est l'autre branche qui a été prise, et pour une raison que le §6 ne pouvait
+pas connaître : **le site n'est pas indexé** (§12.8). L'aperçu du lien est donc
+sa seule vitrine, et une vitrine montre ce qu'il y a dans le magasin. Une
+capture de la scène qui tourne **est** le site ; une image cuite en serait une
+idée.
+
+Les quatre gares ont été capturées en 1200 × 630 réels, sur le build de
+production, et Emmanuelle a choisi **« ici »** : le train à quai, la plaque et
+sa phrase, le massif derrière. « ailleurs » — le quai de nuit, l'horloge, le
+réverbère allumé — est la plus belle des quatre, mais « ici » porte la phrase
+qui dit ce qu'est le site à quelqu'un qui n'y est jamais allé.
+
+Trois choix, faits en chemin :
+
+- **PNG et non JPEG.** 461 ko contre 145, mais le JPEG lisse le grain, et le
+  grain est le projet. Cette image n'est jamais chargée par un visiteur : elle
+  ne coûte rien au site.
+- **La frise et la signature sont dedans**, puisque c'est la vraie page. Une
+  capture rognée aurait été un montage.
+- **Le nom du fichier compte.** Les réseaux gardent une image d'aperçu longtemps
+  en cache : la remplacer demandera **un autre nom**, pas une réécriture.
+
+## L'étape 5 est close
+
+| chantier | état |
+|---|---|
+| mouvement réduit | fait — 2 défauts corrigés, 3 fausses alertes |
+| clavier | fait — 1 défaut, la frise offrait six arrêts pour quatre gares |
+| mobile | fait — la frise amputait la gare suivante ; l'iPhone couché réglé |
+| poids | fait — écran d'attente 3838 → 1298 ms, assets 17 → 11 Mo |
+| métadonnées | fait — et la décision de ne pas indexer, qui commande le reste |
+| image de partage | fait — une capture de « ici » |
+
+**Ce qui reste, et qui n'est pas de l'étape 5 :**
+
+- **L'adresse mail et l'URL LinkedIn** sont toujours des bouchons dans
+  `src/contenu/liens.ts` — l'adresse vient d'un CV de 2021. **Rien ne se
+  déploie sans elles** (§12.5).
+- **Le cache des assets.** `/assets/train/loco/0001.webp` n'a pas d'empreinte
+  dans son nom : une règle `immutable` y collerait les visiteurs un an à la
+  prochaine reprise du grain. À trancher **avant d'écrire `_headers`**.
+- **Le bundle JavaScript**, 1041 ko dont Firebase, qui ne sert qu'à « là-haut ».
