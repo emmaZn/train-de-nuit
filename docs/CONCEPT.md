@@ -450,7 +450,7 @@ match /traces/{id} {
    jureraient. Et la voie ne fait que 20 px de haut, trop peu pour un tramage. Elle reste
    une bande 2D qui défile, grainée comme le reste.
 4. ~~L'icône « œil »~~ : **décidé** — elle fait défiler un **cycle de couleurs de fond**, et rien d'autre. Palette validée (§6).
-5. **Contact** : le formulaire de message est devenu un `mailto:`, et **le PDF du CV disparaît** — le CV est une page du site (§4.5). Restent deux choses, **qui manquent toujours** : **l'adresse mail** (derrière `ÉCRIRE` et au bas du CV) et **l'URL LinkedIn**. Elles sont des **bouchons** dans `src/contenu/liens.ts` — l'adresse est celle d'un CV de 2021, pas une décision — et **rien ne se déploie sans elles**.
+5. ~~**Contact**~~ : **décidé et complet.** Le formulaire de message est devenu un `mailto:`, et le PDF du CV a disparu — le CV est une page du site (§4.5). Les deux adresses sont confirmées : le profil **LinkedIn** le 22 novembre 2026, l'**adresse mail** le 24. Elles vivent dans `src/contenu/liens.ts`, et l'adresse y est assemblée au montage : ni le source ni le HTML servi ne la portent d'un seul tenant, et un test le vérifie.
 6. ~~Hébergeur~~ : **décidé — Cloudflare Pages**, à l'adresse gratuite
    `train-de-nuit.pages.dev` ; pas de nom de domaine acheté. Les deux noms
    d'abord écrits ici ont été écartés le 23 novembre 2026 : l'offre gratuite de
