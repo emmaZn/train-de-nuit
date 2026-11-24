@@ -451,18 +451,32 @@ match /traces/{id} {
    une bande 2D qui défile, grainée comme le reste.
 4. ~~L'icône « œil »~~ : **décidé** — elle fait défiler un **cycle de couleurs de fond**, et rien d'autre. Palette validée (§6).
 5. ~~**Contact**~~ : **décidé et complet.** Le formulaire de message est devenu un `mailto:`, et le PDF du CV a disparu — le CV est une page du site (§4.5). Les deux adresses sont confirmées : le profil **LinkedIn** le 22 novembre 2026, l'**adresse mail** le 24. Elles vivent dans `src/contenu/liens.ts`, et l'adresse y est assemblée au montage : ni le source ni le HTML servi ne la portent d'un seul tenant, et un test le vérifie.
-6. ~~Hébergeur~~ : **décidé — Cloudflare Pages**, à l'adresse gratuite
-   `train-de-nuit.pages.dev` ; pas de nom de domaine acheté. Les deux noms
-   d'abord écrits ici ont été écartés le 23 novembre 2026 : l'offre gratuite de
-   Netlify se compte désormais en crédits — 300 par mois, 20 par gigaoctet, soit
-   une quinzaine de gigaoctets — et **met le site en pause** au-delà, ce qui, à
-   17 Mo la visite froide, arrive vers neuf cents visites ; celle de Vercel est
+6. ~~Hébergeur~~ : **décidé — Cloudflare**, à l'adresse gratuite
+   **`www.train-de-nuit.workers.dev`** ; pas de nom de domaine acheté.
+
+   *Le choix de l'entreprise*, le 23 novembre 2026. Les deux noms d'abord
+   écrits ici ont été écartés : l'offre gratuite de Netlify se compte désormais
+   en crédits — 300 par mois, 20 par gigaoctet, soit une quinzaine de
+   gigaoctets — et **met le site en pause** au-delà ; celle de Vercel est
    réservée par ses conditions à un usage **non commercial**, ce qu'un site qui
    présente son travail n'est pas tout à fait. Chez Cloudflare les fichiers
-   statiques ne sont comptés ni en bande passante ni en requêtes. La
-   configuration — `_redirects`, pour que `/ailleurs/cv` ne rende pas un 404 à
-   qui ouvre le lien, et `_headers`, pour que le train reste en cache — s'écrit
-   au format de Netlify : elle suivrait si l'on changeait d'avis.
+   statiques ne sont comptés ni en bande passante ni en requêtes.
+
+   *Le choix du produit*, le 24, et il a changé en route. On visait **Pages**,
+   pour son adresse courte en `pages.dev`. Mais le tableau de bord le présente
+   désormais comme un « legacy workflow » et la documentation dit de ne pas
+   l'employer pour une nouvelle application. On a donc pris **Workers Static
+   Assets**, le chemin maintenu, au prix d'une adresse plus longue.
+
+   *La forme de l'adresse* : `<nom du Worker>.<sous-domaine du compte>
+   .workers.dev`. Le sous-domaine du compte est `train-de-nuit`, et le Worker
+   s'appelle donc **`www`** — l'appeler `train-de-nuit` aurait doublé le mot.
+
+   *Ce que ça change dans le dépôt* : `public/_redirects` disparaît au profit de
+   `wrangler.jsonc`, dont le `not_found_handling: "single-page-application"`
+   fait la même chose en mieux — un vrai 200 sur l'URL demandée, sans
+   réécriture. Le Worker n'a **pas** de `main` : aucun code n'est exécuté à la
+   requête, Cloudflare sert `dist` et rien d'autre.
 7. ~~La finesse du train~~ : **décidé — stocké à la moitié de sa taille source**
    (`--train-scale 0.5`), le 24 novembre 2026. L'échelle de stockage ne change pas sa
    taille à l'écran, seulement la finesse de sa texture : à 0,5 il est agrandi 1,07× sur

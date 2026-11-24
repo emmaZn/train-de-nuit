@@ -33,3 +33,7 @@ docs/superpowers/plans/
 
 # Maquettes jetables du compagnon visuel.
 .superpowers/
+
+# Workers : fichiers de travail de Wrangler et variables locales.
+.wrangler
+.dev.vars*
