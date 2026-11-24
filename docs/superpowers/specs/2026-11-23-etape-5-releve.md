@@ -11,8 +11,8 @@ part. Ce document dit **ce qui est déjà là et ce qui ne l'est pas**, mesuré 
 Il ne décide de rien. Les chiffres sont à revérifier avant d'y toucher : ils
 vieillissent.
 
-**Les chantiers « mouvement réduit », « clavier », « mobile » et « poids » ont
-été menés dans la nuit du 23 au 24 novembre 2026.** Voir les sections datées en fin de
+**Cinq des six chantiers ont été menés dans la nuit du 23 au 24 novembre
+2026** — mouvement réduit, clavier, mobile, poids, métadonnées. Voir les sections datées en fin de
 document ; les §1, §2 et §3 ci-dessous sont laissés tels qu'ils ont été écrits.
 Leurs alertes se sont révélées fausses toutes les trois fois, et les vrais
 défauts n'y figuraient pas.
@@ -425,3 +425,59 @@ autre ordre — l'écran attendait 13,6 Mo, il attend 120 ko.
   un an à la prochaine reprise du grain. Il faudra soit une version dans le
   chemin (`--base /assets/vN`), soit renoncer à `immutable`. **À trancher
   avant d'écrire `_headers`**, c'est-à-dire avant la mise en ligne.
+
+## Vérifié le 24 novembre 2026 — chantier « métadonnées »
+
+Le §5 ne se trompait pas : il n'y avait rien. Mais il manquait la décision qui
+commande tout le reste.
+
+### La décision : le site n'est pas indexé
+
+Trois choses se jouaient là, et c'est en les posant qu'Emmanuelle a tranché :
+
+1. **On la trouverait en cherchant son nom** — c'est l'intérêt, et le seul.
+2. **Les phrases des visiteurs sortiraient du site.** `EtoilesListe` les écrit
+   en vrai texte dans la page — c'est la liste du §11, celle qui rend les
+   étoiles accessibles à qui ne survole pas — et Google exécute le
+   JavaScript. Quelqu'un qui laisse une phrase ici ne s'attend pas à la
+   retrouver dans une recherche sur son prénom.
+3. **Son adresse mail deviendrait moissonnable**, alors que `liens.ts` prend
+   soin de ne jamais l'écrire en clair dans le HTML.
+
+**Réponse : rien d'indexé** (CONCEPT §12.8). Le site ne vit que par le lien
+qu'elle envoie.
+
+Et **pas** de `robots.txt` qui interdise l'exploration : un `Disallow`
+empêche le robot de *lire* la page, donc de voir le `noindex`, et la page peut
+rester référencée — vide — par un lien venu d'ailleurs. Un `noindex` qu'on
+peut lire est plus sûr qu'une porte fermée.
+
+### Ce qui en découle
+
+**L'aperçu du lien devient la seule vitrine du site.** C'est pour lui que les
+balises Open Graph existent ici, et c'est ce qui fait de l'image de partage
+autre chose qu'un ornement.
+
+Elles sont écrites **en français dans `index.html`**, parce que les robots
+d'aperçu n'exécutent pas le bundle : ils lisent ce fichier-là. Un test tient
+leur texte et `TEXTES.fr` ensemble.
+
+Le `<title>` restait français quand le site passait en anglais ; `poserLangue`
+refait désormais le titre et la description à chaque bascule, comme il refait
+`<html lang>`. « Train de nuit » ne se traduit pas — c'est un nom propre — mais
+la description, si.
+
+`hreflang` reste écarté, pour la raison du §5, qui vaut toujours : une seule
+URL par page, la langue vit dans le `localStorage`.
+
+### Au passage
+
+`public/_redirects` : les gares sont de vraies URL mais il n'y a qu'un
+fichier. Sans cette ligne, un lien partagé vers `/ailleurs/cv` rend un 404
+chez l'hébergeur. C'est le genre d'oubli qu'on découvre le jour de la mise en
+ligne.
+
+### Reste
+
+`og:image`. Sans elle, l'aperçu montre le titre et la phrase — juste, et non
+cassé. C'est le sixième et dernier chantier.
