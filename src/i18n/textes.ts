@@ -13,6 +13,22 @@
  */
 
 const fr = {
+  /**
+   * Ce que le document dit de lui-même : l'onglet, et l'aperçu d'un lien.
+   *
+   * Le site n'est **pas indexé** (décision du 24 novembre 2026), donc ces deux
+   * lignes ne servent pas à être trouvé : elles servent à ce que le lien, quand
+   * Emmanuelle l'envoie, s'ouvre sur autre chose qu'une URL nue. C'est la seule
+   * vitrine qu'un site non indexé possède.
+   *
+   * « Train de nuit » ne se traduit pas : c'est le nom du site, comme un nom
+   * propre. La description, elle, suit la langue.
+   */
+  meta: {
+    titre: 'Train de nuit — Emmanuelle Zenou',
+    description:
+      'Un train roule de nuit à travers des montagnes de grain. Il s’arrête dans quatre gares. Les visiteurs y laissent une phrase qui devient une étoile.',
+  },
   /** Les libellés de la frise. Les routes, elles, ne bougent pas. */
   gares: {
     ici: 'ici',
@@ -89,6 +105,11 @@ const fr = {
 }
 
 const en: typeof fr = {
+  meta: {
+    titre: 'Train de nuit — Emmanuelle Zenou',
+    description:
+      'A train runs through mountains of grain at night. It stops at four stations. Visitors leave a sentence there, and it becomes a star.',
+  },
   gares: {
     ici: 'here',
     'plus-loin': 'further',

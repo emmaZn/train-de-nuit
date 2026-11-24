@@ -473,6 +473,18 @@ match /traces/{id} {
    surtout **279 → 124 Mo de texture GPU**, qui ne dépend que de l'échelle. Baisser la
    **qualité**, elle, a été essayée et écartée le même soir : à q65 on perd du grain pour
    14 % de poids et **0 %** de mémoire.
+8. ~~Le site est-il indexé ?~~ : **décidé — non**, le 24 novembre 2026. Le site ne vit que
+   par le lien qu'Emmanuelle envoie. Trois choses se jouaient là : on la trouverait en
+   cherchant son nom, ce qui est l'intérêt ; mais **les phrases des visiteurs** sortiraient
+   du site — `EtoilesListe` les écrit en vrai texte dans la page, et quelqu'un qui laisse
+   une phrase ici ne s'attend pas à la retrouver dans une recherche sur son prénom ; et
+   **son adresse mail** deviendrait moissonnable, alors que `liens.ts` prend soin de ne
+   jamais l'écrire en clair dans le HTML.
+   La page porte donc `noindex`, et **surtout pas** un `Disallow` dans un `robots.txt` :
+   une porte fermée empêche le robot de lire la consigne, et la page peut rester
+   référencée, vide, par un lien venu d'ailleurs. Un `noindex` qu'on peut lire est plus sûr.
+   Conséquence directe : **l'aperçu du lien devient la seule vitrine du site**, d'où les
+   balises Open Graph, et d'où l'image de partage qui n'est plus un ornement.
 
 ## 13. Étapes
 
