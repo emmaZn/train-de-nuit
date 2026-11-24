@@ -425,7 +425,7 @@ match /traces/{id} {
 - **Mobile** : moins de particules, scène recadrée, frise réduite (gare actuelle + prochaine), formulaires pleine largeur avec une marge de 16 px.
 - **Appui au doigt** : sur un écran tactile, il n'y a pas de survol. Un appui sur une étoile en révèle la phrase, un appui ailleurs la referme.
 - **Clavier** : la frise est une vraie navigation (`<nav>` + liens) ; focus visibles ; les étoiles récentes sont accessibles via une liste masquée visuellement.
-- **Poids** : réglé pour les montagnes — le massif ne pèse plus que sa carte de relief (3 Mo) au lieu d'une séquence. Les séquences du train sont converties en WebP et chargées progressivement : la gare actuelle d'abord.
+- **Poids** : le massif ne pèse plus que sa carte de relief — 1,7 Mo en WebP sans perte — au lieu d'une séquence. Les six séquences du train font 9,0 Mo en WebP, stockées à la moitié de leur taille source (§12.7). **Ce poids ne retient plus la première image** : l'écran d'attente ne garde que ce qu'on voit à quai — la voie et deux images — et les séquences entières arrivent derrière lui, le départ d'abord ; le train ne repart pas avant de les avoir.
 - **Textes** de l'interface en français ; code, noms de fichiers et commentaires techniques en anglais (sauf les noms de gares).
 
 ## 12. Décisions ouvertes
@@ -463,6 +463,16 @@ match /traces/{id} {
    configuration — `_redirects`, pour que `/ailleurs/cv` ne rende pas un 404 à
    qui ouvre le lien, et `_headers`, pour que le train reste en cache — s'écrit
    au format de Netlify : elle suivrait si l'on changeait d'avis.
+7. ~~La finesse du train~~ : **décidé — stocké à la moitié de sa taille source**
+   (`--train-scale 0.5`), le 24 novembre 2026. L'échelle de stockage ne change pas sa
+   taille à l'écran, seulement la finesse de sa texture : à 0,5 il est agrandi 1,07× sur
+   un MacBook, 1,66× sur un iPhone, 1,89× sur un 27 pouces. C'est ce tableau qui avait
+   fait choisir 0,75 ; Emmanuelle a tranché l'inverse en regardant la même image de la
+   loco aux deux échelles, remises à la même taille — l'échantillon dur, celui du
+   téléphone. « 0,50 / q80 en vrai, ça ne se voit pas. » On y gagne 14,2 → 9,0 Mo, et
+   surtout **279 → 124 Mo de texture GPU**, qui ne dépend que de l'échelle. Baisser la
+   **qualité**, elle, a été essayée et écartée le même soir : à q65 on perd du grain pour
+   14 % de poids et **0 %** de mémoire.
 
 ## 13. Étapes
 

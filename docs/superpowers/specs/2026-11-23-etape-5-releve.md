@@ -11,8 +11,8 @@ part. Ce document dit **ce qui est déjà là et ce qui ne l'est pas**, mesuré 
 Il ne décide de rien. Les chiffres sont à revérifier avant d'y toucher : ils
 vieillissent.
 
-**Les chantiers « mouvement réduit », « clavier » et « mobile » ont été menés
-dans la nuit du 23 au 24 novembre 2026.** Voir les sections datées en fin de
+**Les chantiers « mouvement réduit », « clavier », « mobile » et « poids » ont
+été menés dans la nuit du 23 au 24 novembre 2026.** Voir les sections datées en fin de
 document ; les §1, §2 et §3 ci-dessous sont laissés tels qu'ils ont été écrits.
 Leurs alertes se sont révélées fausses toutes les trois fois, et les vrais
 défauts n'y figuraient pas.
@@ -358,3 +358,70 @@ La plaque de « ici », elle, n'a pas été touchée : la proposition d'en retir
 le fond puis de la descendre a été essayée et écartée — en paysage le seul
 endroit sombre est celui où elle est déjà, et plus bas la phrase traverse la
 crête éclairée du massif, puis le train.
+
+## Vérifié dans la nuit du 23 au 24 novembre 2026 — chantier « poids »
+
+Mesuré sur le **build de production**, servi par un petit serveur qui date et
+pèse chaque requête. Les 1,4 s du §4 venaient du serveur de développement avec
+un cache chaud : elles cachaient tout.
+
+### Ce que l'écran d'attente attendait
+
+**261 requêtes et 18,2 Mo**, dont les 237 images du train (13,6 Mo), en file
+indienne séquence après séquence :
+
+```
+rails          1 image           606 ms
+loco-stop     43 images   614 → 1385 ms
+loco          32 images  1405 → 2126 ms
+loco-start    43 images  2146 → 3015 ms
+```
+
+Or à quai, `frameIndex` épingle l'état `arret` à la **dernière** image de la
+séquence d'arrêt : ce qu'on regardait pendant ces 3,8 s, c'étaient **deux
+images**, une centaine de kilo-octets.
+
+Et le rappel `onFrame`, qui promettait un affichage progressif, ne faisait
+rien : il appelait `appliquer()`, qui lit `this.sequences`, lequel n'était
+rempli qu'après la séquence entière. Chaque appel était un coup d'épée dans
+l'eau, depuis le début.
+
+### Ce qui a été fait
+
+1. **L'écran ne retient plus que la pose à quai** — la voie et ces deux
+   images — plus le massif, qui reste dedans parce que le contrat de l'écran
+   d'attente dit « quand l'écran s'efface, rien ne bouge ».
+2. **Les images partent par six**, et non une par une.
+3. **Le massif descend pendant que le train descend**, au lieu d'attendre.
+4. **Le départ est retenu** tant que le train n'a pas ses images : sans quoi
+   il glissait sur sa pose, roues figées, pendant que son compteur d'images
+   avançait — la séquence arrivée, il aurait sauté à sa fin.
+5. **La carte du massif passe en WebP sans perte** : 2663 → 1767 ko, pixels
+   identiques un par un.
+6. **Le train est stocké à la moitié de sa taille source** (§12.7) :
+   14,2 → 9,0 Mo, et 279 → 124 Mo de texture GPU.
+
+### Résultat
+
+| | avant | après |
+|---|---|---|
+| écran d'attente retiré | 3838 ms | **1298 ms** |
+| ce qu'il attend | 18,2 Mo | la voie, deux images, le massif |
+| assets | 17 Mo | **11 Mo** |
+| texture GPU du train | 279 Mo | **124 Mo** |
+
+Les 1298 ms sont ceux de la **boucle locale**, où il n'y a aucune latence à
+gagner : c'est le plancher, pas la mesure. Sur un téléphone l'écart est d'un
+autre ordre — l'écran attendait 13,6 Mo, il attend 120 ko.
+
+### Su et non fait
+
+- **Le bundle JavaScript** fait 1041 ko (331 ko gzippés) et Vite le dit à
+  chaque build. Firebase en est la plus grosse part et n'est utile qu'à
+  « là-haut » : un import différé le sortirait du chemin critique. Second
+  ordre à côté du reste, non fait.
+- **Le cache.** `/assets/train/loco/0001.webp` n'a pas d'empreinte dans son
+  nom. Une règle `immutable` dans `_headers` y collerait les visiteurs pendant
+  un an à la prochaine reprise du grain. Il faudra soit une version dans le
+  chemin (`--base /assets/vN`), soit renoncer à `immutable`. **À trancher
+  avant d'écrire `_headers`**, c'est-à-dire avant la mise en ligne.
