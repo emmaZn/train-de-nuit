@@ -216,11 +216,41 @@ describe('la carte de relief', () => {
     ])
   }, 60_000)
 
-  test('le manifeste annonce la carte', () => {
+  test('le manifeste annonce la carte, en WebP', () => {
     const m = JSON.parse(readFileSync(join(sortie, 'manifest.json'), 'utf8'))
     expect(m.carte).toBeDefined()
-    expect(m.carte.path).toBe('/assets/massif-carte.png')
+    // En WebP sans perte depuis le 24 novembre 2026 : 900 ko de moins pour
+    // des pixels identiques. La source, elle, reste un PNG 16 bits.
+    expect(m.carte.path).toBe('/assets/massif-carte.webp')
     expect(m.carte.width).toBeGreaterThan(0)
+  })
+
+  /**
+   * Sans perte, et jamais autrement : la hauteur voyage sur deux canaux, donc
+   * un seul octet déplacé fait un trou de 256 niveaux dans le massif. Ce test
+   * refait le découpage lui-même et exige l'égalité **exacte**, là où le test
+   * suivant tolère un cran — le sien vient de l'arrondi du découpage, pas du
+   * format.
+   */
+  test('le WebP de la carte ne perd pas un octet', () => {
+    const code =
+      'import sys\n' +
+      'import numpy as np\n' +
+      'from PIL import Image\n' +
+      'a = np.array(Image.open(sys.argv[1]))\n' +
+      'a = a[..., 0] if a.ndim > 2 else a\n' +
+      'a = a.astype(np.uint32)\n' +
+      'attendu = np.stack([(a >> 8) & 0xFF, a & 0xFF], axis=-1)\n' +
+      'b = np.array(Image.open(sys.argv[2]).convert("RGB"))[..., :2]\n' +
+      'print(int(np.abs(attendu.astype(np.int64) - b.astype(np.int64)).max()))\n'
+    const ecart = Number(
+      execFileSync('python3', [
+        '-I', '-c', code,
+        join(src, 'massif-carte.png'),
+        join(sortie, 'massif-carte.webp'),
+      ]).toString().trim(),
+    )
+    expect(ecart).toBe(0)
   })
 
   test('la hauteur survit au découpage sur deux canaux, à un cran près', () => {
@@ -236,7 +266,7 @@ describe('la carte de relief', () => {
       execFileSync('python3', [
         '-I', '-c', code,
         join(src, 'massif-carte.png'),
-        join(sortie, 'massif-carte.png'),
+        join(sortie, 'massif-carte.webp'),
       ]).toString().trim(),
     )
     expect(ecart).toBeLessThanOrEqual(1)

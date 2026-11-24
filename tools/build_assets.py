@@ -123,12 +123,20 @@ def build_carte(src: Path, out: Path, nom: str, base: str):
     65 536, et un relief lisse se couvre de marches. On met donc l'octet fort
     dans le rouge et le faible dans le vert, et le shader recompose la hauteur.
     `max` permet de la ramener a 0..1 exactement comme le fait Blender.
+
+    En WebP **sans perte** depuis le 24 novembre 2026, et non plus en PNG :
+    900 ko de moins pour des pixels identiques, verifies un par un. Ce n'est
+    pas un detail de poids — depuis que l'ecran d'attente ne retient plus que
+    la pose a quai du train, cette carte est la plus grosse chose qu'il attend.
+
+    Sans perte, et jamais autrement : la hauteur voyage sur deux canaux, donc
+    un seul octet deplace fait un trou de 256 niveaux dans le massif.
     """
     import numpy as np
     chemin = src / nom
     if not chemin.is_file():
         return None
-    nom = Path(nom).name
+    nom = Path(nom).with_suffix('.webp').name
     a = np.array(Image.open(chemin))
     if a.ndim > 2:
         a = a[..., 0]
@@ -136,7 +144,7 @@ def build_carte(src: Path, out: Path, nom: str, base: str):
     rgb = np.zeros((*a.shape, 3), dtype=np.uint8)
     rgb[..., 0] = (a >> 8) & 0xFF
     rgb[..., 1] = a & 0xFF
-    Image.fromarray(rgb, 'RGB').save(out / nom, optimize=True)
+    Image.fromarray(rgb, 'RGB').save(out / nom, 'WEBP', lossless=True, quality=100, method=6)
     return {
         'path': f'{base}/{nom}',
         'width': int(a.shape[1]), 'height': int(a.shape[0]),

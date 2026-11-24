@@ -4,7 +4,7 @@
     "height": 1217
   },
   "carte": {
-    "path": "/assets/massif-carte.png",
+    "path": "/assets/massif-carte.webp",
     "width": 1536,
     "height": 1536,
     "max": 65535
