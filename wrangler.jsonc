@@ -1,0 +1,39 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+
+  /*
+   * Le nom du Worker est le **premier** morceau de l'adresse :
+   * `<nom>.<sous-domaine du compte>.workers.dev`.
+   *
+   * Le sous-domaine du compte étant `train-de-nuit`, l'appeler `train-de-nuit`
+   * lui aussi donnerait `train-de-nuit.train-de-nuit.workers.dev`. D'où `www`,
+   * qui ne dit rien et s'efface à la lecture : on lit
+   * `www.train-de-nuit.workers.dev`, c'est-à-dire presque le nom seul.
+   */
+  "name": "www",
+
+  // La date du jour où cette configuration a été écrite. Elle fige le
+  // comportement du runtime : Cloudflare ne change jamais ce qu'une date
+  // passée garantit, donc la monter est un geste volontaire, jamais un effet
+  // de bord d'un déploiement.
+  "compatibility_date": "2026-11-24",
+
+  /*
+   * Le site n'a pas de serveur : pas de `main`, donc pas de code exécuté à la
+   * requête. Cloudflare sert les fichiers de `dist` et rien d'autre.
+   *
+   * `single-page-application` remplace le `public/_redirects` qu'on avait
+   * écrit pour Pages, et fait la même chose : les gares sont de vraies URL —
+   * `/ici`, `/plus-loin`, `/ailleurs/cv` — mais il n'y a qu'un fichier. Sans
+   * ça, ouvrir un lien partagé ailleurs que sur la racine rend un 404, parce
+   * que c'est le routeur de la page qui lit le chemin et qu'il faut d'abord
+   * que la page arrive.
+   *
+   * La différence avec `_redirects` : ici la réponse est un vrai 200 sur
+   * l'URL demandée, sans réécriture à annoncer.
+   */
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}

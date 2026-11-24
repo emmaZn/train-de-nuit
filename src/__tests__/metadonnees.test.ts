@@ -64,7 +64,7 @@ test('l’aperçu du lien reprend les mêmes mots', () => {
  */
 test('l’aperçu porte une image, à une adresse absolue', () => {
   const image = meta('og:image', 'property')
-  expect(image).toBe('https://train-de-nuit.pages.dev/partage.png')
+  expect(image).toBe('https://www.train-de-nuit.workers.dev/partage.png')
   expect(meta('og:image:width', 'property')).toBe('1200')
   expect(meta('og:image:height', 'property')).toBe('630')
   expect(meta('og:image:alt', 'property')).toBeTruthy()
@@ -83,7 +83,7 @@ test('l’image de partage existe, et fait bien 1200 × 630', () => {
 
 test('l’aperçu pointe sur l’adresse de l’hébergeur', () => {
   // Cloudflare Pages, adresse gratuite — CONCEPT.md §12.6.
-  expect(meta('og:url', 'property')).toBe('https://train-de-nuit.pages.dev/')
+  expect(meta('og:url', 'property')).toBe('https://www.train-de-nuit.workers.dev/')
 })
 
 test('les deux langues sont annoncées', () => {
@@ -102,9 +102,21 @@ test('la couleur du navigateur est la nuit par défaut', () => {
  * il n'y a qu'un seul fichier. Sans cette règle, ouvrir un lien partagé
  * ailleurs que sur la racine rend un 404 chez l'hébergeur : c'est le routeur
  * de la page qui lit le chemin, encore faut-il que la page arrive.
+ *
+ * C'était un `public/_redirects`, du temps où l'on visait Pages. Workers le
+ * dit dans sa propre configuration, et mieux : la réponse est un vrai 200 sur
+ * l'URL demandée, sans réécriture.
  */
 test('toutes les gares retombent sur la page, chez l’hébergeur', () => {
-  const regles = readFileSync('public/_redirects', 'utf8')
-  // 200 et non 301 : l'URL demandée reste celle qu'on voit.
-  expect(regles).toMatch(/^\/\*\s+\/index\.html\s+200\s*$/m)
+  // Le fichier porte des commentaires : on le lit comme du texte.
+  const config = readFileSync('wrangler.jsonc', 'utf8')
+  expect(config).toMatch(/"not_found_handling"\s*:\s*"single-page-application"/)
+  expect(config).toMatch(/"directory"\s*:\s*"\.\/dist"/)
+})
+
+test('le Worker ne sert que des fichiers, il n’exécute rien', () => {
+  // Pas de `main` : le site n'a pas de serveur, et une configuration qui en
+  // déclarerait un ferait exécuter du code à chaque requête pour rien.
+  const config = readFileSync('wrangler.jsonc', 'utf8')
+  expect(config).not.toMatch(/^\s*"main"\s*:/m)
 })
