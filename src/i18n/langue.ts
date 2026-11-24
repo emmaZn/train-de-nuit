@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 
+import { TEXTES } from './textes'
+
 /**
  * La langue du site. Deux, et le français d'abord.
  *
@@ -58,6 +60,28 @@ export function premiere(): Langue {
  */
 export function poserLangue(langue: Langue): void {
   document.documentElement.lang = langue
+
+  // Le titre et la description suivent, parce qu'ils parlent eux aussi : l'un
+  // est ce que l'onglet montre, l'autre ce qu'un aperçu de lien reprend. Le
+  // titre restait français quand le site passait en anglais.
+  const meta = TEXTES[langue].meta
+  document.title = meta.titre
+  balise('description').setAttribute('content', meta.description)
+}
+
+/**
+ * La balise `<meta name=…>`, posée si la page n'en avait pas. Elle en a une
+ * dans `index.html` — c'est celle que lisent les aperçus de lien, qui
+ * n'exécutent pas le bundle — mais un test, ou une page montée autrement, peut
+ * très bien n'en avoir aucune.
+ */
+function balise(nom: string): HTMLMetaElement {
+  const existante = document.querySelector<HTMLMetaElement>(`meta[name="${nom}"]`)
+  if (existante) return existante
+  const neuve = document.createElement('meta')
+  neuve.setAttribute('name', nom)
+  document.head.appendChild(neuve)
+  return neuve
 }
 
 export const useLangue = defineStore('langue', {

@@ -45,3 +45,29 @@ test('il reste le plus petit texte de l’écran', () => {
   const pied = taille(/font-size:\s*([\d.]+)px/, /\.signature p\s*\{([^}]*)\}/.exec(source())?.[1] ?? '')
   expect(pied).toBeLessThanOrEqual(12)
 })
+
+/**
+ * Emmanuelle, le 24 novembre 2026, devant un iPhone couché : « on peut
+ * enlever le nuage noir derrière le texte, et descendre le texte plus bas ».
+ *
+ * Les deux vont ensemble, et les images l'ont montré : sans la tache mais à
+ * `--marge-ecran` du bas, la ligne tombe sur le corps de la loco et disparaît
+ * dans son grain. C'est en descendant de 40 à 16 px qu'elle retrouve la bande
+ * sombre sous le reflet, où elle se lit sans rien derrière elle.
+ *
+ * Seulement sur écran court. Partout ailleurs la tache reste : en portrait et
+ * sur un écran, la ligne tombe sur le reflet, et c'est elle qui la tient.
+ */
+test('sur un écran court, la signature descend et sa tache s’en va', () => {
+  const garde = source().match(/@media \(max-height: 480px\)[\s\S]*?\n\}\n/)
+  expect(garde?.[0], 'la garde écran court existe').toBeTruthy()
+  expect(garde?.[0]).toMatch(/bottom:\s*16px/)
+  expect(garde?.[0]).toMatch(/\.signature::before\s*\{[^}]*display:\s*none/)
+})
+
+test('ailleurs, la tache de nuit est toujours là', () => {
+  // La recette elle-même ne bouge pas : ses arrêts sont ceux de la bulle, à la
+  // virgule, et un autre test les compare.
+  expect(source()).toMatch(/\.signature::before\s*\{/)
+  expect(source()).toMatch(/radial-gradient/)
+})

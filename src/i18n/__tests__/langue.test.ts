@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { LANGUES, estLangue, poserLangue, premiere, useLangue } from '@/i18n/langue'
+import { TEXTES } from '@/i18n/textes'
 
 const CLE = 'train-de-nuit:langue'
 
@@ -94,4 +95,37 @@ test('index.html s’ouvre dans la langue retenue, avant le bundle', () => {
   // Et l'attribut servi est celui par défaut : ce que voit un visiteur sans
   // stockage, et ce que lit un robot qui n'exécute rien.
   expect(html).toContain(`<html lang="${premiere()}">`)
+})
+
+/**
+ * Le `<title>` restait français quand le site passait en anglais, et la
+ * description n'existait pas. Les deux sont ce qu'un onglet montre et ce qu'un
+ * aperçu de lien reprend — et pour un site qui n'est **pas indexé**, cet
+ * aperçu est la seule vitrine qu'il ait.
+ */
+function description(): string | null {
+  return document.querySelector('meta[name="description"]')?.getAttribute('content') ?? null
+}
+
+test('le document prend le titre et la description de sa langue', () => {
+  poserLangue('en')
+  expect(document.title).toBe(TEXTES.en.meta.titre)
+  expect(description()).toBe(TEXTES.en.meta.description)
+
+  poserLangue('fr')
+  expect(document.title).toBe(TEXTES.fr.meta.titre)
+  expect(description()).toBe(TEXTES.fr.meta.description)
+})
+
+test('la description est posée même si la page n’en portait pas', () => {
+  document.querySelector('meta[name="description"]')?.remove()
+  poserLangue('fr')
+  expect(description()).toBe(TEXTES.fr.meta.description)
+})
+
+test('basculer de langue emporte le titre avec le reste', () => {
+  const langue = useLangue()
+  langue.choisir('en')
+  expect(document.title).toBe(TEXTES.en.meta.titre)
+  expect(document.documentElement.lang).toBe('en')
 })

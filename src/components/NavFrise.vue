@@ -42,7 +42,8 @@ const mesurer = () => {
 onMounted(() => window.addEventListener('resize', mesurer, { passive: true }))
 onBeforeUnmount(() => window.removeEventListener('resize', mesurer))
 
-const ancre = computed(() => (largeur.value < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE))
+const surTelephone = computed(() => largeur.value < SEUIL_MOBILE)
+const ancre = computed(() => (surTelephone.value ? ANCRE_FRISE_MOBILE : ANCRE_FRISE))
 const ecart = computed(() => ecartFrise(largeur.value, garesVisibles(largeur.value)))
 const marge = computed(() => margeVoie(largeur.value))
 const margeDroite = computed(() => margeVoieDroite(largeur.value))
@@ -77,9 +78,24 @@ const entrees = computed(() => {
     else if (decalage === 1) etat = 'prochain'
     else etat = 'a-venir'
 
+    // La fenêtre est plus large que la boucle — six entrées pour quatre gares
+    // — donc deux gares y figurent deux fois. À l'œil c'est ce qui donne à la
+    // frise ses deux bords tenus ; au clavier, c'étaient deux destinations de
+    // plus, du même nom et vers la même adresse. On garde donc le tour
+    // complet, de la gare à quai à la dernière avant de revenir : les copies
+    // qui débordent de part et d'autre ne sont plus que du dessin.
+    const repete = decalage < 0 || decalage >= GARES.length
+
     // La clé est l'étape absolue : elle survit au glissement, donc la gare
     // garde son nœud du DOM et se déplace au lieu d'être recréée.
-    return { cle: legs.value + decalage, station, libelle: t.value.gares[station], etat, decalage }
+    return {
+      cle: legs.value + decalage,
+      station,
+      libelle: t.value.gares[station],
+      etat,
+      decalage,
+      repete,
+    }
   })
 })
 </script>
@@ -102,11 +118,17 @@ const entrees = computed(() => {
         :data-gare="entree.station"
         :data-decalage="entree.decalage"
         :style="{ '--cle': entree.cle }"
+        :aria-hidden="entree.repete || undefined"
+        :tabindex="entree.repete ? -1 : undefined"
       >
         <span class="point" aria-hidden="true"></span>
         <span class="libelle">{{ entree.libelle }}</span>
         <span v-if="entree.etat === 'a-quai'" class="mention">{{ t.frise.aQuai }}</span>
-        <span v-else-if="entree.etat === 'prochain'" class="mention">{{ t.frise.prochainArret }}</span>
+        <!-- Sur téléphone, la mention courte : la longue n'a pas la place et se
+             faisait effacer aux deux tiers par le masque de la frise. -->
+        <span v-else-if="entree.etat === 'prochain'" class="mention">{{
+          surTelephone ? t.frise.prochainCourt : t.frise.prochainArret
+        }}</span>
       </RouterLink>
 
     </div>
@@ -275,8 +297,20 @@ const entrees = computed(() => {
   outline-offset: 6px;
 }
 
+/*
+ * Les trois transitions de la frise ne servent qu'aux **sauts** : en route,
+ * `.piste` passe en `transition: none` et c'est la scène qui la déplace à
+ * chaque image. Elles sont donc exactement ce que voit quelqu'un qui a
+ * demandé moins de mouvement, et elles partent ensemble.
+ *
+ * Raccourcies, pas coupées (décidé le 23 novembre 2026) : 0,2 s est sous le
+ * seuil où l'on lit un déplacement, mais la frise bouge encore — sans quoi on
+ * perdrait le lien entre la gare qu'on quitte et celle où l'on arrive.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .piste {
+  .piste,
+  .voie,
+  .libelle {
     transition-duration: 0.2s;
   }
 }

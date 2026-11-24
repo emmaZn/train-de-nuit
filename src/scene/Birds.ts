@@ -336,12 +336,18 @@ export class Birds {
   }
 
   private lacher(o: Oiseau): void {
-    this.cables.secouer(o.fil, o.u, u(5))
     o.regard = this.variante.regard
     o.t = 0
     // En mouvement réduit, la chute n'a pas lieu : la réplique, si. Le contenu
     // est le but, la chute est le plaisir (cadrage §14).
+    //
+    // La secousse du fil est dans la garde depuis le 23 novembre 2026. Elle
+    // était posée avant elle : l'oiseau restait sage sur son fil, et le fil
+    // tremblait quand même. C'était le dernier mouvement de cette couche — les
+    // oiseaux n'arrivent jamais en volant sous ce réglage, puisque personne ne
+    // quitte le fil et qu'aucune place ne se libère.
     if (!this.reducedMotion) {
+      this.cables.secouer(o.fil, o.u, u(5))
       o.etat = this.variante.pirouette ? 'pirouette' : 'chute'
       o.vy = -u(34)
       this.habiller(o)

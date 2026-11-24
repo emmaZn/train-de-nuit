@@ -34,7 +34,7 @@ relief du massif, et les six séquences WebP du train.
 ```bash
 python3 tools/build_assets.py --src ~/projet_zero --out public/assets \
   --carte montagne_hd/tramage/massif-carte.png \
-  --train-src PTITRAIN_grain_corps --train-scale 0.75
+  --train-src PTITRAIN_grain_corps --train-scale 0.5
 ```
 
 Options : `--carte` (aucune), `--train-src` (`PTITRAIN_grain_vivant`), `--train-scale` (0.5),
@@ -111,14 +111,28 @@ Trois mesures expliquent ce que fait ce script :
 - **Les six séquences du train partagent le cadre 2320 × 1217 des rails.** Rogner chaque
   image sur sa propre boîte englobante casserait l'alignement entre images : le rognage
   utilise la boîte englobante **de la séquence entière**, et le manifeste en note l'origine.
-- **`--train-scale 0.75` n'est pas un confort.** Le train est dessiné à `ECHELLE_TRAIN` du
-  cadre, lui-même mis à l'échelle de l'écran : à 0.5, il était agrandi 1,68× sur un iPhone
-  et 1,89× sur un 27 pouces 5K — le défaut même qui rendait le massif brouillon, invisible
-  sur un MacBook où il tombe à 1,09×. À 0.75 le facteur ne dépasse plus 1,26×.
+- **`--train-scale 0.5` est un arbitrage, et il a changé de sens le 24 novembre 2026.**
+  Le train est dessiné à `ECHELLE_TRAIN` du cadre, lui-même mis à l'échelle de l'écran.
+  L'échelle de stockage ne change donc **pas** sa taille à l'écran — le manifeste garde
+  les dimensions de la source — mais la finesse de sa texture :
 
-  Le prix est en poids, et le grain l'aggrave parce que le bruit ne compresse pas : les
-  séquences du train passent de 9,8 à 15 Mo. C'est la tension propre à un grain **cuit** —
-  le massif y échappe en se recalculant à la résolution de l'écran.
+  | | agrandissement à 0.5 | à 0.75 |
+  |---|---|---|
+  | MacBook 1512 × 812, ×2 | 1,07× | 0,71× (réduit) |
+  | iPhone 14, ×3 | 1,66× | 1,11× |
+  | 27 pouces 5K | 1,89× | 1,26× |
+
+  C'est ce tableau qui avait fait choisir 0.75 : à 0.5 le train est agrandi sur un
+  téléphone, le défaut même qui rendait le massif brouillon. Emmanuelle a tranché
+  l'inverse en regardant la même image de la loco aux deux échelles, **remise à la même
+  taille** — c'est-à-dire l'échantillon dur, celui du téléphone et non celui de son Mac :
+  « 0,50 / q80 en vrai, ça ne se voit pas ».
+
+  Ce qu'on y gagne : les séquences passent de 14,2 à 9,0 Mo, et surtout la **texture
+  GPU** de 279 à 124 Mo. Cette dernière ne dépend que de l'échelle — une image décodée
+  pèse sa surface, pas son fichier —, et 279 Mo sur un iPhone est une cause plausible de
+  perte de contexte WebGL. Baisser `--quality` n'y change rien : à q65 on perd du grain
+  pour 14 % de poids et 0 % de mémoire. Essayé, écarté le même soir.
 
 Les chemins du manifeste sont **absolus** (`/assets/…`) : les gares sont servies sur `/ici`,
 `/plus-loin`, … et un chemin relatif serait résolu contre la route courante.

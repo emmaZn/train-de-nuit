@@ -1,10 +1,21 @@
+import { readFileSync } from 'node:fs'
+
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { RouterLink, createMemoryHistory } from 'vue-router'
 import NavFrise from '@/components/NavFrise.vue'
 import { createAppRouter } from '@/router'
 import { useVoyage } from '@/stores/voyage'
-import { ANCRE_FRISE, ANCRE_FRISE_MOBILE, ecartFrise, garesVisibles } from '@/scene/layout'
+import {
+  ANCRE_FRISE,
+  ANCRE_FRISE_MOBILE,
+  LARGEUR_MENTION_MOBILE,
+  SEUIL_MOBILE,
+  ecartFrise,
+  fonduFrise,
+  garesVisibles,
+  margeVoieDroite,
+} from '@/scene/layout'
 
 async function monter() {
   setActivePinia(createPinia())
@@ -129,5 +140,100 @@ test('la frise suit un redimensionnement', async () => {
   window.dispatchEvent(new Event('resize'))
   await wrapper.vm.$nextTick()
   expect(wrapper.get('nav.frise').attributes('style')).not.toBe(avant)
+  window.innerWidth = 1024
+})
+
+/**
+ * Décidé le 23 novembre 2026 : sous mouvement réduit la frise **glisse
+ * encore**, mais trop vite pour qu'on y lise un voyage — 0,2 s au lieu de
+ * 1,2 s. La couper net ferait perdre le lien entre la gare qu'on quitte et
+ * celle où l'on arrive. Les trois transitions de la frise partent ensemble :
+ * la piste qui glisse, les gares qui s'éteignent, le libellé qui grandit.
+ */
+test('en mouvement réduit, les trois transitions de la frise sont raccourcies ensemble', () => {
+  const source = readFileSync('src/components/NavFrise.vue', 'utf8')
+  const garde = source.match(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\n\}\n/)
+  for (const regle of ['.piste', '.voie', '.libelle']) {
+    expect(garde?.[0], regle).toContain(regle)
+  }
+  expect(garde?.[0]).toMatch(/transition-duration:\s*0\.2s/)
+})
+
+/**
+ * Relevé au clavier le 23 novembre 2026, sur la page qui tourne : la frise
+ * offrait **six arrêts pour quatre gares**. La fenêtre est plus large que la
+ * boucle — six entrées, quatre gares — donc deux gares y figurent deux fois,
+ * sous le même nom et vers la même adresse. À l'œil, c'est la boucle qui
+ * continue des deux côtés ; au clavier et au lecteur d'écran, c'étaient deux
+ * destinations fantômes.
+ *
+ * Les copies restent dessinées — sans elles, la frise aurait un bord — mais
+ * elles sortent de la tabulation et de l'arbre d'accessibilité.
+ */
+test('la frise n’offre qu’un lien par gare, les copies restent décoratives', async () => {
+  const { wrapper } = await monter()
+  const liens = wrapper.findAll('a.gare')
+  expect(liens).toHaveLength(6)
+
+  const offerts = liens.filter((l) => l.attributes('aria-hidden') !== 'true')
+  expect(offerts.map((l) => l.attributes('href'))).toEqual([
+    '/ici',
+    '/plus-loin',
+    '/la-haut',
+    '/ailleurs',
+  ])
+
+  // Un nœud `aria-hidden` qui garde un enfant focalisable est une faute : le
+  // lecteur d'écran ne l'annonce pas, le clavier l'atteint quand même.
+  for (const copie of liens.filter((l) => l.attributes('aria-hidden') === 'true')) {
+    expect(copie.attributes('tabindex')).toBe('-1')
+  }
+})
+
+test('la gare à quai reste offerte, même si c’est la page courante', async () => {
+  const { wrapper } = await monter()
+  const quai = wrapper.get('[data-etat="a-quai"]')
+  expect(quai.attributes('aria-hidden')).toBeUndefined()
+  expect(quai.attributes('tabindex')).toBeUndefined()
+})
+
+/**
+ * Relevé le 23 novembre 2026 sur trois téléphones : la frise **amputait la
+ * gare suivante**. Son masque réserve `margeVoieDroite` à droite — la place
+ * de l'œil et du FR/EN — soit 130 px ; sur un écran de 390 il ne restait que
+ * 250 px visibles, et « PROCHAIN ARRÊT » finissait à 305. Les deux tiers de
+ * la mention étaient invisibles, à 375, 390 et 430.
+ *
+ * Ce n'est pas un réglage à l'œil mais une contrainte de place : la gare
+ * suivante doit tenir, mention comprise, **avant que le masque ne commence à
+ * l'effacer**. L'écart est donc plafonné sur téléphone, et le plafond ne mord
+ * que là où il le faut — à 430 il ne change rien.
+ */
+for (const largeur of [375, 390, 430]) {
+  test(`à ${largeur} px, la gare suivante tient avant le masque`, () => {
+    const finDeLaMention = ANCRE_FRISE_MOBILE + ecartFrise(largeur, 2) + LARGEUR_MENTION_MOBILE
+    const debutDuMasque = largeur - margeVoieDroite(largeur) - fonduFrise(largeur)
+    expect(finDeLaMention).toBeLessThanOrEqual(debutDuMasque)
+  })
+}
+
+test('sur un écran, le plafond ne change rien', () => {
+  const largeur = 1280
+  expect(largeur).toBeGreaterThanOrEqual(SEUIL_MOBILE)
+  // La formule d'avant, telle quelle : rien du bureau ne bouge.
+  expect(ecartFrise(largeur, 4)).toBeCloseTo(((1280 - ANCRE_FRISE - 200) / 3) * 0.95, 5)
+})
+
+test('sur un téléphone, la mention de la gare suivante est la courte', async () => {
+  window.innerWidth = 390
+  const { wrapper } = await monter()
+  expect(wrapper.get('[data-etat="prochain"] .mention').text()).toBe('PROCHAIN')
+  window.innerWidth = 1024
+})
+
+test('sur un écran, elle reste entière', async () => {
+  window.innerWidth = 1280
+  const { wrapper } = await monter()
+  expect(wrapper.get('[data-etat="prochain"] .mention').text()).toBe('PROCHAIN ARRÊT')
   window.innerWidth = 1024
 })

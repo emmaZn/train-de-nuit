@@ -91,6 +91,18 @@ describe('RepliquesOiseaux', () => {
 describe('la place de la couche', () => {
   const app = readFileSync('src/App.vue', 'utf8')
 
+  it('en mouvement réduit, la réplique paraît sans monter', () => {
+    const source = readFileSync('src/components/RepliquesOiseaux.vue', 'utf8')
+    // La garde ne coupe pas l'animation : un fondu n'est pas un mouvement, et
+    // le §11 en demande partout. Elle échange seulement la recette contre
+    // celle qui ne déplace rien.
+    const garde = source.match(/@media \(prefers-reduced-motion: reduce\)[\s\S]*?\n\}\n/)
+    expect(garde?.[0]).toMatch(/animation-name:\s*paraitre-sur-place/)
+    const recette = source.match(/@keyframes paraitre-sur-place[\s\S]*?\n\}\n/)
+    expect(recette?.[0]).toMatch(/opacity:\s*0/)
+    expect(recette?.[0]).not.toMatch(/transform/)
+  })
+
   it('vit dans App.vue, hors de la route', () => {
     // L'URL change à l'instant du clic sur une autre gare, bien avant que le
     // train ne bouge : dans une gare, le composant serait détruit au milieu

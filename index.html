@@ -7,7 +7,50 @@
          16 cellules. iOS ne lit pas le SVG, d'où le PNG à côté. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Train de nuit</title>
+    <!--
+      Ce que le document dit de lui-même.
+
+      **Le site n'est pas indexé** — décision du 24 novembre 2026, §12.8 : il
+      ne vit que par le lien qu'Emmanuelle envoie. `noindex`, et surtout **pas**
+      un `Disallow` dans un `robots.txt` : une porte fermée empêche le robot de
+      lire la consigne, et la page peut rester référencée, vide, par un lien
+      venu d'ailleurs. Un `noindex` qu'on peut lire est plus sûr qu'une porte
+      fermée. `follow` parce qu'il n'y a rien à cacher dans les liens sortants.
+
+      L'aperçu du lien, lui, devient la **seule vitrine** d'un site qu'on ne
+      trouve pas : c'est pour lui que les balises Open Graph sont ici. Elles
+      sont écrites en français parce que les robots d'aperçu n'exécutent pas le
+      bundle — ils lisent ce HTML-ci. `poserLangue` refait le titre et la
+      description au montage, pour l'onglet et pour les lecteurs d'écran ; un
+      test tient les deux ensemble.
+
+      `og:image` est une **vraie capture de la scène**, en 1200 × 630 : le
+      train à quai, la plaque et sa phrase, le massif derrière. Choisie parmi
+      les quatre gares le 24 novembre 2026. En PNG et non en JPEG — le JPEG
+      lisse le grain, et le grain est le projet ; 460 ko pour une image de
+      partage ne coûte rien, elle n'est jamais chargée par un visiteur.
+
+      Son nom est dans l'URL et les réseaux la gardent longtemps en cache :
+      **la remplacer demande un autre nom de fichier**, pas une réécriture.
+    -->
+    <title>Train de nuit — Emmanuelle Zenou</title>
+    <meta name="robots" content="noindex, follow" />
+    <meta name="description" content="Un train roule de nuit à travers des montagnes de grain. Il s’arrête dans quatre gares. Les visiteurs y laissent une phrase qui devient une étoile." />
+    <!-- La nuit par défaut, celle de `DEFAUT` dans src/scene/palette.ts. -->
+    <meta name="theme-color" content="#151517" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Train de nuit" />
+    <meta property="og:title" content="Train de nuit — Emmanuelle Zenou" />
+    <meta property="og:description" content="Un train roule de nuit à travers des montagnes de grain. Il s’arrête dans quatre gares. Les visiteurs y laissent une phrase qui devient une étoile." />
+    <meta property="og:url" content="https://train-de-nuit.pages.dev/" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:locale:alternate" content="en_GB" />
+    <meta property="og:image" content="https://train-de-nuit.pages.dev/partage.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Un train de nuit à quai devant un massif de grain, sous un ciel d’étoiles." />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

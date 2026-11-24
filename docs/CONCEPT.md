@@ -425,7 +425,7 @@ match /traces/{id} {
 - **Mobile** : moins de particules, scène recadrée, frise réduite (gare actuelle + prochaine), formulaires pleine largeur avec une marge de 16 px.
 - **Appui au doigt** : sur un écran tactile, il n'y a pas de survol. Un appui sur une étoile en révèle la phrase, un appui ailleurs la referme.
 - **Clavier** : la frise est une vraie navigation (`<nav>` + liens) ; focus visibles ; les étoiles récentes sont accessibles via une liste masquée visuellement.
-- **Poids** : réglé pour les montagnes — le massif ne pèse plus que sa carte de relief (3 Mo) au lieu d'une séquence. Les séquences du train sont converties en WebP et chargées progressivement : la gare actuelle d'abord.
+- **Poids** : le massif ne pèse plus que sa carte de relief — 1,7 Mo en WebP sans perte — au lieu d'une séquence. Les six séquences du train font 9,0 Mo en WebP, stockées à la moitié de leur taille source (§12.7). **Ce poids ne retient plus la première image** : l'écran d'attente ne garde que ce qu'on voit à quai — la voie et deux images — et les séquences entières arrivent derrière lui, le départ d'abord ; le train ne repart pas avant de les avoir.
 - **Textes** de l'interface en français ; code, noms de fichiers et commentaires techniques en anglais (sauf les noms de gares).
 
 ## 12. Décisions ouvertes
@@ -450,8 +450,41 @@ match /traces/{id} {
    jureraient. Et la voie ne fait que 20 px de haut, trop peu pour un tramage. Elle reste
    une bande 2D qui défile, grainée comme le reste.
 4. ~~L'icône « œil »~~ : **décidé** — elle fait défiler un **cycle de couleurs de fond**, et rien d'autre. Palette validée (§6).
-5. **Contact** : le formulaire de message est devenu un `mailto:`, et **le PDF du CV disparaît** — le CV est une page du site (§4.5). Restent deux choses, **qui manquent toujours** : **l'adresse mail** (derrière `ÉCRIRE` et au bas du CV) et **l'URL LinkedIn**. Elles sont des **bouchons** dans `src/contenu/liens.ts` — l'adresse est celle d'un CV de 2021, pas une décision — et **rien ne se déploie sans elles**.
-6. **Hébergeur** : Vercel ou Netlify.
+5. ~~**Contact**~~ : **décidé et complet.** Le formulaire de message est devenu un `mailto:`, et le PDF du CV a disparu — le CV est une page du site (§4.5). Les deux adresses sont confirmées : le profil **LinkedIn** le 22 novembre 2026, l'**adresse mail** le 24. Elles vivent dans `src/contenu/liens.ts`, et l'adresse y est assemblée au montage : ni le source ni le HTML servi ne la portent d'un seul tenant, et un test le vérifie.
+6. ~~Hébergeur~~ : **décidé — Cloudflare Pages**, à l'adresse gratuite
+   `train-de-nuit.pages.dev` ; pas de nom de domaine acheté. Les deux noms
+   d'abord écrits ici ont été écartés le 23 novembre 2026 : l'offre gratuite de
+   Netlify se compte désormais en crédits — 300 par mois, 20 par gigaoctet, soit
+   une quinzaine de gigaoctets — et **met le site en pause** au-delà, ce qui, à
+   17 Mo la visite froide, arrive vers neuf cents visites ; celle de Vercel est
+   réservée par ses conditions à un usage **non commercial**, ce qu'un site qui
+   présente son travail n'est pas tout à fait. Chez Cloudflare les fichiers
+   statiques ne sont comptés ni en bande passante ni en requêtes. La
+   configuration — `_redirects`, pour que `/ailleurs/cv` ne rende pas un 404 à
+   qui ouvre le lien, et `_headers`, pour que le train reste en cache — s'écrit
+   au format de Netlify : elle suivrait si l'on changeait d'avis.
+7. ~~La finesse du train~~ : **décidé — stocké à la moitié de sa taille source**
+   (`--train-scale 0.5`), le 24 novembre 2026. L'échelle de stockage ne change pas sa
+   taille à l'écran, seulement la finesse de sa texture : à 0,5 il est agrandi 1,07× sur
+   un MacBook, 1,66× sur un iPhone, 1,89× sur un 27 pouces. C'est ce tableau qui avait
+   fait choisir 0,75 ; Emmanuelle a tranché l'inverse en regardant la même image de la
+   loco aux deux échelles, remises à la même taille — l'échantillon dur, celui du
+   téléphone. « 0,50 / q80 en vrai, ça ne se voit pas. » On y gagne 14,2 → 9,0 Mo, et
+   surtout **279 → 124 Mo de texture GPU**, qui ne dépend que de l'échelle. Baisser la
+   **qualité**, elle, a été essayée et écartée le même soir : à q65 on perd du grain pour
+   14 % de poids et **0 %** de mémoire.
+8. ~~Le site est-il indexé ?~~ : **décidé — non**, le 24 novembre 2026. Le site ne vit que
+   par le lien qu'Emmanuelle envoie. Trois choses se jouaient là : on la trouverait en
+   cherchant son nom, ce qui est l'intérêt ; mais **les phrases des visiteurs** sortiraient
+   du site — `EtoilesListe` les écrit en vrai texte dans la page, et quelqu'un qui laisse
+   une phrase ici ne s'attend pas à la retrouver dans une recherche sur son prénom ; et
+   **son adresse mail** deviendrait moissonnable, alors que `liens.ts` prend soin de ne
+   jamais l'écrire en clair dans le HTML.
+   La page porte donc `noindex`, et **surtout pas** un `Disallow` dans un `robots.txt` :
+   une porte fermée empêche le robot de lire la consigne, et la page peut rester
+   référencée, vide, par un lien venu d'ailleurs. Un `noindex` qu'on peut lire est plus sûr.
+   Conséquence directe : **l'aperçu du lien devient la seule vitrine du site**, d'où les
+   balises Open Graph, et d'où l'image de partage qui n'est plus un ornement.
 
 ## 13. Étapes
 
@@ -470,5 +503,11 @@ Chaque étape se termine par une version qui tourne et qu'Emmanuelle valide avan
 4. **ailleurs**
    - Le quai, le réverbère et son faisceau, le panneau des départs vivant, l'assombrissement à l'arrivée, les trois liens (LinkedIn, CV, `mailto:`), et le CV écrit dans le site (`/ailleurs/cv`).
    - Les textes d'« ici » en sortent : « ici c'est bon, pas besoin de faire quoi que ce soit pour le moment ».
-5. **Finitions**
+5. ~~**Finitions**~~ — **faite le 24 novembre 2026.**
    - Mouvement réduit, mobile, clavier, poids des assets, métadonnées et image de partage.
+   - *Fini quand* : le relevé `docs/superpowers/specs/2026-11-23-etape-5-releve.md` porte
+     les six chantiers, mesurés avant et après. L'écran d'attente ne retient plus que ce
+     qu'on voit à quai, la frise ne ment plus au clavier ni sur un téléphone, et le
+     document dit enfin ce qu'il est.
+   - **Ne se déploie pas sans** : l'adresse mail et l'URL LinkedIn (§12.5), et le choix
+     du cache des assets.

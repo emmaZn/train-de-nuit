@@ -24,6 +24,7 @@ import {
   MARGE_VOIE,
   MARGE_FRISE_MOBILE,
   ecartFrise,
+  LARGEUR_MENTION_MOBILE,
   garesVisibles,
   DEGRADE_OPACITE,
   ECHELLE_MASSIF,
@@ -118,13 +119,22 @@ test('les quatre gares occupent la largeur, resserrées de cinq pour cent', () =
   expect(ANCRE_FRISE + 3 * e).toBeCloseTo(ANCRE_FRISE + (l - MARGE_FRISE - ANCRE_FRISE) * 0.95, 6)
 })
 
-test('les deux gares du téléphone sont resserrées pareil', () => {
+/**
+ * Le téléphone suivait le même étalement que le bureau — la largeur
+ * disponible, resserrée de 5 %. Relevé sur trois téléphones le 23 novembre
+ * 2026, il amputait la gare suivante : « PROCHAIN ARRÊT » finissait à 305 sur
+ * un écran de 390 qui n'en montrait que 250.
+ *
+ * L'écart y est donc plafonné par la place qui reste avant le masque, et à
+ * 390 px ce plafond **mord** : il est plus serré que l'étalement.
+ */
+test('sur un téléphone, l’écart est la place qui reste, pas l’étalement', () => {
   const l = 390
-  const e = ecartFrise(l, 2)
-  expect(ANCRE_FRISE_MOBILE + e).toBeCloseTo(
-    ANCRE_FRISE_MOBILE + (l - MARGE_FRISE_MOBILE - ANCRE_FRISE_MOBILE) * 0.95,
-    6,
-  )
+  const etale = (l - MARGE_FRISE_MOBILE - ANCRE_FRISE_MOBILE) * 0.95
+  const place =
+    l - margeVoieDroite(l) - fonduFrise(l) - ANCRE_FRISE_MOBILE - LARGEUR_MENTION_MOBILE
+  expect(place).toBeLessThan(etale)
+  expect(ecartFrise(l, 2)).toBeCloseTo(place, 6)
 })
 
 test('la première gare naît là où le masque est déjà opaque', () => {
@@ -474,10 +484,12 @@ test('les gares sont resserrées de cinq pour cent sur la largeur disponible', (
   // Emmanuelle, le 24 novembre 2026 : « tu peux resserrer très légèrement les
   // gares (5 % disons) ». La frise n'occupe donc plus exactement la largeur :
   // elle s'arrête un peu avant, et c'est voulu.
-  for (const [l, visibles] of [[1280, 4], [1512, 4], [1920, 4], [390, 2]] as const) {
-    const ancre = l < SEUIL_MOBILE ? ANCRE_FRISE_MOBILE : ANCRE_FRISE
-    const marge = l < SEUIL_MOBILE ? MARGE_FRISE_MOBILE : MARGE_FRISE
-    const plein = (l - ancre - marge) / Math.max(1, visibles - 1)
+  // Le téléphone n'est plus dans cette liste : son écart est plafonné par la
+  // place qui reste avant le masque, et ce plafond est plus serré que les
+  // 5 %. Il a son propre test — « l'écart est la place qui reste ». Le
+  // resserrement d'Emmanuelle reste la règle partout où il y a la place.
+  for (const [l, visibles] of [[1280, 4], [1512, 4], [1920, 4]] as const) {
+    const plein = (l - ANCRE_FRISE - MARGE_FRISE) / Math.max(1, visibles - 1)
     expect(ecartFrise(l, visibles), `${l}px`).toBeCloseTo(plein * 0.95, 5)
   }
 })

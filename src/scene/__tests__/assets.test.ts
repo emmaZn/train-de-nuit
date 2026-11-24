@@ -1,7 +1,9 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { framePath, loadManifest } from '@/scene/assets'
+import { Assets, Texture } from 'pixi.js'
+
+import { PARALLELE_SEQUENCE, framePath, loadManifest, loadSequence } from '@/scene/assets'
 import { PIECES } from '@/scene/quai'
 import { lirePngIndexe } from './png'
 
@@ -181,4 +183,66 @@ test('le bâtiment est dessiné aux proportions que le quai lui donne', () => {
     PIECES.batiment.hauteur / PIECES.batiment.largeur,
     4,
   )
+})
+
+/**
+ * Les images d'une séquence arrivaient **une par une** : `loadSequence`
+ * attendait chacune avant de demander la suivante. Mesuré le 24 novembre 2026
+ * sur le build de production, les 237 images du train faisaient quelque 120
+ * allers-retours en file indienne — invisible sur la boucle locale, des
+ * dizaines de secondes sur un téléphone, où chaque aller-retour coûte sa
+ * latence.
+ *
+ * Elles partent maintenant par paquets. Ce qui ne change pas : l'ordre du
+ * tableau rendu, qui est celui des images et non celui des réponses, et le
+ * sort d'une image manquante, qui est sautée sans rien interrompre.
+ */
+function sequenceFeinte(compte: number, manquantes: number[] = []) {
+  let ensemble = 0
+  let creteDeFront = 0
+  const vus: number[] = []
+  // `Assets.load` est surchargée : on passe par le type de la fonction elle-même.
+  const espion = vi.spyOn(Assets, 'load').mockImplementation((async (url: unknown) => {
+    const index = Number(String(url).match(/(\d+)\.webp$/)?.[1])
+    vus.push(index)
+    ensemble += 1
+    creteDeFront = Math.max(creteDeFront, ensemble)
+    // Les dernières répondent les premières : si l'ordre du tableau suivait
+    // les réponses, ce test le verrait.
+    await new Promise((r) => setTimeout(r, (compte - index) * 2))
+    ensemble -= 1
+    if (manquantes.includes(index)) throw new Error('image absente')
+    return { __index: index } as unknown as Texture
+  }) as unknown as typeof Assets.load)
+  return { espion, vus, front: () => creteDeFront }
+}
+
+test('une séquence se charge par paquets, pas une image à la fois', async () => {
+  const { front } = sequenceFeinte(24)
+  await loadSequence({ count: 24, path: '/t/{i}.webp' })
+  expect(front()).toBeGreaterThan(1)
+  expect(front()).toBeLessThanOrEqual(PARALLELE_SEQUENCE)
+})
+
+test('le tableau rendu suit l’ordre des images, pas celui des réponses', async () => {
+  sequenceFeinte(12)
+  const textures = await loadSequence({ count: 12, path: '/t/{i}.webp' })
+  expect(textures).toHaveLength(12)
+  expect(textures.map((t) => (t as unknown as { __index: number }).__index)).toEqual([
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
+  ])
+})
+
+test('une image manquante est sautée, et le reste garde son ordre', async () => {
+  sequenceFeinte(8, [3, 6])
+  const textures = await loadSequence({ count: 8, path: '/t/{i}.webp' })
+  expect(textures.map((t) => (t as unknown as { __index: number }).__index)).toEqual([
+    1, 2, 4, 5, 7, 8,
+  ])
+})
+
+test('toutes les images sont demandées, une seule fois chacune', async () => {
+  const { vus } = sequenceFeinte(30)
+  await loadSequence({ count: 30, path: '/t/{i}.webp' })
+  expect([...vus].sort((a, b) => a - b)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1))
 })
