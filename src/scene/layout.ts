@@ -225,7 +225,7 @@ export const ECHELLE_MONTAGNES = 2.2
  *
  * Deux choses ont changé entre-temps et justifient d'y revenir : la scène a
  * reculé — le train est plus petit dans le cadre —, et le grain du massif est
- * passé à 2,4, ce qui le rend plus présent derrière lui.
+ * passé à 2, ce qui le rend plus présent derrière lui.
  */
 export const DEGRADE_HAUTEUR = 540
 
