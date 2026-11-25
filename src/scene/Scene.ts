@@ -1210,6 +1210,10 @@ export class Scene {
   setMode(mode: Mode): void {
     this.mode = mode
     if (this.recolor) setRecolorMode(this.recolor, mode === 'jour')
+    // Les pièces qui portent une lueur en propre : de jour, on dessine
+    // l'objet, pas la lumière.
+    this.quai?.setMode(mode)
+    this.vitres?.setMode(mode)
     // Le fond du canevas, lui, est bien la couleur du mode : c'est ce qu'on
     // voit autour des sprites, et il doit tomber sur la même valeur que le sol
     // à l'intérieur d'eux.

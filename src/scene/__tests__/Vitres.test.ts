@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 
 import { Container } from 'pixi.js'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import {
   Vitres,
@@ -25,6 +25,7 @@ import {
   seuilVacillement,
   vitreVisee,
 } from '@/scene/Vitres'
+import { cadrageScene } from '@/scene/layout'
 import type { Manifest } from '@/scene/types'
 
 describe('seuilVacillement', () => {
@@ -310,5 +311,81 @@ describe('les réglages', () => {
   it('assume un halo visible : c’est l’entorse à « blanc ou absent »', () => {
     expect(HALO_ALPHA).toBeGreaterThan(0)
     expect(HALO_ALPHA).toBeLessThanOrEqual(1)
+  })
+})
+
+/**
+ * De jour, les carreaux gardent leur grain et perdent leur lueur.
+ *
+ * « Les vitres allumées restent telles quelles, sans leur lueur : un carré de
+ * grain sombre. Ça suffit. » — le 25/11. Le halo est l'une des quatre
+ * « entorses assumées » du §6 : un dégradé radial, donc une tache une fois
+ * inversé sur du papier.
+ *
+ * jsdom n'a pas de contexte 2D — `setup.ts` rend `null` exprès. On en pose un
+ * qui note ce qu'on lui demande : c'est la seule fenêtre sur ce que la texture
+ * recevrait vraiment.
+ */
+describe('les vitres selon le mode', () => {
+  type Trace = { gradients: number; rects: number }
+
+  function poserContexte(): Trace {
+    const trace: Trace = { gradients: 0, rects: 0 }
+    const contexte = {
+      fillStyle: '' as unknown,
+      clearRect: () => {},
+      fillRect: () => {
+        trace.rects += 1
+      },
+      createRadialGradient: () => {
+        trace.gradients += 1
+        return { addColorStop: () => {} }
+      },
+    }
+    HTMLCanvasElement.prototype.getContext = (() =>
+      contexte) as unknown as HTMLCanvasElement['getContext']
+    return trace
+  }
+
+  function poser(mode?: 'nuit' | 'jour') {
+    const trace = poserContexte()
+    const rame = new Container()
+    const m = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as Manifest
+    const vitres = new Vitres(rame, m, [-900], false)
+    if (mode) vitres.setMode(mode)
+    vitres.cadrer(cadrageScene(1512, 771).frame, 1)
+    vitres.update(0.016)
+    return trace
+  }
+
+  afterEach(() => {
+    HTMLCanvasElement.prototype.getContext = (() =>
+      null) as unknown as HTMLCanvasElement['getContext']
+  })
+
+  it('peint des halos de nuit', () => {
+    expect(poser('nuit').gradients).toBeGreaterThan(0)
+  })
+
+  it('n’en peint aucun de jour', () => {
+    expect(poser('jour').gradients).toBe(0)
+  })
+
+  it('garde le grain des carreaux de jour', () => {
+    expect(poser('jour').rects).toBeGreaterThan(0)
+  })
+
+  it('en repeint quand on revient à la nuit', () => {
+    const trace = poserContexte()
+    const rame = new Container()
+    const m = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as Manifest
+    const vitres = new Vitres(rame, m, [-900], false)
+    vitres.setMode('jour')
+    vitres.cadrer(cadrageScene(1512, 771).frame, 1)
+    vitres.update(0.016)
+    expect(trace.gradients).toBe(0)
+    vitres.setMode('nuit')
+    vitres.update(0.016)
+    expect(trace.gradients).toBeGreaterThan(0)
   })
 })

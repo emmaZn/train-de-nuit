@@ -363,3 +363,43 @@ describe('la neige du faisceau', () => {
     expect(f.neige.racine.visible).toBe(true)
   })
 })
+
+/**
+ * De jour, il n'y a pas de faisceau.
+ *
+ * C'est la pièce la plus « lueur » de toute la scène : un cône de dégradé.
+ * Sur du papier, un dégradé blanc en négatif donne une tache. La piste C,
+ * choisie le 25/11 : « La lanterne, le cadran, les carreaux restent de
+ * l'encre. La lueur s'en va. » Conséquence assumée : « ailleurs » perd son
+ * théâtre de jour — la scène se délave au lieu de s'assombrir.
+ */
+describe('le faisceau selon le mode', () => {
+  it('ne se montre pas de jour', () => {
+    const faisceau = new Faisceau(new Container())
+    faisceau.setMode('jour')
+    expect(faisceau.groupe.visible).toBe(false)
+  })
+
+  it('reste caché de jour même quand on rallume la lampe', () => {
+    const faisceau = new Faisceau(new Container())
+    faisceau.setMode('jour')
+    faisceau.allumer(true)
+    expect(faisceau.groupe.visible).toBe(false)
+  })
+
+  it('revient la nuit, allumé comme il l’était', () => {
+    const faisceau = new Faisceau(new Container())
+    faisceau.allumer(true)
+    faisceau.setMode('jour')
+    faisceau.setMode('nuit')
+    expect(faisceau.groupe.visible).toBe(true)
+  })
+
+  it('ne se rallume pas en revenant la nuit si la lampe est éteinte', () => {
+    const faisceau = new Faisceau(new Container())
+    faisceau.allumer(false)
+    faisceau.setMode('jour')
+    faisceau.setMode('nuit')
+    expect(faisceau.groupe.visible).toBe(false)
+  })
+})

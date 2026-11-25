@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import gsap from 'gsap'
-import { Container, Sprite } from 'pixi.js'
+import { Container, Graphics, Sprite } from 'pixi.js'
 import { describe, expect, it, vi } from 'vitest'
 
 import { loadTexture } from '@/scene/assets'
@@ -787,5 +787,103 @@ describe('le réverbère qu’on éteint', () => {
     quai.basculerReverbere()
     expect(quai.horsChamp(1e6)).toBe(true)
     expect(quai.allumeReverbere).toBe(false)
+  })
+})
+
+/**
+ * De jour, on dessine l'objet, pas la lumière.
+ *
+ * La mi-teinte **est** le dégradé : dans toute la scène, les seules pièces qui
+ * en portent sont les quatre lumières (CONCEPT §6, « entorses assumées »). Un
+ * remplissage d'alpha fractionnaire est donc la signature d'une lueur, et c'est
+ * ce qu'on compte ici — sans écran, les instructions de `Graphics` sont la
+ * seule fenêtre sur ce qu'on verrait.
+ */
+describe('les lumières de la gare selon le mode', () => {
+  const CADRE_MODE = cadrageScene(1512, 771).frame
+
+  function miTeintes(racine: Container): number {
+    let compte = 0
+    const voir = (noeud: Container) => {
+      // Ce qui est caché ne se dessine pas : le faisceau garde ses tracés de
+      // jour, mais son conteneur est invisible.
+      if (!noeud.visible || noeud.alpha === 0) return
+      if (noeud instanceof Graphics) {
+        for (const instruction of noeud.context.instructions) {
+          const alpha = (instruction as unknown as { data?: { style?: { alpha?: number } } }).data
+            ?.style?.alpha
+          if (typeof alpha === 'number' && alpha > 0 && alpha < 1) compte += 1
+        }
+      }
+      for (const enfant of noeud.children) voir(enfant as Container)
+    }
+    voir(racine)
+    return compte
+  }
+
+  /**
+   * Les remplissages pleins — le cadran, ses aiguilles, le corps de la
+   * lanterne —, **faisceau mis à part** : lui s'en va entier de jour, et il
+   * porte un masque qui est un remplissage plein.
+   */
+  function pleins(racine: Container, sauf?: Container): number {
+    let compte = 0
+    const voir = (noeud: Container) => {
+      if (noeud === sauf) return
+      if (!noeud.visible || noeud.alpha === 0) return
+      if (noeud instanceof Graphics) {
+        for (const instruction of noeud.context.instructions) {
+          const alpha = (instruction as unknown as { data?: { style?: { alpha?: number } } }).data
+            ?.style?.alpha
+          if (alpha === undefined || alpha === 1) compte += 1
+        }
+      }
+      for (const enfant of noeud.children) voir(enfant as Container)
+    }
+    voir(racine)
+    return compte
+  }
+
+  /** Un quai posé, donc visible : tant qu'il ne sait pas où il est, il est caché. */
+  function quaiTrace() {
+    const parent = new Container()
+    const quai = new Quai(parent)
+    quai.cadrer(CADRE_MODE, 1)
+    quai.avancer(0, 1)
+    return { parent, quai }
+  }
+
+  it('porte des mi-teintes de nuit : ce sont ses lueurs', () => {
+    const { parent } = quaiTrace()
+    expect(miTeintes(parent)).toBeGreaterThan(0)
+  })
+
+  it('n’a plus aucune mi-teinte de jour', () => {
+    const { parent, quai } = quaiTrace()
+    quai.setMode('jour')
+    expect(miTeintes(parent)).toBe(0)
+  })
+
+  it('garde le cadran, ses aiguilles et le corps de la lanterne de jour', () => {
+    const { parent, quai } = quaiTrace()
+    const hors = quai.lumiere.groupe
+    const avant = pleins(parent, hors)
+    expect(avant).toBeGreaterThan(0)
+    quai.setMode('jour')
+    expect(pleins(parent, hors)).toBe(avant)
+  })
+
+  it('éteint le faisceau de jour', () => {
+    const { quai } = quaiTrace()
+    quai.setMode('jour')
+    expect(quai.lumiere.groupe.visible).toBe(false)
+  })
+
+  it('retrouve ses lueurs en revenant la nuit', () => {
+    const { parent, quai } = quaiTrace()
+    const avant = miTeintes(parent)
+    quai.setMode('jour')
+    quai.setMode('nuit')
+    expect(miTeintes(parent)).toBe(avant)
   })
 })

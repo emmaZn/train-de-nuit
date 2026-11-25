@@ -42,6 +42,7 @@ import { GRAIN_ECRAN } from './poses'
 import { PIECES } from './quai'
 import { alea } from './Sky'
 import type { Grain } from './Sky'
+import type { Mode } from './palette'
 
 /** Un grain par ce nombre de pixels² : 4 fois la poussière du fond (`1/600`). PROVISOIRE (§7). */
 const DENSITE = 1 / 150
@@ -182,6 +183,9 @@ export class Faisceau {
 
   /** Sous mouvement réduit, le faisceau reste allumé mais ne respire pas (CONCEPT §11). */
   private readonly anime: boolean
+  private mode: Mode = 'nuit'
+  /** La visibilité que la clarté demande, avant que le mode ait son mot à dire. */
+  private clarteVisible = true
 
   constructor(parent: Container, reducedMotion = false) {
     this.anime = !reducedMotion
@@ -267,8 +271,23 @@ export class Faisceau {
    * GSAP appelle sa première mise à jour.
    */
   setClarte(clarte: number, visible = clarte > 0): void {
+    this.clarteVisible = visible
     this.racine.alpha = clarte
-    this.racine.visible = visible
+    this.racine.visible = visible && this.mode !== 'jour'
+  }
+
+  /**
+   * Le mode du site. **De jour il n'y a pas de faisceau** : c'est la pièce la
+   * plus « lueur » de la scène, un cône de dégradé, et un dégradé blanc rendu
+   * en négatif sur du papier donne une tache. La lanterne, elle, reste — c'est
+   * un corps plein (piste C du 25/11).
+   *
+   * On cache, on n'efface pas : les tracés sont posés une fois, et la nuit les
+   * retrouve tels quels, avec la clarté qu'ils avaient.
+   */
+  setMode(mode: Mode): void {
+    this.mode = mode
+    this.racine.visible = this.clarteVisible && mode !== 'jour'
   }
 
   /**

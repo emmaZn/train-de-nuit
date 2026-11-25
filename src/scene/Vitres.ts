@@ -23,6 +23,7 @@ import { Container, Sprite, Texture } from 'pixi.js'
 import { ECHELLE_TRAIN } from './layout'
 import type { Frame } from './layout'
 import type { Manifest } from './types'
+import type { Mode } from './palette'
 
 /**
  * Taille d'une cellule de grain, en texels du rendu.
@@ -217,6 +218,7 @@ class Vitre {
   private k = 1
   private dernierSeuil = -1
   private allumee = true
+  private mode: Mode = 'nuit'
 
   constructor(boite: readonly [number, number, number, number], phase: number, graine: number) {
     this.boite = boite
@@ -265,7 +267,10 @@ class Vitre {
       this.texture?.source.update()
       return
     }
-    this.halo(ctx, canvas, effectif)
+    // De jour, le carreau garde son grain et perd sa lueur : « un carré de
+    // grain sombre, ça suffit ». Le halo est un dégradé radial — la seule
+    // entorse de cette pièce, et elle ne tient pas sur du papier.
+    if (this.mode !== 'jour') this.halo(ctx, canvas, effectif)
     const marge = MARGE * this.k
     const bord = (i: number) => Math.round(i * GRAIN_ECRAN)
     ctx.fillStyle = `rgb(${GRIS})`
@@ -298,6 +303,13 @@ class Vitre {
 
   setAllumee(v: boolean): void {
     this.allumee = v
+  }
+
+  /** Le mode. Le seuil déjà peint est oublié : la texture doit se refaire. */
+  setMode(mode: Mode): void {
+    if (mode === this.mode) return
+    this.mode = mode
+    this.dernierSeuil = -1
   }
 
   get estAllumee(): boolean {
@@ -359,6 +371,19 @@ export class Vitres {
       })
       this.racine.addChild(groupe)
     })
+  }
+
+  /**
+   * Le mode du site, descendu sur chaque carreau. De jour, la lueur s'en va et
+   * le grain reste — les vitres sont la seule branche de la scène qui ne porte
+   * aucune teinte, et elles restent encrées à « ailleurs » pendant que le
+   * reste se délave.
+   */
+  setMode(mode: Mode): void {
+    for (const v of this.vitres) v.setMode(mode)
+    // Tout de suite, et non au prochain redessin : celui-ci n'arrive qu'une
+    // fois par `PERIODE_REDESSIN`, et la bascule se verrait traîner.
+    this.peindre()
   }
 
   cadrer(frame: Frame, resolution: number): void {

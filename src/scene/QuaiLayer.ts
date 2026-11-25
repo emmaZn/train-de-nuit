@@ -46,6 +46,7 @@ import { loadTexture } from './assets'
 import { GRAIN_ECRAN, fabriquerPiece } from './poses'
 import { Faisceau } from './Faisceau'
 import { horlogeTouchee } from './rideau'
+import type { Mode } from './palette'
 
 const GRIS = 0xededed
 /** Le blanc plein des sources : plus clair que le gris du décor, c'est voulu. */
@@ -264,6 +265,13 @@ export class Quai {
    */
   private lampeAllumee = true
 
+  /**
+   * Le mode du site. De jour, **on dessine l'objet, pas la lumière** : le mât,
+   * le corps de la lanterne, le cadran et ses aiguilles, le cadre du panneau
+   * restent ; le cône, le halo du cadran et le battement s'en vont.
+   */
+  private mode: Mode = 'nuit'
+
   private readonly reducedMotion: boolean
   /** L'opacité du battement : une valeur que GSAP anime, et que `poserEclat` lit. */
   private readonly pulsation = { a: 0 }
@@ -477,6 +485,23 @@ export class Quai {
    * Le pointeur est-il sur l'horloge ? Il n'éteint jamais un battement en cours :
    * l'éclat est le plus fort des deux.
    */
+  /**
+   * Le mode du site, descendu sur les deux pièces qui portent une lueur ici —
+   * le halo du battement et le faisceau — et sur le tracé de l'horloge, qui
+   * porte le sien en propre.
+   */
+  setMode(mode: Mode): void {
+    if (mode === this.mode) return
+    this.mode = mode
+    this.faisceau.setMode(mode)
+    this.tracerEclat()
+    // Les aiguilles ne se retracent qu'au changement de minute : on force,
+    // sinon le halo du cadran resterait celui de l'autre mode jusqu'à la
+    // minute suivante.
+    this.minuteTracee = -1
+    this.tracerAiguilles()
+  }
+
   eclairer(survole: boolean): void {
     this.survole = survole
     this.poserEclat()
@@ -642,6 +667,8 @@ export class Quai {
   private tracerEclat(): void {
     const g = this.halo
     g.clear()
+    // De jour, il n'y a pas de battement : la lueur s'en va, l'horloge reste.
+    if (this.mode === 'jour') return
     for (let i = HALO_HORLOGE.nappes; i >= 1; i -= 1) {
       g.circle(HORLOGE.x, HORLOGE.y, (HORLOGE.rayon * HALO_HORLOGE.rayon * i) / HALO_HORLOGE.nappes)
         .fill({ color: BLANC, alpha: HALO_HORLOGE.alpha })
@@ -689,9 +716,13 @@ export class Quai {
       return { x: HORLOGE.x + Math.sin(r) * longueur, y: HORLOGE.y - Math.cos(r) * longueur }
     }
     // Le halo, du plus large au plus étroit : l'alpha se cumule vers le cadran.
-    for (let i = HALO_HORLOGE.nappes; i >= 1; i -= 1) {
-      g.circle(HORLOGE.x, HORLOGE.y, (HORLOGE.rayon * HALO_HORLOGE.rayon * i) / HALO_HORLOGE.nappes)
-        .fill({ color: BLANC, alpha: HALO_HORLOGE.alpha })
+    // De jour il n'est pas tracé — c'est un dégradé, et sur du papier un
+    // dégradé blanc rendu en négatif ne donne qu'un pâté.
+    if (this.mode !== 'jour') {
+      for (let i = HALO_HORLOGE.nappes; i >= 1; i -= 1) {
+        g.circle(HORLOGE.x, HORLOGE.y, (HORLOGE.rayon * HALO_HORLOGE.rayon * i) / HALO_HORLOGE.nappes)
+          .fill({ color: BLANC, alpha: HALO_HORLOGE.alpha })
+      }
     }
     // Le cadran : un disque blanc plein, sur lequel tout le reste se creuse.
     g.circle(HORLOGE.x, HORLOGE.y, HORLOGE.rayon).fill({ color: BLANC })
