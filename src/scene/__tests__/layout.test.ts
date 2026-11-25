@@ -14,6 +14,9 @@ import {
   descenteDuFormat,
   massifDuFormat,
   reculDuFormat,
+  teteDuFormat,
+  CADRAGE_PAYSAGE,
+  TETE_LOCO_MAX,
   cadrageCiel,
   versCadre,
   cadrageScene,
@@ -436,6 +439,26 @@ describe('la règle de dégagement', () => {
     expect(reculDuFormat(1480, 690)).toBeCloseTo(0.8, 6)
     expect(massifDuFormat(1480, 690)).toBeCloseTo(1, 6)
     expect(cadrageCiel(1480, 690).decalage).toBeCloseTo(20, 0)
+  })
+
+  test('le nez du train est à elle aussi, aux deux mêmes formats', () => {
+    // Jugé le 25 novembre 2026, sur des planches où seul le nez changeait.
+    // Le train recule dans les deux cas — il était à 0,56 partout — et recule
+    // plus sur un écran large, où la queue de la rame rentrait dans le cadre.
+    expect(teteDuFormat(412, 915)).toBeCloseTo(0.53, 6)
+    expect(teteDuFormat(1480, 690)).toBeCloseTo(0.5, 6)
+  })
+
+  test('le nez ne sort jamais de ce que les deux ancres encadrent', () => {
+    // Ce qui doit rester dégagé devant la rame — le réverbère, la deuxième
+    // travée de câble — se vérifie contre `TETE_LOCO_MAX`. Encore faut-il
+    // qu'aucun format n'aille au-delà : l'interpolation est bornée, et ce
+    // test le tient pour des fenêtres bien plus extrêmes que les vraies.
+    for (const [w, h] of [...FENETRES, [200, 2000], [4000, 300], [1, 1]] as const) {
+      const t = teteDuFormat(w, h)
+      expect(t, `${w}x${h}`).toBeLessThanOrEqual(TETE_LOCO_MAX + 1e-9)
+      expect(t, `${w}x${h}`).toBeGreaterThanOrEqual(CADRAGE_PAYSAGE.tete - 1e-9)
+    }
   })
 
   test('la descente s’ajoute au jeu vertical, et vaut plus en portrait', () => {

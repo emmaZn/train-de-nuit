@@ -246,8 +246,13 @@ export function planSombre(plans: Plans, parent: Container, label: string): Cont
  * construction, bien avant les textures : un lien partagé vers « ailleurs »
  * est sombre dès la première image, et les rails arrivent au bout d'un `await`.
  */
-export function monterLeTrain(plans: Plans, manifest: Manifest): Train {
-  const train = new Train(plans.plateau, manifest)
+export function monterLeTrain(
+  plans: Plans,
+  manifest: Manifest,
+  viewportW: number,
+  viewportH: number,
+): Train {
+  const train = new Train(plans.plateau, manifest, viewportW, viewportH)
   plans.nuit.profond.push(...train.sombres)
   return train
 }
@@ -542,7 +547,8 @@ export class Scene {
     void this.quai.charger()
     // Le plateau lui-même ne porte pas de teinte (voir `Nuit`) : chaque plan
     // qui s'assombrit s'inscrit en naissant, par `planSombre`.
-    this.train = monterLeTrain(this.plans, manifest)
+    const ecran = this.app.screen
+    this.train = monterLeTrain(this.plans, manifest, ecran.width, ecran.height)
     // Devant la voie et devant le train : c'est le sol sur lequel il roule.
     this.terre = new Terre(planSombre(this.plans, this.plans.plateau, 'terre'))
     const planOiseaux = planSombre(this.plans, this.plans.plateau, 'oiseaux')
@@ -677,6 +683,9 @@ export class Scene {
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
     this.cables?.cadrer(frame, this.app.renderer.resolution)
     this.quai?.cadrer(frame, this.app.renderer.resolution, width < SEUIL_MOBILE)
+    // Le nez de la locomotive ne se pose pas au même endroit selon le format :
+    // la rame est le seul objet du plateau qui bouge avec la fenêtre.
+    this.train?.cadrer(width, height)
     this.rideau?.cadrer(frame)
     // Le cadre change `y` sans que le rideau ait bougé : le texte doit le savoir.
     this.emettreRideau()

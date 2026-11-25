@@ -21,8 +21,10 @@
  * calés. Elle les reprendra plus tard — leurs cadres (`CADRES`) et leurs SVG
  * restent donc en place, seul `PIECES` ne les pose plus.
  *
- * La rame est opaque et s'arrête le nez à `TETE_LOCO × STAGE.width`, en
- * s'allongeant vers l'arrière : elle occupe toute la moitié gauche du cadre.
+ * La rame est opaque et s'arrête le nez à `teteDuFormat × STAGE.width` — 0,53
+ * en portrait, 0,50 sur un écran large —, en s'allongeant vers l'arrière :
+ * elle occupe toute la moitié gauche du plateau. Ce qui doit rester dégagé
+ * devant elle se mesure donc contre `TETE_LOCO_MAX`, le plus à droite des deux.
  * La gare avait d'abord été posée tout entière à droite de son nez ; elle a été
  * décalée vers la gauche, et c'est maintenant l'**horloge** qui tient le centre
  * de la scène, le pignon étant sa place. Le flanc gauche du bâtiment passe

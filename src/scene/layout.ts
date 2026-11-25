@@ -62,6 +62,7 @@ export const CADRAGE_PORTRAIT = {
   recul: 0.5,
   massif: 1.3,
   descente: 140 / 915,
+  tete: 0.53,
 } as const
 
 export const CADRAGE_PAYSAGE = {
@@ -69,6 +70,7 @@ export const CADRAGE_PAYSAGE = {
   recul: 0.8,
   massif: 1,
   descente: 20 / 690,
+  tete: 0.5,
 } as const
 
 /** Où l'on se trouve entre les deux ancres : 0 au portrait, 1 au paysage. */
@@ -98,6 +100,46 @@ export function descenteDuFormat(viewportW: number, viewportH: number): number {
     CADRAGE_PORTRAIT.descente + t * (CADRAGE_PAYSAGE.descente - CADRAGE_PORTRAIT.descente)
   return Math.max(viewportH, 1) * part
 }
+
+/**
+ * Où se pose la tête de la locomotive, en part de la largeur du plateau.
+ *
+ * C'est elle qu'on vise, et non le centre de la rame : la locomotive regarde
+ * à droite, c'est son nez qui tient la composition. Dit ainsi, le cadrage ne
+ * bouge plus quand on change l'échelle du train ou qu'on lui attelle un
+ * wagon — la rame s'allonge vers l'arrière, jamais vers l'avant. En
+ * contrepartie, elle déborde du plateau à gauche, et c'est voulu : le train
+ * continue hors champ.
+ *
+ * **0,53 en portrait et 0,50 en paysage** depuis le 25 novembre 2026. Le nez
+ * était à 0,56 pour tous les formats depuis le 20 novembre, afin que
+ * réverbère, train, gare et panneau tiennent dans la même zone ; le panneau a
+ * quitté le mur entre-temps, et la scène a reculé. Emmanuelle a rejugé sur des
+ * rendus aux deux formats et l'a ramené vers la gauche — plus sur un écran
+ * large que sur un téléphone, où la place manque déjà.
+ *
+ * Ce que ça change sur un écran large : le recul montre maintenant plus que le
+ * plateau, et la rame y tient tout entière, queue comprise. C'est ce qu'elle a
+ * regardé en choisissant 0,50 ; le `continue hors champ` ci-dessus reste vrai
+ * des formats étroits, où elle déborde toujours.
+ *
+ * C'est le quatrième réglage à vivre entre les deux ancres, et le seul qui
+ * déplace un objet plutôt que le cadre — d'où `Train.cadrer`.
+ */
+export function teteDuFormat(viewportW: number, viewportH: number): number {
+  const t = entreLesAncres(viewportW, viewportH)
+  return CADRAGE_PORTRAIT.tete + t * (CADRAGE_PAYSAGE.tete - CADRAGE_PORTRAIT.tete)
+}
+
+/**
+ * Le nez le plus à droite qu'un format puisse donner.
+ *
+ * L'interpolation est bornée aux deux ancres : aucun écran ne peut pousser la
+ * rame plus loin que ça. C'est donc contre cette valeur, et non contre celle
+ * d'un format choisi, que se vérifie ce qui doit rester devant le train — le
+ * réverbère, le quai, la dernière travée de câble.
+ */
+export const TETE_LOCO_MAX = Math.max(CADRAGE_PORTRAIT.tete, CADRAGE_PAYSAGE.tete)
 
 /**
  * Pose le plateau sur la fenêtre, reculé de ce que le format demande.
@@ -159,25 +201,6 @@ export const ECHELLE_TRAIN = 0.4
  * sides, which is what a nearer ridge does. A visual value, like the train's.
  */
 export const ECHELLE_MONTAGNES = 2.2
-
-/**
- * Où se pose la tête de la locomotive, en part de la largeur du cadre.
- *
- * C'est elle qu'on vise, et non le centre de la rame : la locomotive regarde
- * à droite, c'est son nez qui tient la composition. Dit ainsi, le cadrage ne
- * bouge plus quand on change l'échelle du train ou qu'on lui attelle un
- * wagon — la rame s'allonge vers l'arrière, jamais vers l'avant. En
- * contrepartie, elle déborde du cadre à gauche, et c'est voulu : le train
- * continue hors champ.
- *
- * **0,56 et non 0,5** depuis le 20 novembre 2026 : la propriétaire a demandé
- * que la rame avance vers la droite, pour que réverbère, train, gare et panneau
- * tiennent à peu près dans la même zone. Le nez passe de 1160 à 1299, et vient
- * se ranger juste à gauche du réverbère, lui aussi décalé. (Le panneau a quitté
- * le mur depuis : c'est un rideau de la scène, voir `rideau.ts`. La raison du
- * 0,56 est datée, elle n'a pas été rejugée sans lui.)
- */
-export const TETE_LOCO = 0.56
 
 /**
  * Hauteur du voile qui éteint le pied du massif, en pixels de cadre, mesurée

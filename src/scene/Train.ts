@@ -1,6 +1,13 @@
 import { Container, Sprite, Texture, TilingSprite } from 'pixi.js'
 import { framePath, loadSequence, loadTexture } from './assets'
-import { DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, MONDE, STAGE, TETE_LOCO } from './layout'
+import {
+  DUREE_ETAPE,
+  ECHELLE_TRAIN,
+  HORIZON,
+  MONDE,
+  STAGE,
+  teteDuFormat,
+} from './layout'
 import type { Manifest, SequenceSpec, TrainSequence } from './types'
 
 export type TrainState = 'arret' | 'demarrage' | 'roule' | 'freinage'
@@ -176,17 +183,21 @@ export function emprise(
  * Where to place the scaled rolling stock. Two things must hold whatever the
  * scale and however long the train: the wheels stay on the rail line, and the
  * head of the locomotive stays put. A point at the rail line maps to itself;
- * the nose lands at TETE_LOCO of the frame.
+ * the nose lands at `tete` of the stage width.
+ *
+ * `tete` se donne, et ne se devine pas : il vaut 0,53 sur un téléphone en
+ * portrait et 0,50 sur un écran large, et c'est `teteDuFormat` qui tranche.
  */
 export function ancrageRame(
   loco: SequenceSpec,
   wagon: SequenceSpec,
   echelle: number,
-  wagons = 1,
+  wagons: number,
+  tete: number,
 ): { x: number; y: number } {
   const { droite } = emprise(loco, wagon, wagons)
   return {
-    x: STAGE.width * TETE_LOCO - echelle * droite,
+    x: STAGE.width * tete - echelle * droite,
     y: HORIZON * (1 - echelle),
   }
 }
@@ -252,7 +263,12 @@ export class Train {
   /** Dernière vitesse calculée, lue par la terre. */
   private derniereVitesse = 0
 
-  constructor(parent: Container, manifest: Manifest) {
+  constructor(
+    parent: Container,
+    manifest: Manifest,
+    viewportW: number,
+    viewportH: number,
+  ) {
     this.manifest = manifest
     const spec = manifest.train
     this.wagons.forEach((wagon, i) => {
@@ -264,9 +280,8 @@ export class Train {
     this.corps.addChild(...[...this.wagons].reverse(), this.loco)
     this.rame.addChild(this.corps)
 
-    const ancre = ancrageRame(spec.loco, spec.wagon, ECHELLE_TRAIN, WAGONS)
     this.rame.scale.set(ECHELLE_TRAIN)
-    this.rame.position.set(ancre.x, ancre.y)
+    this.cadrer(viewportW, viewportH)
 
     // La voie n'est pas dans la rame : elle garde la pleine largeur du cadre.
     this.voie.label = 'voie'
@@ -276,6 +291,27 @@ export class Train {
 
   get container(): Container {
     return this.racine
+  }
+
+  /**
+   * Repose la rame pour ce format.
+   *
+   * Le nez ne tombe pas au même endroit sur un téléphone en portrait et sur un
+   * écran large (`teteDuFormat`), et c'est la seule chose du train qui dépende
+   * de la fenêtre : la voie défile par sa `tilePosition`, jamais par la rame,
+   * si bien qu'on peut reposer celle-ci en plein voyage sans rien déranger.
+   * Les vitres et la fumée sont ses enfants et la suivent.
+   */
+  cadrer(viewportW: number, viewportH: number): void {
+    const spec = this.manifest.train
+    const ancre = ancrageRame(
+      spec.loco,
+      spec.wagon,
+      ECHELLE_TRAIN,
+      WAGONS,
+      teteDuFormat(viewportW, viewportH),
+    )
+    this.rame.position.set(ancre.x, ancre.y)
   }
 
   /**

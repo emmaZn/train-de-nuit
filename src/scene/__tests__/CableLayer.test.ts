@@ -11,7 +11,7 @@ import {
 } from '@/scene/CableLayer'
 import { FILS, POTEAU, TRAVEE, u } from '@/scene/cables'
 import { cellule, cellulesClaires } from '@/scene/grain'
-import { HORIZON, MONDE, STAGE, TETE_LOCO } from '@/scene/layout'
+import { HORIZON, MONDE, STAGE, TETE_LOCO_MAX } from '@/scene/layout'
 
 function cables(): Cables {
   return new Cables(new Container())
@@ -57,7 +57,7 @@ describe('Cables', () => {
   it('à quai, les fils sont dans le champ libre à droite du nez de la loco', () => {
     const c = cables()
     c.placer(0)
-    const nez = TETE_LOCO * STAGE.width
+    const nez = TETE_LOCO_MAX * STAGE.width
     for (const u of [1.1, 1.5, 1.9]) {
       expect(c.positionSur(0, u).x).toBeGreaterThan(nez)
     }
@@ -129,7 +129,7 @@ describe('Cables', () => {
 
 describe('POSITION_A_QUAI', () => {
   it('laisse la deuxième travée entière à droite du nez de la loco', () => {
-    expect(POSITION_A_QUAI + TRAVEE).toBeGreaterThanOrEqual(TETE_LOCO * STAGE.width)
+    expect(POSITION_A_QUAI + TRAVEE).toBeGreaterThanOrEqual(TETE_LOCO_MAX * STAGE.width)
   })
 })
 
