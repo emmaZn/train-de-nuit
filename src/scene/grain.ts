@@ -63,7 +63,12 @@ export const TROUS = 0.02
 /** Ce qu'une cellule devient. `masse` veut dire : on la laisse telle quelle. */
 export type Etat = 'trait' | 'masse' | 'vide'
 
-export type Recette = { matiere: Matiere; trous: number }
+/**
+ * `contour` : de combien de **cellules** le trait s'épaissit vers l'intérieur,
+ * avant tout le reste. Zéro par défaut — c'est l'état d'avant le 25 novembre
+ * 2026, et le poteau le garde.
+ */
+export type Recette = { matiere: Matiere; trous: number; contour?: number }
 
 export const RECETTE: Recette = { matiere: MATIERE, trous: TROUS }
 
@@ -167,16 +172,58 @@ export function cellulesClaires(
   recette: Recette = RECETTE,
 ): Uint8Array {
   const claires = new Uint8Array(Math.max(0, colonnes * lignes))
+  // Le contour s'épaissit **avant** les trous et la matière : la bande gagnée
+  // est du trait comme le reste, et elle respire comme lui.
+  const trace = epaissir(trait, masse, colonnes, lignes, recette.contour ?? 0)
   const { haut, bas } = etendue(masse, colonnes, lignes)
   const hauteur = Math.max(1, bas - haut)
   for (let l = 0; l < lignes; l += 1) {
     const t = (l - haut) / hauteur
     for (let c = 0; c < colonnes; c += 1) {
       const i = l * colonnes + c
-      if (cuireCellule(trait[i] === 1, masse[i] === 1, t, c, l, recette) === 'trait') claires[i] = 1
+      if (cuireCellule(trace[i] === 1, masse[i] === 1, t, c, l, recette) === 'trait') claires[i] = 1
     }
   }
   return claires
+}
+
+/**
+ * Le trait épaissi de `cellules` crans, **vers l'intérieur de la silhouette**.
+ *
+ * Le trait dessiné fait environ une cellule de large : une cellule de grain
+ * suffit à le couper, et c'est la silhouette qui tient la lecture de la pièce.
+ * C'est la même constatation que `--contour` dans `grain_train.py`, portée à
+ * la grille de cellules.
+ *
+ * Il ne déborde jamais de `masse` : un trait qui grandirait vers l'extérieur
+ * rendrait l'oiseau plus gros au lieu de le dessiner mieux.
+ */
+export function epaissir(
+  trait: Uint8Array,
+  masse: Uint8Array,
+  colonnes: number,
+  lignes: number,
+  cellules: number,
+): Uint8Array {
+  if (cellules <= 0) return trait
+  let courant = trait
+  for (let n = 0; n < cellules; n += 1) {
+    const suivant = new Uint8Array(courant)
+    for (let l = 0; l < lignes; l += 1) {
+      for (let c = 0; c < colonnes; c += 1) {
+        const i = l * colonnes + c
+        if (courant[i] === 1 || masse[i] !== 1) continue
+        const voisin =
+          (c > 0 && courant[i - 1] === 1) ||
+          (c < colonnes - 1 && courant[i + 1] === 1) ||
+          (l > 0 && courant[i - colonnes] === 1) ||
+          (l < lignes - 1 && courant[i + colonnes] === 1)
+        if (voisin) suivant[i] = 1
+      }
+    }
+    courant = suivant
+  }
+  return courant
 }
 
 /** Peint les cellules claires sur une toile, en gris plein — jamais autre chose. */

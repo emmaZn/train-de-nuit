@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, test } from 'vitest'
 
 import { POSES, RECETTE_POSE, cellulesAllumees, miroir, separer } from '@/scene/poses'
-import { TROUS, cellulesClaires } from '@/scene/grain'
+import { RECETTE, TROUS, cellulesClaires } from '@/scene/grain'
 
 const DESSIN = '<path d="M0 0" fill="#0b0b0c" stroke="#e4e4e8" stroke-width="1.5"/>'
 
@@ -100,4 +100,15 @@ describe('RECETTE_POSE', () => {
     const claires = cellulesClaires(trait, masse, colonnes, lignes, RECETTE_POSE)
     expect(claires.some((v) => v === 1)).toBe(false)
   })
+})
+
+// Le 25 novembre 2026 : « sur les oiseaux il faut aussi renforcer le contour
+// du tracé (en mode light et en mode sombre) ». Une seule valeur, les deux
+// modes : le trait dessiné fait une cellule, et une cellule de grain le coupe.
+test('la recette des bouvreuils épaissit leur contour', () => {
+  expect(RECETTE_POSE.contour).toBe(1)
+})
+
+test('la recette du poteau ne l’épaissit pas : sa masse est une structure', () => {
+  expect(RECETTE.contour ?? 0).toBe(0)
 })
