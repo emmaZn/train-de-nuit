@@ -49,7 +49,7 @@ import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { Neige } from './NeigeLayer'
 import { nuitDeLaGare } from './nuit'
-import { createRecolorFilter, setRecolorFond, setRecolorMode } from './recolor'
+import { createRecolorFilter, setRecolorMode } from './recolor'
 import { forwardSteps } from './types'
 import type { Gare, Manifest, Trace } from './types'
 
@@ -487,7 +487,12 @@ export class Scene {
     }
 
     this.vivante = true
-    this.recolor = createRecolorFilter(fondToHex(this.fond))
+    // **Le sol du filtre est l'encre dans les deux modes.** Le jour est un
+    // remappage de ce que la nuit aurait donné : `uSol = lum(uFond)` en est le
+    // zéro. Y mettre le papier porterait ce zéro à 0,93, et tout ce qui est en
+    // dessous — le gris du corps du train, à 0,929 — retomberait sur un papier
+    // plat. C'est le fond du renderer qui suit le mode, pas celui du filtre.
+    this.recolor = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
     setRecolorMode(this.recolor, this.mode === 'jour')
 
     // Le ciel se mesure en pixels d'écran — un téléphone ne voit qu'un quart
@@ -1204,12 +1209,11 @@ export class Scene {
    */
   setMode(mode: Mode): void {
     this.mode = mode
-    const couleur = fondToHex(this.fond)
-    if (this.recolor) {
-      setRecolorFond(this.recolor, couleur)
-      setRecolorMode(this.recolor, mode === 'jour')
-    }
-    if (this.vivante) this.app.renderer.background.color = couleur
+    if (this.recolor) setRecolorMode(this.recolor, mode === 'jour')
+    // Le fond du canevas, lui, est bien la couleur du mode : c'est ce qu'on
+    // voit autour des sprites, et il doit tomber sur la même valeur que le sol
+    // à l'intérieur d'eux.
+    if (this.vivante) this.app.renderer.background.color = fondToHex(this.fond)
     // Vue écoute pour écrire les tokens CSS et `data-mode` : la scène ne
     // connaît pas le DOM, et tout ce qui est en CSS suit le même mode.
     this.emitter.emit('mode', mode)

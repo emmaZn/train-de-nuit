@@ -2,7 +2,6 @@ import {
   createRecolorFilter,
   luminance,
   recolorPixel,
-  setRecolorFond,
   setRecolorMode,
 } from '@/scene/recolor'
 import type { Filter } from 'pixi.js'
@@ -105,9 +104,11 @@ describe('le filtre porte les deux pôles', () => {
     expect(uniformes(filtre).uSol as number).toBeCloseTo(luminance([21, 21, 23]), 5)
   })
 
-  it('recalcule le sol quand le fond change', () => {
+  // Le sol ne change jamais après coup : il n'y a qu'un seul sol, l'encre, et
+  // le mode ne le déplace pas. C'est tout l'intérêt de ne pas pouvoir l'écrire.
+  it('ne donne aucun moyen de déplacer le sol après coup', () => {
     const filtre = createRecolorFilter(0x151517)
-    setRecolorFond(filtre, 0x000000)
-    expect(uniformes(filtre).uSol as number).toBeCloseTo(0, 5)
+    setRecolorMode(filtre, true)
+    expect(uniformes(filtre).uSol as number).toBeCloseTo(luminance([21, 21, 23]), 5)
   })
 })

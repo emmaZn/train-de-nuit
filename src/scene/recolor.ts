@@ -116,18 +116,6 @@ function solDe(unite: Rgb): number {
   return LUMA[0] * unite[0] + LUMA[1] * unite[1] + LUMA[2] * unite[2]
 }
 
-export function setRecolorFond(filter: Filter, fond: number): void {
-  const uniforms = groups.get(filter)
-  if (!uniforms) return
-  const value = uniforms.uniforms.uFond as Float32Array
-  const unite = hexToUnit(fond)
-  value[0] = unite[0]
-  value[1] = unite[1]
-  value[2] = unite[2]
-  uniforms.uniforms.uSol = solDe(unite)
-  uniforms.update()
-}
-
 /** L'interrupteur du mode : un uniforme, donc un seul changement d'état par bascule. */
 export function setRecolorMode(filter: Filter, jour: boolean): void {
   const uniforms = groups.get(filter)
