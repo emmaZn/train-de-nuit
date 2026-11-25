@@ -1,4 +1,3 @@
-import gsap from 'gsap'
 import {
   Application,
   Container,
