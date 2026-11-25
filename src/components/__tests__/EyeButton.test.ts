@@ -1,6 +1,5 @@
 import { mount } from '@vue/test-utils'
 import EyeButton from '@/components/EyeButton.vue'
-import { PALETTE } from '@/scene/palette'
 import { createPinia, setActivePinia } from 'pinia'
 
 // Le bouton lit maintenant son libellé dans le dictionnaire, donc un magasin.
@@ -11,16 +10,16 @@ test('le bouton annonce ce qu’il fait aux lecteurs d’écran', () => {
   expect(wrapper.get('button').attributes('aria-label')).toBe('Changer la couleur de la nuit')
 })
 
-test('un clic demande la couleur suivante du cycle', async () => {
-  const wrapper = mount(EyeButton, { props: { fond: PALETTE[0] } })
+test('un clic demande le jour quand on est de nuit', async () => {
+  const wrapper = mount(EyeButton, { props: { mode: 'nuit' } })
   await wrapper.get('button').trigger('click')
-  expect(wrapper.emitted('change')?.[0]).toEqual([PALETTE[1]])
+  expect(wrapper.emitted('change')?.[0]).toEqual(['jour'])
 })
 
-test('un clic sur la dernière couleur revient à la première', async () => {
-  const wrapper = mount(EyeButton, { props: { fond: PALETTE[PALETTE.length - 1] } })
+test('un clic demande la nuit quand on est de jour', async () => {
+  const wrapper = mount(EyeButton, { props: { mode: 'jour' } })
   await wrapper.get('button').trigger('click')
-  expect(wrapper.emitted('change')?.[0]).toEqual([PALETTE[0]])
+  expect(wrapper.emitted('change')?.[0]).toEqual(['nuit'])
 })
 
 test('l’œil est un bouton, pas une image cliquable', () => {

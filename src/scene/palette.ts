@@ -1,41 +1,52 @@
 /**
- * The colours of the night. Clicking the eye walks this cycle; the choice is
- * remembered for the next visit, and every read and write falls back silently
- * when storage is unavailable — private windows, blocked cookies, full quota.
+ * Les deux modes du site. L'œil ne parcourt plus un cycle de couleurs, il
+ * bascule : la nuit, et le jour qui en est le négatif sur papier. Le choix est
+ * retenu pour la visite suivante, et chaque lecture comme chaque écriture
+ * retombe en silence quand le stockage est indisponible — fenêtre privée,
+ * cookies bloqués, quota plein.
  */
-export const PALETTE = ['#151517', '#000', '#1a120b'] as const
+export type Mode = 'nuit' | 'jour'
 
-export type Fond = (typeof PALETTE)[number]
+export const MODES = ['nuit', 'jour'] as const satisfies readonly Mode[]
 
-/** La première du cycle. */
-export const DEFAUT: Fond = PALETTE[0]
+/** On arrive de nuit. C'est le nom du site. */
+export const DEFAUT: Mode = 'nuit'
 
-const CLE = 'train-de-nuit:fond'
-
-function estDeLaPalette(valeur: string | null): valeur is Fond {
-  return valeur !== null && (PALETTE as readonly string[]).includes(valeur)
+/**
+ * L'inversion est à 100 % : la teinte encre `#151517` est le sol de la nuit et
+ * le trait du jour. Le papier `#F2EEE6` a été choisi parmi trois beiges, rendus
+ * sur la scène qui bouge.
+ */
+export const COULEURS: Record<Mode, { fond: string; trait: string; texte: string }> = {
+  nuit: { fond: '#151517', trait: '#e6e6ea', texte: '#ececf0' },
+  jour: { fond: '#F2EEE6', trait: '#151517', texte: '#151517' },
 }
 
-/** Next colour in the cycle; an unknown colour restarts from the default. */
-export function nextFond(courant: string): Fond {
-  if (!estDeLaPalette(courant)) return DEFAUT
-  return PALETTE[(PALETTE.indexOf(courant) + 1) % PALETTE.length]
+const CLE = 'train-de-nuit:mode'
+
+function estUnMode(valeur: string | null): valeur is Mode {
+  return valeur !== null && (MODES as readonly string[]).includes(valeur)
 }
 
-export function loadFond(): Fond {
+/** L'autre mode. Un mode inconnu part vers le jour, puisqu'on le lit comme la nuit. */
+export function autreMode(courant: string): Mode {
+  return courant === 'jour' ? 'nuit' : 'jour'
+}
+
+export function loadMode(): Mode {
   try {
     const stocke = localStorage.getItem(CLE)
-    return estDeLaPalette(stocke) ? stocke : DEFAUT
+    return estUnMode(stocke) ? stocke : DEFAUT
   } catch {
     return DEFAUT
   }
 }
 
-export function saveFond(fond: string): void {
+export function saveMode(mode: Mode): void {
   try {
-    localStorage.setItem(CLE, fond)
+    localStorage.setItem(CLE, mode)
   } catch {
-    // Repli silencieux : mémoriser la couleur est un confort, pas une fonction.
+    // Repli silencieux : mémoriser le mode est un confort, pas une fonction.
   }
 }
 

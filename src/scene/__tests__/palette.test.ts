@@ -1,13 +1,12 @@
-import { DEFAUT, PALETTE, fondToHex, loadFond, nextFond, saveFond } from '@/scene/palette'
+import { COULEURS, DEFAUT, MODES, autreMode, fondToHex, loadMode, saveMode } from '@/scene/palette'
+import type { Mode } from '@/scene/palette'
 
 /**
- * Ces tests ne figent aucune couleur : la palette est un choix visuel
- * qu'Emmanuelle règle (CONCEPT.md §6, « à valider »). Ils vérifient le
- * comportement du cycle et la seule contrainte dure du cadrage — que le texte
- * reste lisible sur chaque couleur de nuit.
+ * Ces tests ne figent aucune couleur au hasard : les deux modes sont un choix
+ * visuel qu'Emmanuelle a tranché le 25/11 (spec `2026-11-25-mode-jour-design`).
+ * Ils tiennent le comportement de la bascule et la seule contrainte dure du
+ * cadrage — que le texte reste lisible dans les deux modes.
  */
-const TEXTE = '#ececf0'
-
 function luminance(hex: string): number {
   // Le même analyseur que la scène, pas une copie : une copie lirait la forme
   // courte autrement, et ce test validerait une couleur qu'on ne verra jamais.
@@ -33,13 +32,15 @@ afterEach(() => {
   }
 })
 
-test('la palette a de quoi tourner', () => {
-  expect(PALETTE.length).toBeGreaterThanOrEqual(2)
+test('il y a exactement deux modes', () => {
+  expect([...MODES]).toEqual(['nuit', 'jour'])
 })
 
 test('chaque couleur est un hexadécimal, en forme courte ou longue', () => {
-  for (const couleur of PALETTE) {
-    expect(couleur).toMatch(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
+  for (const mode of MODES) {
+    for (const couleur of Object.values(COULEURS[mode])) {
+      expect(couleur).toMatch(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
+    }
   }
 })
 
@@ -51,48 +52,59 @@ test('la forme courte vaut exactement sa forme longue', () => {
   expect(fondToHex('#2f1b0c')).toBe(0x2f1b0c)
 })
 
-// CONCEPT.md §6 : « toutes sombres, contraste > 12:1 avec le texte #ececf0 »
-test.each(PALETTE)('%s garde le texte lisible', (couleur) => {
-  expect(contraste(TEXTE, couleur)).toBeGreaterThan(12)
+// L'inversion est à 100 % : le trait d'un mode est le fond de l'autre.
+test("l'encre sert deux fois : sol de la nuit, trait du jour", () => {
+  expect(COULEURS.jour.trait.toLowerCase()).toBe(COULEURS.nuit.fond.toLowerCase())
 })
 
-test('le défaut est la première couleur du cycle', () => {
-  expect(DEFAUT).toBe(PALETTE[0])
+test.each([...MODES])('%s garde le texte lisible', (mode) => {
+  expect(contraste(COULEURS[mode].texte, COULEURS[mode].fond)).toBeGreaterThan(12)
 })
 
-test('le cycle avance d’une couleur', () => {
-  expect(nextFond(PALETTE[0])).toBe(PALETTE[1])
+test('part en nuit quand rien n’est stocké', () => {
+  expect(loadMode()).toBe('nuit')
 })
 
-test('le cycle boucle sur la première couleur', () => {
-  expect(nextFond(PALETTE[PALETTE.length - 1])).toBe(PALETTE[0])
+test('le défaut est la nuit', () => {
+  expect(DEFAUT).toBe('nuit')
 })
 
-test('une couleur inconnue retombe sur le défaut', () => {
-  expect(nextFond('#abcdef')).toBe(DEFAUT)
+test('relit le mode stocké', () => {
+  saveMode('jour')
+  expect(loadMode()).toBe('jour')
 })
 
-test('loadFond rend ce qui a été enregistré', () => {
-  saveFond(PALETTE[1])
-  expect(loadFond()).toBe(PALETTE[1])
+// Review Focus #2 : une valeur de l'ancienne palette, sous l'ancienne clé ou non.
+test('retombe en nuit sur une valeur inconnue', () => {
+  localStorage.setItem('train-de-nuit:mode', '#000')
+  expect(loadMode()).toBe('nuit')
 })
 
-test('loadFond rend le défaut quand la valeur stockée n’est pas dans la palette', () => {
-  localStorage.setItem('train-de-nuit:fond', '#000000')
-  expect(loadFond()).toBe(DEFAUT)
+test('ignore l’ancienne clé de la palette', () => {
+  localStorage.setItem('train-de-nuit:fond', '#1a120b')
+  expect(loadMode()).toBe('nuit')
 })
 
-// Review Focus #4 : navigation privée, cookies bloqués, quota dépassé
-test('loadFond rend le défaut quand localStorage lève', () => {
+// Review Focus #1 : navigation privée, cookies bloqués, quota dépassé
+test('retombe en nuit quand le stockage lève', () => {
   vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
     throw new DOMException('denied')
   })
-  expect(loadFond()).toBe(DEFAUT)
+  expect(loadMode()).toBe('nuit')
 })
 
-test('saveFond ne lève pas quand le quota est dépassé', () => {
+test('n’écrit rien et ne lève pas quand le stockage lève', () => {
   vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
     throw new DOMException('QuotaExceeded')
   })
-  expect(() => saveFond(PALETTE[1])).not.toThrow()
+  expect(() => saveMode('jour')).not.toThrow()
+})
+
+test('bascule dans les deux sens', () => {
+  expect(autreMode('nuit')).toBe('jour')
+  expect(autreMode('jour')).toBe('nuit')
+})
+
+test('un mode inconnu bascule vers le jour', () => {
+  expect(autreMode('brouillard' as Mode)).toBe('jour')
 })

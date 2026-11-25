@@ -39,7 +39,7 @@ import {
 } from './layout'
 import type { Frame } from './layout'
 import type { Relief } from './Relief'
-import { DEFAUT, fondToHex } from './palette'
+import { COULEURS, DEFAUT, fondToHex } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
@@ -403,7 +403,7 @@ export class Scene {
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
-  private fond = DEFAUT as string
+  private fond = COULEURS[DEFAUT].fond as string
   private phase = 0
   /**
    * L'arrivée du voyage en cours a-t-elle déjà été annoncée ?

@@ -6,7 +6,8 @@ import { retirerEcran } from '@/chargement'
 import { Scene } from '@/scene/Scene'
 import { HORIZON } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
-import { loadFond, saveFond } from '@/scene/palette'
+import { COULEURS, loadMode, saveMode } from '@/scene/palette'
+import type { Mode } from '@/scene/palette'
 import { sensDuGlissement, surUnElementInteractif } from '@/scene/glissement'
 import { garePrecedente, gareSuivante } from '@/scene/types'
 import { useTraces } from '@/stores/traces'
@@ -43,7 +44,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   // `shallowRef` : la scène est déjà `markRaw`, et c'est elle qu'on partage —
   // une référence profonde en rendrait un type que `SCENE_KEY` ne reconnaît pas.
   const scene = shallowRef<Scene | null>(null)
-  const fond = ref<string>(loadFond())
+  const mode = ref<Mode>(loadMode())
   const frame = shallowRef<Frame | null>(null)
   const rideau = shallowRef<EtatRideau | null>(null)
   const voyage = useVoyage()
@@ -87,15 +88,16 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     document.documentElement.style.setProperty('--y-voie', `${Math.round(y)}px`)
   }
 
-  function appliquerFond(valeur: string) {
-    fond.value = valeur
-    saveFond(valeur)
+  function appliquerMode(valeur: Mode) {
+    mode.value = valeur
+    saveMode(valeur)
+    const couleur = COULEURS[valeur].fond
     // On n'écrit pas la couleur ici : la scène la fait fondre sur une seconde
     // et l'émet à chaque image (CONCEPT §6). Écrire d'un coup ferait basculer
     // la tache de nuit du formulaire sur une nuit encore en train de changer.
     // Sans scène — avant l'init — il n'y a pas de fondu : on pose directement.
-    if (scene.value) scene.value.setFond(valeur)
-    else poserFond(valeur)
+    if (scene.value) scene.value.setFond(couleur)
+    else poserFond(couleur)
   }
 
   function surPointeur(event: PointerEvent) {
@@ -186,7 +188,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   }
 
   onMounted(async () => {
-    document.documentElement.style.setProperty('--fond', fond.value)
+    document.documentElement.style.setProperty('--fond', COULEURS[mode.value].fond)
     if (!canvas.value) {
       // Pas de canevas, donc pas de scène, donc rien à attendre : l'écran
       // d'attente n'a personne pour le relever.
@@ -219,7 +221,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     window.addEventListener('pointercancel', surAnnulation, { passive: true })
 
     await instance.init()
-    instance.setFond(fond.value)
+    instance.setFond(COULEURS[mode.value].fond)
     instance.setGare(gare.value)
     instance.setVoyage(enRoute.value, etapesRestantes.value, cible.value)
     instance.setLegs(legs.value)
@@ -263,5 +265,5 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     scene.value = null
   })
 
-  return { scene, fond, frame, rideau, changerFond: appliquerFond }
+  return { scene, mode, frame, rideau, changerFond: appliquerMode }
 }
