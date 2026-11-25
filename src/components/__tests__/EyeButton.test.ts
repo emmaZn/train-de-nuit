@@ -10,7 +10,10 @@ test('le bouton annonce ce qu’il fait aux lecteurs d’écran', () => {
   const wrapper = mount(EyeButton)
   // Le libellé ne parle plus de couleur : l'œil bascule entre deux mondes.
   expect(wrapper.get('button').attributes('aria-label')).toBe(TEXTES.fr.commandes.oeil)
-  expect(TEXTES.fr.commandes.oeil).toBe('Passer du jour à la nuit')
+  // Un libellé **sans direction** : le bouton va vers l'autre mode, quel que
+  // soit celui où l'on est. « Passer du jour à la nuit » disait le contraire
+  // de ce qu'il fait une fois sur deux — et par défaut on est de nuit.
+  expect(TEXTES.fr.commandes.oeil).toBe('Basculer entre le jour et la nuit')
   expect(TEXTES.en.commandes.oeil).toBe('Switch between day and night')
 })
 

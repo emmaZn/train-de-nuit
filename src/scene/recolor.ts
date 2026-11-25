@@ -1,4 +1,5 @@
 import { Filter, GlProgram, UniformGroup, defaultFilterVert } from 'pixi.js'
+import { COULEURS, fondToHex } from './palette'
 
 /** Rec. 709 luminance, the weights used by the shader below. */
 const LUMA = [0.2126, 0.7152, 0.0722] as const
@@ -8,9 +9,14 @@ type Rgb = [number, number, number]
 /** Les deux pôles du jour : le papier sur le sol, l'encre sur le trait. */
 export type PolesJour = { papier: Rgb; encre: Rgb }
 
-/** #F2EEE6, le papier choisi le 25/11, et #151517, la teinte encre. */
-export const PAPIER = 0xf2eee6
-export const ENCRE = 0x151517
+/**
+ * Les deux pôles du jour, **tirés de `COULEURS`** et non recopiés : c'est la
+ * même valeur que `--fond` côté CSS, que `theme-color` et que le fond du
+ * renderer. Les recopier laissait un écart possible entre la page et le sol à
+ * l'intérieur des sprites, en silence.
+ */
+export const PAPIER = fondToHex(COULEURS.jour.fond)
+export const ENCRE = fondToHex(COULEURS.jour.trait)
 
 export function luminance(rgb: Rgb): number {
   return (LUMA[0] * rgb[0] + LUMA[1] * rgb[1] + LUMA[2] * rgb[2]) / 255
@@ -90,11 +96,19 @@ void main(void)
 /** The uniform group of each filter, so callers never touch `filter.resources`. */
 const groups = new WeakMap<Filter, UniformGroup>()
 
+/**
+ * `resolution` : la résolution de la passe de filtre. Pixi la met à 1 par
+ * défaut — sur un écran à deux pixels par point, la pièce filtrée est alors
+ * rastérisée en 1× puis agrandie en interpolation linéaire. Le décor la garde
+ * telle quelle (c'était déjà le cas avant le mode jour, et y toucher
+ * changerait la nuit rendue) ; le conteneur des dissolutions, lui, n'avait
+ * aucun filtre : il demande `'inherit'` pour que son grain reste net.
+ */
 export function createRecolorFilter(
   fond: number,
-  papier: number = PAPIER,
-  encre: number = ENCRE,
+  opts: { papier?: number; encre?: number; resolution?: number | 'inherit' } = {},
 ): Filter {
+  const { papier = PAPIER, encre = ENCRE, resolution } = opts
   const unite = hexToUnit(fond)
   const uniforms = new UniformGroup({
     uFond: { value: new Float32Array(unite), type: 'vec3<f32>' },
@@ -106,6 +120,7 @@ export function createRecolorFilter(
   const filter = new Filter({
     glProgram: GlProgram.from({ vertex: defaultFilterVert, fragment: FRAGMENT, name: 'recolor' }),
     resources: { recolorUniforms: uniforms },
+    ...(resolution === undefined ? {} : { resolution }),
   })
   groups.set(filter, uniforms)
   return filter

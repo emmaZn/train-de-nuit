@@ -66,7 +66,7 @@ const fr = {
   },
 
   commandes: {
-    oeil: 'Passer du jour à la nuit',
+    oeil: 'Basculer entre le jour et la nuit',
     reverbere: 'Réverbère',
     langue: 'Langue du site',
     versFrancais: 'Lire le site en français',

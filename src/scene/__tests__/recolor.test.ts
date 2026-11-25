@@ -1,4 +1,7 @@
+import { COULEURS, fondToHex } from '@/scene/palette'
 import {
+  ENCRE,
+  PAPIER,
   createRecolorFilter,
   luminance,
   recolorPixel,
@@ -8,7 +11,11 @@ import type { Filter } from 'pixi.js'
 
 type Rgb = [number, number, number]
 
-/** #2E2313, « vieille photo », la couleur de nuit par défaut. */
+/**
+ * #2E2313 : une couleur de nuit quelconque. Elle a été le défaut du site
+ * jusqu'au 25 novembre 2026 ; elle reste ici parce que la règle doit tenir
+ * pour **n'importe quel** sol, et pas seulement pour celui du moment.
+ */
 const FOND: Rgb = [46, 35, 19]
 
 test('le noir devient exactement la couleur du fond', () => {
@@ -87,6 +94,27 @@ function uniformes(filter: Filter): Record<string, unknown> {
 }
 
 describe('le filtre porte les deux pôles', () => {
+  /**
+   * La résolution de l'écran, et non 1.
+   *
+   * Pixi rend une passe de filtre dans une cible à la résolution du filtre, et
+   * son défaut est 1. Sur un écran à deux pixels par point, le grain d'une
+   * phrase qui se défait serait alors rastérisé en 1×, puis agrandi en
+   * interpolation linéaire : des bords flous et des mi-teintes, sur une
+   * matière que le projet rend partout en `nearest`. Le conteneur `dissous`
+   * n'avait pas de filtre avant le mode jour : lui en donner un ne doit rien
+   * changer à la nuit.
+   */
+  it('garde la résolution par défaut du décor', () => {
+    // Le décor passait déjà par une passe en 1× avant le mode jour : y
+    // toucher changerait la nuit rendue, ce que le chantier s'interdit.
+    expect(createRecolorFilter(0x151517).resolution).toBe(1)
+  })
+
+  it('sait rendre à la résolution de sa cible quand on le demande', () => {
+    expect(createRecolorFilter(0x151517, { resolution: 'inherit' }).resolution).toBe('inherit')
+  })
+
   it('part en nuit', () => {
     expect(uniformes(createRecolorFilter(0x151517)).uJour).toBe(0)
   })
@@ -111,4 +139,18 @@ describe('le filtre porte les deux pôles', () => {
     setRecolorMode(filtre, true)
     expect(uniformes(filtre).uSol as number).toBeCloseTo(luminance([21, 21, 23]), 5)
   })
+})
+
+/**
+ * Les pôles du filtre et les couleurs du site sont **la même chose**.
+ *
+ * Le critère 2 du cadrage demande que la page autour soit exactement de la
+ * couleur du sol à l'intérieur des sprites. Tant que les deux valeurs étaient
+ * recopiées de part et d'autre, elles pouvaient diverger sans que rien ne le
+ * dise.
+ */
+test('le papier et l’encre du filtre sont ceux de la palette', () => {
+  expect(PAPIER).toBe(fondToHex(COULEURS.jour.fond))
+  expect(ENCRE).toBe(fondToHex(COULEURS.jour.trait))
+  expect(ENCRE).toBe(fondToHex(COULEURS.nuit.fond))
 })

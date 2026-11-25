@@ -42,7 +42,16 @@ const faux = vi.hoisted(() => ({ frame: null as unknown, rideau: null as unknown
 vi.mock('@/composables/useScene', async (importOriginal) => {
   const { ref } = await import('vue')
   const reel = await importOriginal<typeof import('@/composables/useScene')>()
-  return { ...reel, useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(faux.frame), rideau: ref(faux.rideau), changerFond: () => {} }) }
+  return {
+    ...reel,
+    useScene: () => ({
+      scene: ref(null),
+      mode: ref('nuit' as const),
+      frame: ref(faux.frame),
+      rideau: ref(faux.rideau),
+      basculerMode: async () => {},
+    }),
+  }
 })
 
 async function monterApp(chemin: string) {

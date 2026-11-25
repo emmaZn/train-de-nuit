@@ -284,11 +284,12 @@ export function monterLaRame(
   train: Train,
   manifest: Manifest,
   reducedMotion: boolean,
+  mode: Mode = 'nuit',
 ): { vitres: Vitres; fumee: Fumee } {
   const spec = manifest.train
   const positions = Array.from({ length: WAGONS }, (_, i) => wagonX(spec.loco, spec.wagon, i + 1))
   const rame = train.rameContainer
-  const vitres = new Vitres(rame, manifest, positions, reducedMotion)
+  const vitres = new Vitres(rame, manifest, positions, reducedMotion, mode)
   // La fumée sort de la cheminée, donc elle vit dans la rame elle aussi.
   // Elle n'est pas une lumière : elle porte sa teinte.
   const fumee = new Fumee(planSombre(plans, rame, 'fumee'), reducedMotion)
@@ -345,7 +346,12 @@ export class Scene {
    * sur le papier du jour. Il est posé dès la construction : il ne dépend ni
    * du contexte WebGL ni du manifeste.
    */
-  private readonly recolorDissous: Filter = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
+  private readonly recolorDissous: Filter = createRecolorFilter(fondToHex(COULEURS.nuit.fond), {
+    // `'inherit'` : le conteneur n'avait pas de filtre avant le mode jour, et
+    // une passe en 1× rendrait son grain flou sur un écran à deux pixels par
+    // point. La nuit ne doit pas bouger.
+    resolution: 'inherit',
+  })
   /** La terre sous les rails : devant le reflet, devant le train. */
   private terre: Terre | null = null
   /** Les vitres allumées des wagons : dans la rame, et seules à n'être pas teintées. */
@@ -609,9 +615,13 @@ export class Scene {
 
     // Les vitres et la fumée se posent dans la rame, à leur place : elles en
     // suivent l'échelle et la position sans rien avoir à recalculer.
-    const rame = monterLaRame(this.plans, this.train, manifest, this.reducedMotion)
+    const rame = monterLaRame(this.plans, this.train, manifest, this.reducedMotion, this.mode)
     this.vitres = rame.vitres
     this.fumee = rame.fumee
+    // Ceinture : tout ce qui naît après un `await` de `peupler` a manqué le
+    // `setMode` que `useScene` envoie à la fin d'`init`. Le passer en
+    // paramètre suffit aujourd'hui ; ceci couvre la prochaine couche.
+    this.poserLeMode()
     this.assombrir()
     this.cadrer()
 
@@ -1234,13 +1244,8 @@ export class Scene {
   setMode(mode: Mode): void {
     this.mode = mode
     if (this.recolor) setRecolorMode(this.recolor, mode === 'jour')
-    // Les pièces qui portent une lueur en propre : de jour, on dessine
-    // l'objet, pas la lumière.
-    this.quai?.setMode(mode)
-    this.vitres?.setMode(mode)
-    this.stars?.setMode(mode)
     setRecolorMode(this.recolorDissous, mode === 'jour')
-    for (const d of this.dissolutions) d.setMode(mode)
+    this.poserLeMode()
     // Le fond du canevas, lui, est bien la couleur du mode : c'est ce qu'on
     // voit autour des sprites, et il doit tomber sur la même valeur que le sol
     // à l'intérieur d'eux.
@@ -1248,6 +1253,18 @@ export class Scene {
     // Vue écoute pour écrire les tokens CSS et `data-mode` : la scène ne
     // connaît pas le DOM, et tout ce qui est en CSS suit le même mode.
     this.emitter.emit('mode', mode)
+  }
+
+  /**
+   * Descend le mode courant sur les couches qui portent une lueur en propre :
+   * de jour, on dessine l'objet, pas la lumière. Appelée par `setMode` et par
+   * `peupler`, parce que les vitres naissent après que `setMode` est passé.
+   */
+  private poserLeMode(): void {
+    this.quai?.setMode(this.mode)
+    this.vitres?.setMode(this.mode)
+    this.stars?.setMode(this.mode)
+    for (const d of this.dissolutions) d.setMode(this.mode)
   }
 
   private tick(dt: number): void {

@@ -38,9 +38,13 @@ boîtes et les mêmes comptes, et c'est `loadManifest` qui pose le préfixe du m
 Un visiteur ne télécharge que les images du sien.
 
 ```bash
+# le manifeste, la carte de relief et le reste. Le `train/` qu'il écrit au
+# passage ne sert à rien — `loadManifest` pose toujours un préfixe de mode —
+# et se jette après : ce sont les deux commandes d'en dessous qui comptent.
 python3 tools/build_assets.py --src ~/projet_zero --out public/assets \
   --carte montagne_hd/tramage/massif-carte.png \
   --train-src PTITRAIN_c6 --train-scale 0.5
+rm -rf public/assets/train
 
 # les deux jeux du train, depuis les deux cuissons
 python3 tools/build_assets.py --src ~/projet_zero --out /tmp/a --train-src PTITRAIN_c6

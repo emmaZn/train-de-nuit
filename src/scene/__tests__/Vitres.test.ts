@@ -379,6 +379,26 @@ describe('les vitres selon le mode', () => {
     expect(poser('jour').rects).toBeGreaterThan(0)
   })
 
+  /**
+   * Le mode à la construction, et pas seulement après coup.
+   *
+   * `Vitres` naît **après** le premier `await` de `Scene.peupler` — celui qui
+   * attend les deux images du train à quai —, alors que `useScene` appelle
+   * `Scene.setMode` dès que `init()` a rendu la main. `this.vitres` valait
+   * donc encore `null` à ce moment-là, et chaque carreau allumé peignait son
+   * halo sur le papier : douze taches d'encre le long de la rame, à chaque
+   * visite de jour. Le mode se donne donc à la naissance.
+   */
+  it('ne peint aucun halo quand il naît déjà de jour', () => {
+    const trace = poserContexte()
+    const rame = new Container()
+    const m = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as Manifest
+    const vitres = new Vitres(rame, m, [-900], false, 'jour')
+    vitres.cadrer(cadrageScene(1512, 771).frame, 1)
+    expect(trace.gradients).toBe(0)
+    expect(trace.rects).toBeGreaterThan(0)
+  })
+
   it('en repeint quand on revient à la nuit', () => {
     const trace = poserContexte()
     const rame = new Container()

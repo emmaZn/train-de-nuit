@@ -66,6 +66,8 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
    * voulait, et le faire aussi changer de gare en ferait deux.
    */
   let geste: { id: number; x: number; y: number; temps: number; consomme: boolean } | null = null
+  /** Une bascule de mode est-elle déjà partie ? Elle finit par un rechargement. */
+  let bascule = false
   const { cible, enRoute, etapesRestantes, gare, legs } = storeToRefs(voyage)
   const traces = useTraces()
   const { etoiles } = storeToRefs(traces)
@@ -119,6 +121,10 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
    * le geste du site, à l'endroit.
    */
   async function basculerMode(valeur: Mode) {
+    // Une seule bascule à la fois : l'écran d'attente ne couvre le bouton
+    // qu'une image après le clic, et Entrée maintenue en tire plusieurs.
+    if (bascule) return
+    bascule = true
     mode.value = valeur
     saveMode(valeur)
     // L'écran remonte dans la couleur **où l'on va** : sinon le rechargement

@@ -350,6 +350,7 @@ export class Vitres {
     manifest: Manifest,
     positionsWagons: number[],
     reducedMotion: boolean,
+    mode: Mode = 'nuit',
   ) {
     // Nommée : c'est la seule branche de la scène qui ne porte aucune teinte,
     // ni sur elle ni sur un ancêtre, et un test doit pouvoir le dire.
@@ -365,6 +366,11 @@ export class Vitres {
       groupe.position.set(wx, spec.y)
       BOITES.forEach((boite, i) => {
         const v = new Vitre(boite, (rang * BOITES.length + i) * 1.7, 101 + rang * 97 + i * 13)
+        // Le mode **à la naissance** : les vitres naissent après le premier
+        // `await` de `Scene.peupler`, donc après le `setMode` que `useScene`
+        // envoie dès la fin d'`init`. Le leur donner après coup les laissait
+        // peindre leur halo une fois, sur le papier.
+        v.setMode(mode)
         v.setAllumee(ALLUMEES[rang % ALLUMEES.length][i])
         this.vitres.push(v)
         // Le groupe est posé en (wx, spec.y) et porte des points du cadre

@@ -78,6 +78,9 @@ function monterSansCanevas() {
 }
 
 afterEach(() => {
+  // Un test de cette suite remplace `Storage.prototype.setItem` : sans cette
+  // ligne, la doublure survivait aux suivants et leur rendait un stockage mort.
+  vi.restoreAllMocks()
   double.instance = null
   // `remettreEcran` repose un écran : sans ce nettoyage il survit au test
   // suivant, dont le `retirerEcran` le retrouve.
@@ -287,6 +290,16 @@ describe('la bascule de mode', () => {
 
   // L'écran qui remonte doit être de la couleur où l'on va, pas de celle d'où
   // l'on vient : sinon le rechargement coupe d'une couleur à l'autre.
+  // Entrée maintenue sur l'œil : le clic part plusieurs fois avant que l'écran
+  // d'attente ne couvre le bouton. Une seule bascule doit aboutir.
+  test('ne recharge qu’une fois même si on bascule deux fois de suite', async () => {
+    const { reload, basculer } = monterAvecRecharge()
+    await flushPromises()
+    await Promise.all([basculer('jour'), basculer('nuit')])
+    expect(reload).toHaveBeenCalledOnce()
+    expect(localStorage.getItem('train-de-nuit:mode')).toBe('jour')
+  })
+
   test('remonte l’écran dans la couleur du mode visé', async () => {
     const { basculer } = monterAvecRecharge()
     await flushPromises()
