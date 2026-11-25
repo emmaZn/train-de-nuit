@@ -192,7 +192,15 @@ pied de page vient se poser sur le reflet : 70 est à peu près le maximum que
 ce format supporte. La tache qui détache le texte a été resserrée dans la
 foulée, à sa demande — `inset: -14px -56px` au lieu de `-22px -76px`.
 
-**Reste, dans l'ordre :** le grain du massif (chantier 2 — et le recul ne l'a
-pas réglé : `GRAIN_ECRAN` se compte en pixels d'écran physiques), puis le
-glissement entre gares (chantier 3). Un voyage complet aux formats extrêmes
-n'a toujours pas été regardé.
+**Les trois remarques sont traitées.** Le cadrage (`6ac5b1b`, `0183d6f`), puis
+le grain du massif — dont la cause n'était pas la taille des points mais la
+**densité de l'écran** : le rendu suivait le `devicePixelRatio`, si bien que le
+même grain valait 0,75 px de CSS sur son Mac et 0,50 sur son téléphone
+(`13fe95a`). Puis le glissement entre gares (`6b7…`, ci-dessous). Entre-temps
+elle a demandé et obtenu : tout le site en mono, les phrases des bouvreuils
+dans la plaque d'« ici », des aplats noir et blanc sur la montagne, un voile du
+pied deux fois plus haut, et des fenêtres de train qu'on peut éteindre au
+doigt.
+
+**Reste :** un voyage complet aux formats extrêmes n'a toujours pas été
+regardé, et `partage.png` a encore de l'Inter cuit dedans.
