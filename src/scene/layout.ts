@@ -69,9 +69,14 @@ export const MONDE = {
  * à **170 px**, et le massif de 1,3 à **1,02** — sans quoi, la scène
  * grandissant, il reprendrait toute la place qu'on venait de lui ôter.
  *
- * La descente était d'abord passée à 200, et elle l'a reprise aussitôt : « un
- * tout petit peu trop en bas ». À 200, la signature du pied de page venait
- * s'écrire sur la voie ; à 170 elle retrouve sa bande sombre sous le reflet.
+ * La descente était d'abord passée à 200, et elle l'a reprise deux fois : « un
+ * tout petit peu trop en bas » (170), puis « hausse l'horizon de 10 px » (160).
+ * À 200, la signature du pied de page venait s'écrire sur la voie ; elle a
+ * retrouvé sa bande sombre sous le reflet, et la scène a gagné de l'air.
+ *
+ * Trois autres retouches sont arrivées dans le même message, toutes pour le
+ * portrait : le texte descend de dix pixels (`GareIci.vue`), le nez de la
+ * locomotive avance de vingt, et le massif grandit de cinq pour cent.
  *
  * **Sa butée, mesurée sur rendu :** à 0,82 de recul, ou à 250 px de descente,
  * la signature du pied de page vient se poser sur la voie et sur le train.
@@ -86,9 +91,16 @@ export const MONDE = {
 export const CADRAGE_PORTRAIT = {
   aspect: 412 / 915,
   recul: 0.72,
-  massif: 1.02,
-  descente: 170 / 915,
-  tete: 0.53,
+  /* 1,02 × 1,05 : cinq pour cent de plus, demandés tels quels. */
+  massif: 1.071,
+  descente: 160 / 915,
+  /*
+   * 0,53 plus vingt pixels d'écran, convertis : à 412 × 915 la scène est à
+   * 0,5413, et vingt pixels y valent 36,9 px de plateau, soit 0,0159 de sa
+   * largeur. Le nez avance donc à 0,546 — en portrait seulement, le paysage
+   * reste à 0,50.
+   */
+  tete: 0.546,
 } as const
 
 export const CADRAGE_PAYSAGE = {

@@ -91,7 +91,10 @@ const t = useTextes()
 
 @media (max-width: 720px) {
   .mot {
-    top: 132px;
+    /* 142 et non 132 : « descends le texte de 10 px », 25 novembre 2026, sur
+       le téléphone. La plaque de « là-haut » n'a pas suivi — elle est à 118,
+       et sa hauteur tient à son formulaire. */
+    top: 142px;
     left: 16px;
     width: auto;
     right: 16px;
