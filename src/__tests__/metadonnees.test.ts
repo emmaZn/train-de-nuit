@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
 
 import { TEXTES } from '@/i18n/textes'
-import { DEFAUT } from '@/scene/palette'
+import { COULEURS, DEFAUT } from '@/scene/palette'
 
 /**
  * Ce que le document dit de lui-même, et qui n'existait pas : `index.html` ne
@@ -94,7 +94,7 @@ test('les deux langues sont annoncées', () => {
 test('la couleur du navigateur est la nuit par défaut', () => {
   // Le script de tête pose déjà `--fond` avant le premier pixel ; celle-ci
   // teinte ce qui est autour, la barre d'adresse d'un téléphone.
-  expect(meta('theme-color')).toBe(DEFAUT)
+  expect(meta('theme-color')).toBe(COULEURS[DEFAUT].fond)
 })
 
 /**

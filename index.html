@@ -36,7 +36,9 @@
     <title>Train de nuit — Emmanuelle Zenou</title>
     <meta name="robots" content="noindex, follow" />
     <meta name="description" content="Un train roule de nuit à travers des montagnes de grain. Il s’arrête dans quatre gares. Les visiteurs y laissent une phrase qui devient une étoile." />
-    <!-- La nuit par défaut, celle de `DEFAUT` dans src/scene/palette.ts. -->
+    <!-- La nuit par défaut, celle de `COULEURS[DEFAUT]` dans
+         src/scene/palette.ts. Le script de tête la remplace par le papier
+         quand le visiteur est en mode jour. -->
     <meta name="theme-color" content="#151517" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Train de nuit" />
@@ -58,25 +60,26 @@
       rel="stylesheet"
     />
     <script>
-      /* La couleur de nuit choisie à la dernière visite, posée avant le premier
-         pixel. Sans elle, l'écran d'attente aurait une nuit que le site n'a
-         pas, et son fondu laisserait voir la bascule.
+      /* Le mode choisi à la dernière visite, posé avant le premier pixel.
+         Sans lui, l'écran d'attente aurait une couleur que le site n'a pas, et
+         son fondu laisserait voir la bascule. Et comme les deux modes n'ont
+         pas le même jeu d'images du train, c'est aussi ce qui permet de ne
+         charger que les bonnes.
 
-         Elle est posée **même à défaut de choix** : `base.css` déclare encore
-         `--fond: #2e2313`, que `useScene` remplace par `#151517` au montage.
-         Personne ne voyait ce virage — il arrivait sur une page vide ; devant
-         l'écran d'attente il durerait une seconde et demie.
+         Il est posé **même à défaut de choix** : `base.css` tient la nuit sur
+         `:root`, mais la poser ici évite tout virage devant l'écran d'attente.
 
-         Les trois valeurs sont celles de `PALETTE` (src/scene/palette.ts) et le
-         repli celle de `DEFAUT` : recopiées à la main, parce que ce script
+         Les deux noms et les deux fonds sont ceux de `MODES` et `COULEURS`
+         (src/scene/palette.ts) : recopiés à la main, parce que ce script
          s'exécute avant le bundle. Un test tient les deux listes ensemble. */
-      var nuit = null
+      var mode = null
       try {
-        nuit = localStorage.getItem('train-de-nuit:fond')
+        mode = localStorage.getItem('train-de-nuit:mode')
       } catch (e) {
         /* Fenêtre privée, stockage bloqué : ce sera la nuit par défaut. */
       }
-      if (nuit !== '#151517' && nuit !== '#000' && nuit !== '#1a120b') nuit = '#151517'
+      if (mode !== 'nuit' && mode !== 'jour') mode = 'nuit'
+      var fond = mode === 'jour' ? '#F2EEE6' : '#151517'
 
       /* La langue retenue, posée elle aussi avant le premier pixel. Entre
          l'ouverture de la page et `main.ts`, c'est ce HTML qui parle : annoncé
@@ -92,13 +95,23 @@
       if (langue !== 'fr' && langue !== 'en') langue = 'fr'
       document.documentElement.lang = langue
 
-      /* Deux variables, et non une. `--fond`, pour que la page parte de la
-         bonne nuit ; `--nuit-attente`, que personne d'autre n'écrit, pour
-         l'écran d'attente. La scène réécrit `--fond` à chaque image pendant
-         son fondu d'ouverture : l'écran y aurait changé de couleur en plein
-         chargement, alors qu'il ne fait qu'attendre. */
-      document.documentElement.style.setProperty('--fond', nuit)
-      document.documentElement.style.setProperty('--nuit-attente', nuit)
+      /* `data-mode` est ce que lit le CSS : `base.css` redéfinit ses tokens
+         sous `:root[data-mode="jour"]`, et la feuille du CV s'efface sous le
+         même sélecteur. Il est posé ici, donc avant la feuille de style. */
+      document.documentElement.dataset.mode = mode
+
+      /* Deux variables, et non une. `--fond`, pour que la page parte du bon
+         mode ; `--nuit-attente`, que personne d'autre n'écrit, pour l'écran
+         d'attente. La scène réécrit `--fond` à chaque image pendant son fondu
+         d'ouverture : l'écran y aurait changé de couleur en plein chargement,
+         alors qu'il ne fait qu'attendre. */
+      document.documentElement.style.setProperty('--fond', fond)
+      document.documentElement.style.setProperty('--nuit-attente', fond)
+
+      /* La barre d'adresse du téléphone suit le mode. La balise porte la nuit
+         en dur, pour les robots d'aperçu qui n'exécutent rien. */
+      var teinte = document.querySelector('meta[name="theme-color"]')
+      if (teinte) teinte.setAttribute('content', fond)
     </script>
     <style>
       /* Le `html` est de la couleur du site, pour qu'aucun blanc ne passe
@@ -296,7 +309,10 @@
           toile.width = Math.round(w * densite)
           toile.height = Math.round(h * densite)
           pinceau.setTransform(densite, 0, 0, densite, 0, 0)
-          pinceau.fillStyle = '#ffffff'
+          /* Le filtre de la scène rend ce grain blanc sur la nuit et encre sur
+             le papier : l'écran d'attente fait le même geste à la main, sans
+             quoi le jour attendrait devant un beige vide. */
+          pinceau.fillStyle = mode === 'jour' ? '#151517' : '#ffffff'
           /* Les plus vifs en tête : c'est l'ordre dans lequel ils s'allument. */
           grains = window.__poussiereDAttente(w, h).sort(function (a, b) {
             return b.a - a.a

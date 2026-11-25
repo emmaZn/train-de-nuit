@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import type { Grain } from '../scene/alea'
-import { DEFAUT, PALETTE } from '../scene/palette'
+import { COULEURS, DEFAUT, MODES } from '../scene/palette'
 import { GRAINE_CIEL, poussiereDeLaFenetre } from '../scene/Sky'
 import { ATTENTE_MAX, FONDU, retirerEcran } from '../chargement'
 
@@ -80,19 +80,37 @@ describe("l'écran d'attente d'index.html", () => {
     expect(html).toContain(`transition: opacity ${FONDU / 1000}s ease`)
   })
 
-  it("part de la nuit que le visiteur a choisie, et d'aucune autre", () => {
-    // Et à défaut de choix, de celle que le site prendra — pas de celle que
+  it("part du mode que le visiteur a choisi, et d'aucun autre", () => {
+    // Et à défaut de choix, du mode que le site prendra — pas de celui que
     // `base.css` déclare : le virage se verrait pendant toute l'attente.
-    // Les trois couleurs sont recopiées à la main dans un script inline : il
+    // Les deux modes sont recopiés à la main dans un script inline : il
     // s'exécute avant le bundle, il ne peut donc pas importer `palette.ts`.
-    for (const couleur of PALETTE) expect(html).toContain(`nuit !== '${couleur}'`)
-    expect(html.match(/nuit !== '/g)).toHaveLength(PALETTE.length)
-    expect(html).toContain(`nuit = '${DEFAUT}'`)
-    expect(html).toContain(`nuit-attente', nuit)`)
+    for (const m of MODES) expect(html).toContain(`mode !== '${m}'`)
+    expect(html.match(/mode !== '/g)).toHaveLength(MODES.length)
+    expect(html).toContain(`mode = '${DEFAUT}'`)
+    expect(html).toContain(`nuit-attente', fond)`)
     // Et il ne suit pas `--fond`, que la scène réécrit pendant son fondu.
-    expect(html).toContain(`background: var(--nuit-attente, ${DEFAUT})`)
+    expect(html).toContain(`background: var(--nuit-attente, ${COULEURS.nuit.fond})`)
   })
 
+  it('recopie le fond des deux modes', () => {
+    for (const m of MODES) expect(html).toContain(`'${COULEURS[m].fond}'`)
+  })
+
+  it('pose le mode sur la racine, pour le CSS', () => {
+    expect(html).toContain('documentElement.dataset.mode')
+  })
+
+  it('accorde la couleur du navigateur au mode', () => {
+    expect(html).toContain('theme-color')
+    expect(html).toMatch(/setAttribute\('content', fond\)/)
+  })
+
+  // Des points blancs sur du papier ne se voient pas : l'écran d'attente de
+  // jour doit peindre sa poussière à l'encre, comme le fait le filtre derrière.
+  it("peint la poussière d'attente à l'encre quand il fait jour", () => {
+    expect(html).toMatch(/fillStyle = mode === 'jour'/)
+  })
 })
 
 describe('le ciel de l’écran d’attente est celui de la scène', () => {
