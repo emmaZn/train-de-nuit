@@ -8,9 +8,12 @@ import {
   HAUTEUR_FRISE,
   HAUT_VOIE,
   CIEL_SOMMET,
-  DESCENTE_BUREAU,
-  DESCENTE_MOBILE,
+  MONDE,
+  MONDE_CIEL_MASSIF,
   PLANCHER_REFLET,
+  descenteDuFormat,
+  massifDuFormat,
+  reculDuFormat,
   cadrageCiel,
   versCadre,
   cadrageScene,
@@ -64,10 +67,40 @@ test.each([
   expect(Number.isFinite(frame.offsetY)).toBe(true)
 })
 
-test('le cadre couvre le viewport sans laisser de bande vide', () => {
-  const { scale } = fitStage(1440, 900)
-  expect(STAGE.width * scale).toBeGreaterThanOrEqual(1440)
-  expect(STAGE.height * scale).toBeGreaterThanOrEqual(900)
+/**
+ * L'anti-but du cadrage, écrit.
+ *
+ * Le plateau ne couvre plus le viewport : depuis le 24 novembre 2026 la scène
+ * recule, et c'est voulu — on veut voir le train entier sur un téléphone, et
+ * de l'air autour sur un écran. Ce qui doit couvrir le viewport, c'est le
+ * **monde** : la bande où la voie, la terre, le massif et le ciel ont le droit
+ * de continuer. Si un seul format y échoue, un plan s'arrête à l'écran, et
+ * c'est le seul défaut qu'Emmanuelle ait interdit en toutes lettres.
+ */
+const FENETRES = [
+  [360, 800],
+  [412, 915],
+  [768, 1024],
+  [915, 412],
+  [1280, 720],
+  [1480, 690],
+  [1512, 860],
+  [2560, 1080],
+  [3440, 1440],
+  [1, 1],
+] as const
+
+test.each(FENETRES)('le monde couvre le viewport, à %i × %i', (w, h) => {
+  const { scale } = fitStage(w, h)
+  expect(MONDE.width * scale).toBeGreaterThanOrEqual(w - 1e-6)
+  expect(MONDE.height * scale).toBeGreaterThanOrEqual(h - 1e-6)
+})
+
+test('le plateau, lui, a le droit de ne plus couvrir : c’est le recul', () => {
+  // 412 × 915, l'ancre portrait : la scène y est à la moitié de sa couverture.
+  const { scale } = fitStage(412, 915)
+  expect(STAGE.height * scale).toBeLessThan(915)
+  expect(scale).toBeCloseTo(Math.max(412 / STAGE.width, 915 / STAGE.height) * 0.5, 6)
 })
 
 test('le cadre est centré sur le viewport', () => {
@@ -81,10 +114,12 @@ test('le voile s’arrête exactement sur la ligne de voie', () => {
   expect(v.y + v.height).toBe(HORIZON)
 })
 
-test('le voile couvre toute la largeur du cadre', () => {
+test('le voile couvre toute la largeur du monde', () => {
+  // Du plateau seul, il laissait le pied du massif clair au-delà de l'ancien
+  // bord : une couture verticale, juste là où l'on regarde.
   const v = cadreDegrade(DEGRADE_HAUTEUR)
-  expect(v.x).toBe(0)
-  expect(v.width).toBe(STAGE.width)
+  expect(v.x).toBe(MONDE.x)
+  expect(v.width).toBe(MONDE.width)
 })
 
 test('le voile éteint le pied du massif, pas ses sommets', () => {
@@ -180,11 +215,14 @@ test('une seule gare visible ne divise pas par zéro', () => {
 // couvre que ce qu'on voit, borné à la voie. Couvrir tout le cadre coûterait
 // 4800 px de large sur un téléphone en portrait, au-delà de la taille de
 // texture que beaucoup de GPU mobiles acceptent.
-test('sur un écran au format du cadre, la fenêtre prend toute la largeur', () => {
+test('sur un écran au format du cadre, la fenêtre déborde le plateau', () => {
+  // Elle le prenait tout entier, exactement, du temps où la scène le collait
+  // à l'écran. Reculée, elle en montre autant et mord dans les marges.
   const frame = fitStage(2320, 1217)
   const f = fenetreVisible(frame, 2320, 1217)
-  expect(f.x).toBeCloseTo(0, 6)
-  expect(f.width).toBeCloseTo(STAGE.width, 6)
+  expect(f.x).toBeLessThan(0)
+  expect(f.width).toBeGreaterThan(STAGE.width)
+  expect(f.x).toBeGreaterThanOrEqual(MONDE.x)
 })
 
 test('la fenêtre s’arrête à la voie : le massif ne descend jamais plus bas', () => {
@@ -200,12 +238,12 @@ test('en portrait, la fenêtre est bien plus étroite que le cadre', () => {
   expect(f.width).toBeGreaterThan(0)
 })
 
-test('la fenêtre ne sort jamais du cadre, quel que soit l’écran', () => {
-  for (const [w, h] of [[390, 844], [2320, 1217], [3840, 900], [1024, 1366], [1, 1]]) {
+test('la fenêtre ne sort jamais du monde, quel que soit l’écran', () => {
+  for (const [w, h] of FENETRES) {
     const f = fenetreVisible(fitStage(w, h), w, h)
-    expect(f.x).toBeGreaterThanOrEqual(0)
-    expect(f.y).toBeGreaterThanOrEqual(0)
-    expect(f.x + f.width).toBeLessThanOrEqual(STAGE.width + 1e-6)
+    expect(f.x).toBeGreaterThanOrEqual(MONDE.x)
+    expect(f.y).toBeGreaterThanOrEqual(-MONDE_CIEL_MASSIF)
+    expect(f.x + f.width).toBeLessThanOrEqual(MONDE.x + MONDE.width + 1e-6)
     expect(f.y + f.height).toBeLessThanOrEqual(HORIZON + 1e-6)
     expect(f.width).toBeGreaterThan(0)
     expect(f.height).toBeGreaterThan(0)
@@ -369,36 +407,62 @@ test('l’œil se pose sur la ligne de voie, pas au-dessus', async () => {
 describe('la règle de dégagement', () => {
   const colonnes = (w: number): number[] => Array.from({ length: Math.ceil(w) + 1 }, (_, i) => i)
 
-  // Sur grand écran, `DESCENTE_BUREAU` s'ajoute au jeu de couverture : la scène
-  // descend de 20 px pour dégager du ciel. Conséquence heureuse, l'échelle du
-  // massif n'a plus besoin d'être résolue plus bas sur les formats de bureau —
-  // les 20 px suffisent à tenir `CIEL_SOMMET`, et elle reste pleine à 2,2.
+  // Depuis que la scène recule, la descente ne vaut plus deux chiffres selon
+  // la largeur : elle suit le format, en fraction de la hauteur, entre les
+  // deux ancres qu'Emmanuelle a tranchées sur rendus. Et comme la scène
+  // reculée laisse bien plus de ciel qu'avant, le massif tient sa taille
+  // pleine partout — rabotée seulement sur une fenêtre basse et large.
   test.each([
-    [1512, 771, 31, 2.2],
-    [1280, 800, 20, 2.2],
-    [1440, 900, 20, 2.2],
-    [1728, 1117, 20, 2.2],
-    [390, 844, 60, 2.2],
-    [844, 390, 26, 1.555],
+    [1512, 771, 33, 2.272],
+    [1280, 800, 55, 2.412],
+    [1440, 900, 62, 2.412],
+    [1728, 1117, 81, 2.433],
+    [390, 844, 128, 2.855],
+    [844, 390, 11, 1.533],
   ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
     const c = cadrageCiel(w, h)
     expect(c.decalage).toBeCloseTo(decalage, 0)
     expect(c.echelle).toBeCloseTo(echelle, 2)
   })
 
-  test('la descente s’ajoute au jeu vertical, et vaut plus sur téléphone', () => {
-    // Le jeu de couverture reste nul dès que la fenêtre est pilotée par sa
-    // hauteur : c'est une propriété de `fitStage`, et elle n'a pas bougé. Ce
-    // qui a changé, c'est que le décalage ne s'y limite plus sur grand écran.
-    expect(fitStage(1440, 900).offsetY).toBeCloseTo(0, 0)
-    expect(cadrageCiel(1440, 900).decalage).toBeCloseTo(DESCENTE_BUREAU, 0)
-    // La bande découverte en haut est du ciel, que la couche d'écran remplit
-    // de toute façon — c'est ce qui rend la manœuvre possible aujourd'hui.
-    expect(cadrageCiel(1512, 771).decalage).toBeGreaterThan(DESCENTE_BUREAU)
-    // Sur téléphone on descend davantage : le format est très haut et le train
-    // y tombait trop près du milieu.
-    expect(cadrageCiel(390, 844).decalage).toBeCloseTo(DESCENTE_MOBILE, 0)
-    expect(DESCENTE_MOBILE).toBeGreaterThan(DESCENTE_BUREAU)
+  test('les deux ancres d’Emmanuelle sont rendues exactement', () => {
+    // Ce sont les deux seuls formats qu'elle ait jugés, sur des rendus à
+    // taille d'appareil : 412 × 915 et 1480 × 690. Tout le reste du cadrage
+    // n'est qu'une interpolation entre eux, et peut bouger ; ces deux-là non.
+    expect(reculDuFormat(412, 915)).toBeCloseTo(0.5, 6)
+    expect(massifDuFormat(412, 915)).toBeCloseTo(1.3, 6)
+    expect(cadrageCiel(412, 915).decalage).toBeCloseTo(140, 0)
+
+    expect(reculDuFormat(1480, 690)).toBeCloseTo(0.8, 6)
+    expect(massifDuFormat(1480, 690)).toBeCloseTo(1, 6)
+    expect(cadrageCiel(1480, 690).decalage).toBeCloseTo(20, 0)
+  })
+
+  test('la descente s’ajoute au jeu vertical, et vaut plus en portrait', () => {
+    // Le jeu de couverture est nul dès que la scène ne déborde plus : c'est
+    // désormais le cas partout où elle recule, et le décalage vaut alors la
+    // descente seule. La bande découverte en haut est du ciel, que la couche
+    // d'écran remplit — c'est ce qui rend la manœuvre possible.
+    for (const [w, h] of FENETRES) {
+      const jeu = Math.max(0, -fitStage(w, h).offsetY)
+      const permis = jeu + descenteDuFormat(w, h)
+      expect(cadrageCiel(w, h).decalage, `${w}x${h}`).toBeLessThanOrEqual(permis + 1e-6)
+    }
+    // Un portrait descend beaucoup plus qu'un paysage, à hauteur égale.
+    expect(descenteDuFormat(412, 915)).toBeGreaterThan(descenteDuFormat(915, 412) * 3)
+  })
+
+  test('le recul et la taille du massif sont continus avec le format', () => {
+    // Un seuil ferait sauter le train de moitié au milieu d'un
+    // redimensionnement. Il n'y en a pas : seulement une interpolation.
+    for (let w = 320; w <= 2000; w += 7) {
+      const a = reculDuFormat(w, 800)
+      const b = reculDuFormat(w + 1, 800)
+      expect(Math.abs(a - b), `${w}`).toBeLessThan(0.01)
+      const m = massifDuFormat(w, 800)
+      const n = massifDuFormat(w + 1, 800)
+      expect(Math.abs(m - n), `${w}`).toBeLessThan(0.01)
+    }
   })
 
   test('l’échelle est continue en hauteur de fenêtre', () => {
@@ -417,7 +481,7 @@ describe('la règle de dégagement', () => {
     [1280, 480],
     [915, 356],
     // Étroite et basse : c'est là que le plafond du reflet mord sur téléphone,
-    // d'autant plus depuis que DESCENTE_MOBILE demande 60 px.
+    // d'autant plus depuis que la descente du portrait demande 15 % de la hauteur.
     [360, 440],
   ])('les rails restent visibles sur une fenêtre serrée (%ix%i)', (w, h) => {
     const frame = fitStage(w, h)

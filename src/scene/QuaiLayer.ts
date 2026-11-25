@@ -30,7 +30,7 @@
  */
 import gsap from 'gsap'
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
-import { STAGE } from './layout'
+import { MONDE } from './layout'
 import type { Frame } from './layout'
 import {
   CADRES,
@@ -357,7 +357,7 @@ export class Quai {
    * à personne.
    */
   horlogeTouchee(x: number, y: number): boolean {
-    return this.posee && horlogeTouchee(x - this.x, y)
+    return this.posee && horlogeTouchee(x - this.x, y, this.echelleCadre)
   }
 
   /**
@@ -499,7 +499,10 @@ export class Quai {
    * sous les yeux (spec §6.7).
    */
   horsChamp(distance: number): boolean {
-    return distance + FIN_GARE < 0 || distance + DEBUT_GARE > STAGE.width
+    // Les bornes sont celles du monde, pas du plateau : depuis que la scène
+    // recule, le plateau n'atteint plus les bords de l'écran, et la gare y
+    // disparaîtrait alors qu'on la voit encore.
+    return distance + FIN_GARE < MONDE.x || distance + DEBUT_GARE > MONDE.x + MONDE.width
   }
 
   /**

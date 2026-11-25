@@ -14,7 +14,7 @@
  * que soit la fenêtre et quelle que soit la densité de pixels de l'écran.
  */
 import { Container, Texture, TilingSprite } from 'pixi.js'
-import { ECHELLE_TRAIN, HORIZON, STAGE } from './layout'
+import { ECHELLE_TRAIN, HORIZON, MONDE } from './layout'
 import type { Cadre, Frame } from './layout'
 
 /**
@@ -112,9 +112,9 @@ export function semer(
   return grille
 }
 
-/** Où la bande se pose : toute la largeur, sous le champignon du rail. */
+/** Où la bande se pose : toute la largeur du monde, sous le champignon du rail. */
 export function cadreTerre(profondeur = PROFONDEUR): Cadre {
-  return { x: 0, y: HORIZON + DEBUT, width: STAGE.width, height: profondeur }
+  return { x: MONDE.x, y: HORIZON + DEBUT, width: MONDE.width, height: profondeur }
 }
 
 /**

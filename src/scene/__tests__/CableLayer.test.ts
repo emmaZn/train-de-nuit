@@ -11,7 +11,7 @@ import {
 } from '@/scene/CableLayer'
 import { FILS, POTEAU, TRAVEE, u } from '@/scene/cables'
 import { cellule, cellulesClaires } from '@/scene/grain'
-import { HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
+import { HORIZON, MONDE, STAGE, TETE_LOCO } from '@/scene/layout'
 
 function cables(): Cables {
   return new Cables(new Container())
@@ -180,13 +180,24 @@ describe('avant de savoir où est la gare', () => {
 })
 
 describe('horsChamp', () => {
+  // Les bornes sont celles du monde : le plateau n'atteint plus les bords de
+  // l'écran depuis que la scène recule, et s'en servir ferait disparaître les
+  // câbles alors qu'on les voit encore.
   it('dit vrai quand l’installation est entièrement sortie par la gauche', () => {
     const c = cables()
-    expect(c.horsChamp(-(POTEAUX - 1 + POTEAUX_SEULS) * TRAVEE - POSITION_A_QUAI - 10)).toBe(true)
+    expect(
+      c.horsChamp(MONDE.x - (POTEAUX - 1 + POTEAUX_SEULS) * TRAVEE - POSITION_A_QUAI - 10),
+    ).toBe(true)
   })
 
   it('dit vrai quand elle n’est pas encore entrée par la droite', () => {
-    expect(cables().horsChamp(STAGE.width + POTEAUX_SEULS * TRAVEE)).toBe(true)
+    expect(cables().horsChamp(MONDE.x + MONDE.width + POTEAUX_SEULS * TRAVEE)).toBe(true)
+  })
+
+  it('les garde tant qu’elles sont dans les marges du monde', () => {
+    // Juste au-delà de l'ancien bord du plateau : autrefois rejetées, et
+    // pourtant à l'écran dès que la scène recule.
+    expect(cables().horsChamp(STAGE.width + 10)).toBe(false)
   })
 
   it('dit faux dès qu’un seul poteau est à l’écran', () => {

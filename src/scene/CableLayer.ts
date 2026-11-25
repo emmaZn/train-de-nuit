@@ -16,7 +16,7 @@
  * C'est le précédent de `stars.ts` / `StarLayer.ts` (CONCEPT.md §9).
  */
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
-import { HORIZON, STAGE } from './layout'
+import { HORIZON, MONDE } from './layout'
 import type { Frame } from './layout'
 import { FILS, POTEAU, TRAVEE, amortir, u, yFil } from './cables'
 import type { Secousse } from './cables'
@@ -328,7 +328,7 @@ export class Cables {
   horsChamp(distance: number): boolean {
     const gauche = POSITION_A_QUAI + distance + this.emprise.gauche
     const droite = POSITION_A_QUAI + distance + this.emprise.droite
-    return droite < 0 || gauche > STAGE.width
+    return droite < MONDE.x || gauche > MONDE.x + MONDE.width
   }
 
   /** Jusqu'où s'étend l'installation, poteaux seuls compris, en repère d'île. */

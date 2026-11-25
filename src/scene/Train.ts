@@ -1,6 +1,6 @@
 import { Container, Sprite, Texture, TilingSprite } from 'pixi.js'
 import { framePath, loadSequence, loadTexture } from './assets'
-import { DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE, TETE_LOCO } from './layout'
+import { DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, MONDE, STAGE, TETE_LOCO } from './layout'
 import type { Manifest, SequenceSpec, TrainSequence } from './types'
 
 export type TrainState = 'arret' | 'demarrage' | 'roule' | 'freinage'
@@ -328,10 +328,12 @@ export class Train {
     // une locomotive réduite se verraient immédiatement.
     this.rails = new TilingSprite({
       texture: voie,
-      width: STAGE.width,
+      // Toute la largeur du monde : la voie ne s'arrête pas au plateau, sinon
+      // elle s'arrêterait à l'écran dès que la scène recule.
+      width: MONDE.width,
       height: voieSpec.height * ECHELLE_TRAIN,
     })
-    this.rails.position.set(0, HORIZON)
+    this.rails.position.set(MONDE.x, HORIZON)
     this.rails.tileScale.set(ECHELLE_TRAIN / voieSpec.scale)
     this.voie.addChild(this.rails)
   }

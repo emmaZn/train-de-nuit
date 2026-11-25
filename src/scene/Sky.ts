@@ -1,6 +1,6 @@
 import { Container, Graphics } from 'pixi.js'
 import { alea } from './alea'
-import { HORIZON, SEUIL_MOBILE, STAGE, cadrageScene } from './layout'
+import { HORIZON, MONDE, SEUIL_MOBILE, cadrageScene } from './layout'
 import type { Frame } from './layout'
 import type { Grain } from './alea'
 
@@ -54,9 +54,14 @@ export function plancherPoussiere(frame: Frame, viewportH: number): number {
 }
 
 /**
- * La poussière du ciel, en pixels d'écran. Les grains sont tirés sur `STAGE`
- * comme toujours, puis posés par le cadre décalé de la scène : taille, souffle
- * et composition restent ceux du cadre.
+ * La poussière du ciel, en pixels d'écran. Les grains sont tirés sur le
+ * **monde** — le plateau et ses marges — puis posés par le cadre décalé de la
+ * scène : taille, souffle et composition restent ceux du cadre.
+ *
+ * Sur le plateau seul, comme autrefois, le ciel s'arrêtait à ses bords. On ne
+ * le voyait pas tant que la scène le débordait toujours ; depuis qu'elle
+ * recule, le haut d'un portrait et les côtés d'un écran large tombent hors du
+ * plateau, et le grain s'y serait arrêté net.
  *
  * Elle couvre tout l'écran jusqu'à la voie. Le ciel se dessine **devant** le
  * massif (voir `plansDuDecor` dans Scene.ts) : son grain continue donc sur le
@@ -79,16 +84,16 @@ export function poussiereLibre(
   const plancher = plancherPoussiere(frame, viewportH)
   const garder = (count: number): Grain[] => {
     const libres: Grain[] = []
-    for (const g of makeDust(count, seed, STAGE.width, STAGE.height)) {
-      const x = g.x * frame.scale + frame.offsetX
-      const y = g.y * frame.scale + frame.offsetY
+    for (const g of makeDust(count, seed, MONDE.width, MONDE.height)) {
+      const x = (MONDE.x + g.x) * frame.scale + frame.offsetX
+      const y = (MONDE.y + g.y) * frame.scale + frame.offsetY
       const r = g.r * frame.scale
       if (x < 0 || x > viewportW) continue
       if (y + r + marge <= plancher) libres.push({ x, y, r, a: g.a })
     }
     return libres
   }
-  let count = dustCount(STAGE.width, STAGE.height, mobile)
+  let count = dustCount(MONDE.width, MONDE.height, mobile)
   let libres = garder(count)
   while (libres.length < PLANCHER && count < PLAFOND_TIRAGE) {
     count *= 2

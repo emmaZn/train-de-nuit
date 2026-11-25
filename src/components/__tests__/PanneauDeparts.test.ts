@@ -450,16 +450,21 @@ describe('PanneauDeparts', () => {
 
     // Une fenêtre trop étroite pour la plaque à cette échelle : c'est la fenêtre
     // moins ses deux gouttières qui décide, et la plaque reste centrée dessus.
-    const f2 = cadreDe(800, 1000)
+    //
+    // C'était 800 × 1000. Depuis que la scène recule, la plaque y tient
+    // largement (520 px pour 776 de place) et le cas ne s'y produit plus : il
+    // faut un vrai portrait de téléphone, où elle demande 392 px pour 366.
+    const ETROITE = 390
+    const f2 = cadreDe(ETROITE, 844)
     expect(f2.offsetY).toBeGreaterThan(0)
-    expect(RIDEAU.largeur * f2.scale).toBeGreaterThan(800 - 2 * GOUTTIERE)
+    expect(RIDEAU.largeur * f2.scale).toBeGreaterThan(ETROITE - 2 * GOUTTIERE)
     cadre.value = f2
-    window.innerWidth = 800
+    window.innerWidth = ETROITE
     // La scène recadre le rideau dans la foulée : `y` suit le nouveau cadre.
     rideau.value = { y: yPoseA(f2), baisse: true }
     await nextTick()
     expect(place(wrapper).left).toBeCloseTo(GOUTTIERE)
-    expect(parseFloat(place(wrapper).width) * f2.scale).toBeCloseTo(800 - 2 * GOUTTIERE)
+    expect(parseFloat(place(wrapper).width) * f2.scale).toBeCloseTo(ETROITE - 2 * GOUTTIERE)
     expect(place(wrapper).top).toBeCloseTo(f2.offsetY + yPoseA(f2) * f2.scale)
     expect(place(wrapper).transform).toBe(`scale(${f2.scale})`)
     expect(f2.scale).not.toBeCloseTo(f1.scale)
@@ -1436,7 +1441,11 @@ describe('PanneauDeparts — ce que le DOM dessine', () => {
       const { wrapper, rideau } = posee(l, h)
       // Le `y` de scène dont le bas de la plaque tombe exactement sur `bas` px d'écran.
       const yPourBas = (bas: number) => (bas - f.offsetY) / f.scale - RIDEAU.hauteur
-      for (const [bas, attendu] of [[1, true], [0, false]] as const) {
+      // Un pixel de part et d'autre, et non l'épaisseur zéro : `yPourBas` fait
+      // un aller-retour par l'échelle, et il ne retombe pas au bit près. À
+      // 1512 × 771 il laisse 2,8 × 10⁻¹⁴ px sous le bord, ce qui suffisait à
+      // garder le panneau — un défaut de test, pas de panneau.
+      for (const [bas, attendu] of [[1, true], [-1, false]] as const) {
         rideau.value = { y: yPourBas(bas), baisse: false }
         await nextTick()
         expect(wrapper.find('.panneau').exists(), `bas à ${bas} à ${l} × ${h}`).toBe(attendu)

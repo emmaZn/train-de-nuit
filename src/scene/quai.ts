@@ -284,7 +284,7 @@ export const LANTERNE = { hautY: 110, basY: 165, hautDemi: 31, basDemi: 14, cx: 
  * Ce qu'un doigt exige, en pixels d'écran (WCAG 2.5.5). C'est le même nombre
  * que la cible du bandeau dans `PanneauDeparts.vue`.
  */
-const CIBLE_ECRAN = 44
+export const CIBLE_ECRAN = 44
 
 /**
  * Un pixel de cadre de rab sur la largeur de la cible. Une cible posée

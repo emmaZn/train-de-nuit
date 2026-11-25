@@ -341,10 +341,17 @@ describe('la cible du réverbère et les étoiles', () => {
      * fenêtre plus basse pour atteindre les étoiles. L'horloge n'a pas bougé.
      * Ce ne sont pas des réglages mais des constats — ils se recalculent, ils
      * ne se choisissent pas.
+     *
+     * **Les deux ont encore baissé le 24 novembre 2026** — le mât de 390 à
+     * 381, l'horloge de 438 à 416 — quand la scène s'est mise à reculer. Tout
+     * ce qu'elle porte a rétréci à l'écran, les deux cibles comme la crête du
+     * massif, et il faut désormais une fenêtre encore plus basse pour qu'elles
+     * viennent toucher la bande des étoiles. Le croisement est donc encore
+     * moins atteignable qu'avant, et l'ordre, lui, n'a pas changé.
      */
     const CIBLES = [
-      ['le mât', mat, 391, 390],
-      ['l’horloge', horloge, 439, 438],
+      ['le mât', mat, 382, 381],
+      ['l’horloge', horloge, 417, 416],
     ] as const
 
     it.each(CIBLES)('%s ne croise la bande des étoiles que sur une fenêtre très basse', (_nom, ou, haute, rase) => {
@@ -366,10 +373,12 @@ describe('la cible du réverbère et les étoiles', () => {
         expect(o.haut - o.etoiles, `${W}×${H}`).toBeLessThan(m.haut - m.etoiles)
       }
       // Le plus serré des écrans ci-dessus, en clair : 1920 × 500. L'écart du
-      // mât est passé de 27,5 à 61,8 avec le réverbère raccourci ; celui de
-      // l'horloge n'a pas bougé, et c'est bien elle qui reste la plus proche.
-      expect(horloge(1920, 500).haut - horloge(1920, 500).etoiles).toBeCloseTo(16.2, 1)
-      expect(mat(1920, 500).haut - mat(1920, 500).etoiles).toBeCloseTo(61.8, 1)
+      // mât est passé de 27,5 à 61,8 avec le réverbère raccourci, puis à 69,5
+      // avec le recul de la scène ; celui de l'horloge de 16,2 à 30,0. Les
+      // deux ont gagné du franc, et c'est bien l'horloge qui reste la plus
+      // proche.
+      expect(horloge(1920, 500).haut - horloge(1920, 500).etoiles).toBeCloseTo(30.0, 1)
+      expect(mat(1920, 500).haut - mat(1920, 500).etoiles).toBeCloseTo(69.5, 1)
     })
   })
 })

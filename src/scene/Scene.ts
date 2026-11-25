@@ -4,6 +4,7 @@ import {
   Container,
   FillGradient,
   Graphics,
+  Matrix,
   RenderTexture,
   Sprite,
   Texture,
@@ -27,9 +28,9 @@ import {
   DUREE_ETAPE,
   HORIZON,
   NUIT_CIEL,
+  MONDE,
   NUIT_PROFONDEUR,
   opaciteVoile,
-  STAGE,
   ECHELLE_TRAIN,
   cadrageScene,
   versCadre,
@@ -685,13 +686,15 @@ export class Scene {
 
     this.refletTexture?.destroy(true)
     this.refletTexture = RenderTexture.create({
-      width: Math.round(STAGE.width * REFLET_RESOLUTION),
+      // Toute la largeur du monde : ce qui se reflète, c'est ce qu'on voit,
+      // et on voit maintenant au-delà du plateau.
+      width: Math.round(MONDE.width * REFLET_RESOLUTION),
       height: Math.round(HORIZON * REFLET_RESOLUTION),
     })
     // Au plus proche voisin : agrandi, un grain binaire doit le rester.
     this.refletTexture.source.scaleMode = 'nearest'
     this.refletSprite.texture = this.refletTexture
-    this.refletSprite.width = STAGE.width
+    this.refletSprite.width = MONDE.width
     this.refletSprite.height = HORIZON
 
     // Le masque de grain, à la densité de pixels de l'écran.
@@ -700,7 +703,7 @@ export class Scene {
     this.refletMasque.texture?.destroy(true)
     const masque = Texture.from(
       creerMasque(
-        Math.round(STAGE.width * k),
+        Math.round(MONDE.width * k),
         Math.round(HORIZON * k),
         cellule,
         k,
@@ -708,10 +711,10 @@ export class Scene {
     )
     masque.source.scaleMode = 'nearest'
     this.refletMasque.texture = masque
-    this.refletMasque.setSize(STAGE.width, HORIZON)
-    this.refletMasque.position.set(0, HORIZON)
+    this.refletMasque.setSize(MONDE.width, HORIZON)
+    this.refletMasque.position.set(MONDE.x, HORIZON)
     // Retourné sous la voie : le pied du décor touche son reflet.
-    this.refletSprite.position.set(0, HORIZON * 2)
+    this.refletSprite.position.set(MONDE.x, HORIZON * 2)
   }
 
   resize(): void {
@@ -1347,7 +1350,14 @@ export class Scene {
       this.decor,
       REFLET_RESOLUTION,
       () => {
-        this.app.renderer.render({ container: this.decor, target: cible, clear: true })
+        // La texture commence au bord gauche du monde, pas à celui du
+        // plateau : le décor y entre décalé d'autant.
+        this.app.renderer.render({
+          container: this.decor,
+          target: cible,
+          clear: true,
+          transform: new Matrix().translate(-MONDE.x * REFLET_RESOLUTION, 0),
+        })
       },
       neigeDuFaisceau,
     )

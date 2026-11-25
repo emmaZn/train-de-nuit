@@ -33,7 +33,7 @@
 import gsap from 'gsap'
 import { HAUTEUR_FRISE } from './layout'
 import type { Frame } from './layout'
-import { HALO_HORLOGE, HORLOGE } from './quai'
+import { CIBLE_ECRAN, HALO_HORLOGE, HORLOGE } from './quai'
 
 /**
  * La plaque, une fois **posée** : `yPose` est le bord haut **visé**, en pixels
@@ -116,8 +116,13 @@ export const BRAS = { retrait: 101 } as const
  * décalage de `x` avant de la lui passer — `Quai.horlogeTouchee` le fait, parce
  * que c'est le quai qui connaît l'abscisse de l'île.
  */
-export function horlogeTouchee(x: number, y: number): boolean {
-  const rayon = HORLOGE.rayon * HALO_HORLOGE.rayon
+export function horlogeTouchee(x: number, y: number, echelle = 1): boolean {
+  // Comme `cibleReverbere` : la cible ne descend jamais sous les 44 px
+  // d'écran. Le halo y suffisait tant que la scène collait à l'écran ; depuis
+  // qu'elle recule, il tombe à 34 px sur un petit téléphone. En pixels de
+  // cadre, 44 px d'écran valent `CIBLE_ECRAN / échelle`.
+  const e = Number.isFinite(echelle) && echelle > 0 ? echelle : 1
+  const rayon = Math.max(HORLOGE.rayon * HALO_HORLOGE.rayon, CIBLE_ECRAN / e / 2)
   return Math.hypot(x - HORLOGE.x, y - HORLOGE.y) <= rayon
 }
 
