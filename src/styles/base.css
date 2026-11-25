@@ -1,6 +1,8 @@
 :root {
-  /* La couleur de la nuit. Tout le reste s'y réfère : dans les assets, le noir devient cette couleur. */
-  --fond: #2e2313;
+  /* La nuit, le défaut du site. Tout le reste s'y réfère : dans les assets, le
+     noir devient cette couleur. Les mêmes valeurs que `COULEURS.nuit` dans
+     src/scene/palette.ts — un test tient les deux ensemble. */
+  --fond: #151517;
   --texte: #ececf0;
   --trait: #e6e6ea;
 
@@ -25,6 +27,22 @@
    */
   --police-mono: 'JetBrains Mono', ui-monospace, monospace;
   --police-texte: var(--police-mono);
+}
+
+/*
+ * Le jour : le négatif de la nuit, sur papier. Les trois mêmes tokens changent
+ * de valeur, rien d'autre — l'inversion est à 100 %, donc la teinte encre de la
+ * nuit devient le trait et le texte du jour.
+ *
+ * `data-mode` est posé par le script de tête d'`index.html`, avant cette
+ * feuille : la page n'est jamais de la mauvaise couleur, même un instant.
+ * Pas de `prefers-color-scheme` : c'est un geste du visiteur, pas une
+ * préférence devinée (spec du 25/11, non-buts).
+ */
+:root[data-mode="jour"] {
+  --fond: #f2eee6;
+  --texte: #151517;
+  --trait: #151517;
 }
 
 * {
