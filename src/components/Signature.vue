@@ -59,11 +59,16 @@ const t = useTextes()
  * et sur une fenêtre courte sur le corps de la loco, où elle devenait
  * illisible. Mêmes arrêts que la bulle, à la virgule — ils fixent l'arête, et
  * un test les compare.
+ *
+ * **Resserrée le 25 novembre 2026** : l'horizon est descendu sur les écrans
+ * larges, la ligne s'est rapprochée du reflet, et la tache se voyait. Elle
+ * garde juste de quoi détacher le texte — en deçà, son dégradé se raidit et
+ * dessine une arête au lieu de s'éteindre.
  */
 .signature::before {
   content: '';
   position: absolute;
-  inset: -22px -76px;
+  inset: -14px -56px;
   z-index: -1;
   pointer-events: none;
   background: radial-gradient(

@@ -415,13 +415,17 @@ describe('la règle de dégagement', () => {
   // deux ancres qu'Emmanuelle a tranchées sur rendus. Et comme la scène
   // reculée laisse bien plus de ciel qu'avant, le massif tient sa taille
   // pleine partout — rabotée seulement sur une fenêtre basse et large.
+  //
+  // Les écrans larges descendent de cinquante pixels de plus depuis que
+  // l'ancre paysage est passée à 70 px et 1,25 (25 novembre 2026) : un
+  // téléphone en portrait, lui, ne bouge que d'un pixel.
   test.each([
-    [1512, 771, 33, 2.272],
-    [1280, 800, 55, 2.412],
-    [1440, 900, 62, 2.412],
-    [1728, 1117, 81, 2.433],
-    [390, 844, 128, 2.855],
-    [844, 390, 11, 1.533],
+    [1512, 771, 83, 2.762],
+    [1280, 800, 94, 2.785],
+    [1440, 900, 106, 2.785],
+    [1728, 1117, 134, 2.789],
+    [390, 844, 129, 2.859],
+    [844, 390, 40, 1.84],
   ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
     const c = cadrageCiel(w, h)
     expect(c.decalage).toBeCloseTo(decalage, 0)
@@ -437,8 +441,8 @@ describe('la règle de dégagement', () => {
     expect(cadrageCiel(412, 915).decalage).toBeCloseTo(140, 0)
 
     expect(reculDuFormat(1480, 690)).toBeCloseTo(0.8, 6)
-    expect(massifDuFormat(1480, 690)).toBeCloseTo(1, 6)
-    expect(cadrageCiel(1480, 690).decalage).toBeCloseTo(20, 0)
+    expect(massifDuFormat(1480, 690)).toBeCloseTo(1.25, 6)
+    expect(cadrageCiel(1480, 690).decalage).toBeCloseTo(70, 0)
   })
 
   test('le nez du train est à elle aussi, aux deux mêmes formats', () => {

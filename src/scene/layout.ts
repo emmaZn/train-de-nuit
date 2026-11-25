@@ -56,6 +56,13 @@ export const MONDE = {
  *
  * La descente se garde en **fraction de la hauteur** : 140 px sur les 915 de
  * son rendu. En pixels, elle aurait voulu dire autre chose sur chaque écran.
+ *
+ * **L'ancre paysage a été reprise le 25 novembre 2026**, au vu du premier
+ * rendu large : « il faut que l'horizon soit plus bas et que le massif soit
+ * légèrement plus grand ». La descente passe de 20 à 70 px et le massif de 1
+ * à 1,25 — c'est la version qu'elle a choisie parmi quatre. 70 est aussi à peu
+ * près le maximum : plus bas, la signature du pied de page vient se poser sur
+ * le reflet. Le recul, lui, n'a pas bougé.
  */
 export const CADRAGE_PORTRAIT = {
   aspect: 412 / 915,
@@ -68,8 +75,8 @@ export const CADRAGE_PORTRAIT = {
 export const CADRAGE_PAYSAGE = {
   aspect: 1480 / 690,
   recul: 0.8,
-  massif: 1,
-  descente: 20 / 690,
+  massif: 1.25,
+  descente: 70 / 690,
   tete: 0.5,
 } as const
 

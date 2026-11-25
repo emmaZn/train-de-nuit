@@ -166,4 +166,33 @@ format qu'aucune de ses deux ancres ne décrit.
 5. puis **le nez du train** (`TETE_LOCO`), au curseur, dans le cadrage posé ;
 6. puis le grain du massif, puis le glissement entre gares.
 
-Rien n'est commité : tout est dans l'arbre de `scene-sur-telephone`.
+Commité en `6ac5b1b`.
+
+---
+
+## Le lendemain — 25 novembre 2026
+
+Le cadrage posé, elle a jugé trois choses de plus sur des rendus réels.
+
+**Le nez du train** (`TETE_LOCO`, qui valait 0,56 partout) devient le
+quatrième réglage à vivre entre les deux ancres : **0,53 en portrait, 0,50 en
+paysage**. C'est le premier qui déplace un objet du plateau et non le cadre,
+d'où `Train.cadrer`, que `Scene.cadrer` appelle à chaque redimensionnement et
+dès la première image. Ce qui doit rester dégagé devant la rame se vérifie
+désormais contre `TETE_LOCO_MAX`, et non contre un format. Commité en
+`11638d3`.
+
+**L'ancre paysage reprise**, au vu du premier rendu large : « il faut que
+l'horizon soit plus bas et que le massif soit légèrement plus grand ». Choisie
+parmi quatre versions rendues à 1480 × 690 : **descente 70 px** (contre 20) et
+**massif × 1,25** (contre 1). Le recul n'a pas bougé.
+
+**La butée de la signature est réelle, et mesurée.** À 85 px de descente, le
+pied de page vient se poser sur le reflet : 70 est à peu près le maximum que
+ce format supporte. La tache qui détache le texte a été resserrée dans la
+foulée, à sa demande — `inset: -14px -56px` au lieu de `-22px -76px`.
+
+**Reste, dans l'ordre :** le grain du massif (chantier 2 — et le recul ne l'a
+pas réglé : `GRAIN_ECRAN` se compte en pixels d'écran physiques), puis le
+glissement entre gares (chantier 3). Un voyage complet aux formats extrêmes
+n'a toujours pas été regardé.
