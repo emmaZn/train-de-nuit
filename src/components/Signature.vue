@@ -27,12 +27,26 @@ const t = useTextes()
  */
 .signature {
   position: fixed;
-  bottom: var(--marge-ecran);
+  /*
+   * **Au milieu de la bande sombre sous la voie**, et non à une marge du bord
+   * — Emmanuelle, le 25 novembre 2026 : « sur desktop c'est trop bas », puis
+   * « il reste centré entre le bas de l'écran et l'horizon ».
+   *
+   * `--y-voie` est posée par `useScene` à chaque cadrage : c'est la ligne de
+   * rail en pixels d'écran. La bande qui va d'elle au bas de la fenêtre est
+   * tout ce que le pied de page a pour lui, et elle change de hauteur avec le
+   * format — la voie descend quand la scène recule. Une marge en dur collait
+   * donc la ligne au bord ici, et la noyait dans le reflet là.
+   *
+   * Le repli de 100% vaut `bottom: 0` avant la première image de la scène,
+   * c'est-à-dire sous l'écran d'attente, où rien de ceci ne se voit.
+   */
+  top: calc(var(--y-voie, 100%) + (100% - var(--y-voie, 100%)) / 2);
   left: 50%;
   z-index: 3;
   /* Sans ça, le `z-index: -1` de la tache l'enverrait derrière le canvas. */
   isolation: isolate;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   /* Rien à cliquer ici : le pied de page ne doit pas voler le survol des
      étoiles ni des oiseaux qui passent sous lui. */
   pointer-events: none;
@@ -97,7 +111,11 @@ const t = useTextes()
  */
 @media (max-height: 480px) {
   .signature {
+    /* Sur un écran court, la bande sous la voie n'existe presque pas : on
+       revient à une marge du bord, et c'est le `translateY` qu'on annule. */
+    top: auto;
     bottom: 16px;
+    transform: translateX(-50%);
   }
 
   .signature::before {

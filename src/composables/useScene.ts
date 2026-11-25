@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { retirerEcran } from '@/chargement'
 import { Scene } from '@/scene/Scene'
+import { HORIZON } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
 import { loadFond, saveFond } from '@/scene/palette'
 import { sensDuGlissement, surUnElementInteractif } from '@/scene/glissement'
@@ -67,6 +68,23 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
   function poserFond(hex: string) {
     document.documentElement.style.setProperty('--fond', hex)
+  }
+
+  /**
+   * Où tombe la ligne de voie à l'écran, en pixels, pour le CSS.
+   *
+   * Le pied de page en a besoin : il se tient dans la bande sombre **sous la
+   * voie**, et cette bande n'a pas la même hauteur selon le format — la voie
+   * descend avec la scène depuis que le cadrage suit le viewport. Une valeur
+   * en dur l'aurait collée au bord ici et noyée dans le reflet là.
+   *
+   * `frame.offsetY` porte déjà le décalage vertical du cadrage : c'est la
+   * même chaîne que celle qui pose le décor, et non une seconde façon de
+   * calculer la même chose.
+   */
+  function poserVoie(f: Frame) {
+    const y = HORIZON * f.scale + f.offsetY
+    document.documentElement.style.setProperty('--y-voie', `${Math.round(y)}px`)
   }
 
   function appliquerFond(valeur: string) {
@@ -189,7 +207,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     detacher.push(instance.on('progress', (p) => voyage.setProgression(p)))
     detacher.push(instance.on('arrived', () => voyage.finirEtape()))
     detacher.push(instance.on('fond', poserFond))
-    detacher.push(instance.on('frame', (f) => { frame.value = f }))
+    detacher.push(instance.on('frame', (f) => { frame.value = f; poserVoie(f) }))
     // Un objet neuf à chaque émission : `shallowRef` ne réagit qu'à un changement de référence.
     detacher.push(instance.on('rideau', (y, baisse) => { rideau.value = { y, baisse } }))
 
