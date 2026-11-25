@@ -31,7 +31,7 @@ test('App se monte et contient le canvas de la scène', async () => {
 
 test('App pose l’icône œil par-dessus la scène', async () => {
   const wrapper = await monter()
-  expect(wrapper.find('button[aria-label="Changer la couleur de la nuit"]').exists()).toBe(true)
+  expect(wrapper.find('button[aria-label="Passer du jour à la nuit"]').exists()).toBe(true)
 })
 
 test('la gare ici affiche son nom et sa phrase', async () => {

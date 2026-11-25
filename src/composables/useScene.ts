@@ -2,7 +2,7 @@ import { markRaw, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue
 import type { InjectionKey, Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { retirerEcran } from '@/chargement'
+import { remettreEcran, retirerEcran } from '@/chargement'
 import { Scene } from '@/scene/Scene'
 import { HORIZON } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
@@ -35,6 +35,11 @@ export const FRAME_KEY: InjectionKey<Ref<Frame | null>> = Symbol('frame')
  */
 export type EtatRideau = { y: number; baisse: boolean }
 export const RIDEAU_KEY: InjectionKey<Ref<EtatRideau | null>> = Symbol('rideau')
+
+/** Le réglage système « réduire les animations ». Lu à chaque fois, pas figé. */
+function mouvementReduit(): boolean {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}
 
 /**
  * The one bridge between Vue and the scene. The scene knows nothing of Vue:
@@ -102,12 +107,25 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     document.documentElement.style.setProperty('--y-voie', `${Math.round(y)}px`)
   }
 
-  function appliquerMode(valeur: Mode) {
+  /**
+   * La bascule : on écrit le choix, l'écran d'attente remonte, la page
+   * recharge, et le site réarrive dans l'autre mode.
+   *
+   * **Pourquoi recharger.** Un fondu d'une seconde entre la nuit et le papier
+   * passerait par un gris plat plein écran, et les deux modes n'ont pas le
+   * même jeu d'images du train : recharger règle les deux d'un coup, puisque
+   * le mode est alors connu avant le premier dessin. C'est l'écran d'attente
+   * qu'on réutilise, pas une dissolution neuve — le départ et l'arrivée sont
+   * le geste du site, à l'endroit.
+   */
+  async function basculerMode(valeur: Mode) {
     mode.value = valeur
     saveMode(valeur)
-    // La scène émet `mode`, et `poserMode` suit ; sans scène, on pose nous-même.
-    if (scene.value) scene.value.setMode(valeur)
-    else poserMode(valeur)
+    // L'écran remonte dans la couleur **où l'on va** : sinon le rechargement
+    // couperait d'un fond à l'autre au moment où la page revient.
+    document.documentElement.style.setProperty('--nuit-attente', COULEURS[valeur].fond)
+    await remettreEcran(mouvementReduit())
+    window.location.reload()
   }
 
   function surPointeur(event: PointerEvent) {
@@ -206,7 +224,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
       return
     }
 
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    const reducedMotion = mouvementReduit()
     // markRaw : Pixi tient ses propres références, le rendre réactif le casserait.
     const instance = markRaw(new Scene(canvas.value, { reducedMotion, mode: mode.value }))
     scene.value = instance
@@ -277,5 +295,5 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     scene.value = null
   })
 
-  return { scene, mode, frame, rideau, basculerMode: appliquerMode }
+  return { scene, mode, frame, rideau, basculerMode }
 }

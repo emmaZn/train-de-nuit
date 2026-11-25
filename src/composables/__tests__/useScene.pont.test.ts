@@ -32,6 +32,7 @@ vi.mock('@/scene/Scene', () => ({
     dispose = vi.fn()
     on = vi.fn(() => () => {})
     init = vi.fn(async () => {})
+    pret = Promise.resolve()
     constructor() {
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       double.instance = this as unknown as Record<string, ReturnType<typeof vi.fn>>
@@ -78,6 +79,9 @@ function monterSansCanevas() {
 
 afterEach(() => {
   double.instance = null
+  // `remettreEcran` repose un écran : sans ce nettoyage il survit au test
+  // suivant, dont le `retirerEcran` le retrouve.
+  document.querySelector('#chargement')?.remove()
   const racine = document.documentElement
   delete racine.dataset.mode
   for (const token of ['--fond', '--texte', '--trait']) racine.style.removeProperty(token)
@@ -232,4 +236,63 @@ test('le rideau est inconnu tant que la scène n’a rien émis, puis suit ce qu
   expect(rideau.value).toEqual({ y: -120, baisse: false })
   emettre(340, true)
   expect(rideau.value).toEqual({ y: 340, baisse: true })
+})
+
+/**
+ * La bascule de mode : on écrit le choix, l'écran d'attente remonte, et la page
+ * recharge. Elle recharge parce qu'un fondu d'une seconde entre la nuit et le
+ * papier passerait par un gris plat plein écran — et parce que les deux modes
+ * n'ont pas le même jeu d'images du train, qu'il vaut mieux demander d'emblée.
+ */
+describe('la bascule de mode', () => {
+  function monterAvecRecharge() {
+    const reload = vi.fn()
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload },
+    })
+    setActivePinia(createPinia())
+    vi.spyOn(useTraces(), 'charger').mockImplementation(async () => {})
+    let basculer: (m: 'nuit' | 'jour') => void
+    const Hote = defineComponent({
+      setup() {
+        basculer = useScene(ref(document.createElement('canvas'))).basculerMode
+        return () => h('div')
+      },
+    })
+    const router = createAppRouter(createMemoryHistory())
+    mount(Hote, { global: { plugins: [router] } })
+    return { reload, basculer: basculer! }
+  }
+
+  test('écrit le mode, puis recharge', async () => {
+    const { reload, basculer } = monterAvecRecharge()
+    await flushPromises()
+    await basculer('jour')
+    expect(localStorage.getItem('train-de-nuit:mode')).toBe('jour')
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  // Review Focus #1 : stockage bloqué. Le mode n'est pas retenu, mais la page
+  // recharge quand même — sinon le clic ne fait rien du tout.
+  test('recharge même si le stockage lève', async () => {
+    const { reload, basculer } = monterAvecRecharge()
+    await flushPromises()
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceeded')
+    })
+    await basculer('jour')
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  // L'écran qui remonte doit être de la couleur où l'on va, pas de celle d'où
+  // l'on vient : sinon le rechargement coupe d'une couleur à l'autre.
+  test('remonte l’écran dans la couleur du mode visé', async () => {
+    const { basculer } = monterAvecRecharge()
+    await flushPromises()
+    await basculer('jour')
+    expect(document.documentElement.style.getPropertyValue('--nuit-attente')).toBe(
+      COULEURS.jour.fond,
+    )
+  })
 })

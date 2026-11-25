@@ -66,7 +66,7 @@ const fr = {
   },
 
   commandes: {
-    oeil: 'Changer la couleur de la nuit',
+    oeil: 'Passer du jour à la nuit',
     reverbere: 'Réverbère',
     langue: 'Langue du site',
     versFrancais: 'Lire le site en français',
@@ -143,7 +143,7 @@ const en: typeof fr = {
   },
 
   commandes: {
-    oeil: 'Change the colour of the night',
+    oeil: 'Switch between day and night',
     reverbere: 'Street lamp',
     langue: 'Site language',
     versFrancais: 'Lire le site en français',

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import type { Grain } from '../scene/alea'
 import { COULEURS, DEFAUT, MODES } from '../scene/palette'
 import { GRAINE_CIEL, poussiereDeLaFenetre } from '../scene/Sky'
-import { ATTENTE_MAX, FONDU, retirerEcran } from '../chargement'
+import { ATTENTE_MAX, FONDU, remettreEcran, retirerEcran } from '../chargement'
 
 function poserEcran() {
   document.body.innerHTML = '<div id="chargement"><i></i></div>'
@@ -172,5 +172,48 @@ describe('le ciel de l’écran d’attente est celui de la scène', () => {
     // L'appel, pas le mot : le commentaire du script dit pourquoi il n'y est
     // pas, et doit pouvoir le nommer.
     expect(semeur()).not.toContain('requestAnimationFrame(')
+  })
+})
+
+/**
+ * La bascule de mode réutilise cet écran-ci, à l'envers.
+ *
+ * Rien n'est fabriqué pour l'occasion : ni `Dissolve`, qui défait le rectangle
+ * d'une seule phrase, ni un traitement plein écran par image au-dessus du
+ * WebGL, qui se paierait cher sur téléphone. La page part comme elle est
+ * arrivée, puis recharge dans l'autre mode.
+ */
+describe("l'écran d'attente revient pour la bascule", () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    document.body.innerHTML = ''
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    document.body.innerHTML = ''
+  })
+
+  it('repose un écran opaque et ne rend la main qu’après le fondu', async () => {
+    let fini = false
+    const remonte = remettreEcran(false).then(() => {
+      fini = true
+    })
+    await vi.advanceTimersByTimeAsync(0)
+    const ecran = document.querySelector<HTMLElement>('#chargement')
+    expect(ecran, 'la bascule doit reposer un écran').not.toBeNull()
+    expect(ecran!.classList.contains('parti')).toBe(false)
+    expect(fini).toBe(false)
+
+    await vi.advanceTimersByTimeAsync(FONDU)
+    await remonte
+    expect(fini).toBe(true)
+  })
+
+  it('rend la main tout de suite en mouvement réduit', async () => {
+    await remettreEcran(true)
+    const ecran = document.querySelector<HTMLElement>('#chargement')
+    expect(ecran).not.toBeNull()
+    expect(ecran!.classList.contains('parti')).toBe(false)
   })
 })
