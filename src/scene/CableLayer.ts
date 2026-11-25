@@ -16,7 +16,7 @@
  * C'est le précédent de `stars.ts` / `StarLayer.ts` (CONCEPT.md §9).
  */
 import { Container, Graphics, Sprite, Texture } from 'pixi.js'
-import { HORIZON, STAGE } from './layout'
+import { HORIZON, MONDE } from './layout'
 import type { Frame } from './layout'
 import { FILS, POTEAU, TRAVEE, amortir, u, yFil } from './cables'
 import type { Secousse } from './cables'
@@ -28,13 +28,15 @@ export const POTEAUX = 3
 /**
  * Où se pose le premier poteau porteur de fils, à l'arrêt.
  *
- * **180 et non 60** depuis que la rame avance (20 novembre 2026, `TETE_LOCO`
- * passé de 0,5 à 0,56). Ce nombre n'est pas libre : il suit le nez de la loco.
- * Deux gardes le tiennent — les fils doivent être dans le champ libre à sa
- * droite, et la deuxième travée entière aussi —, et à 60 la seconde tombait de
- * trois pixels. Il faut `POSITION_A_QUAI + TRAVEE ≥ TETE_LOCO × STAGE.width`,
- * soit au moins 176 ; 180 laisse quatre pixels. Avancer encore la rame redemande
- * de l'avancer, lui aussi.
+ * **180 et non 60** depuis que la rame avance (20 novembre 2026, le nez passé
+ * de 0,5 à 0,56). Ce nombre n'est pas libre : il suit le nez de la loco. Deux
+ * gardes le tiennent — les fils doivent être dans le champ libre à sa droite,
+ * et la deuxième travée entière aussi —, et à 60 la seconde tombait de trois
+ * pixels. Il faut `POSITION_A_QUAI + TRAVEE ≥ TETE_LOCO_MAX × STAGE.width` :
+ * le nez dépend du format depuis le 25 novembre, et c'est le plus à droite
+ * qu'il puisse tomber — 0,53 — qu'il faut dégager, soit au moins 166. Les 180
+ * tiennent, avec quatorze pixels de marge. Avancer encore la rame redemande de
+ * l'avancer, lui aussi.
  */
 export const POSITION_A_QUAI = 180
 
@@ -328,7 +330,7 @@ export class Cables {
   horsChamp(distance: number): boolean {
     const gauche = POSITION_A_QUAI + distance + this.emprise.gauche
     const droite = POSITION_A_QUAI + distance + this.emprise.droite
-    return droite < 0 || gauche > STAGE.width
+    return droite < MONDE.x || gauche > MONDE.x + MONDE.width
   }
 
   /** Jusqu'où s'étend l'installation, poteaux seuls compris, en repère d'île. */

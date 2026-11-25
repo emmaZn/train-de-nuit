@@ -314,4 +314,22 @@ const entrees = computed(() => {
     transition-duration: 0.2s;
   }
 }
+
+/*
+ * Sous 360 px, la frise rapetisse d'un cran.
+ *
+ * Le mono est plus large que l'Inter qu'il remplace (25 novembre 2026) : à
+ * 320 px, « plus loin » à quai ne laissait plus la place au libellé suivant,
+ * et les deux se touchaient. Deux points de corps rendent cette largeur-là
+ * au reste. Au-dessus de 360, rien ne change : l'écartement suffit.
+ */
+@media (max-width: 359px) {
+  .libelle {
+    font-size: 11px;
+  }
+
+  .gare[data-etat='a-quai'] .libelle {
+    font-size: 14px;
+  }
+}
 </style>

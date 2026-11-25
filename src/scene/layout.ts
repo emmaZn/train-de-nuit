@@ -9,15 +9,161 @@ export type Frame = {
   offsetY: number
 }
 
+/* ---- Le monde autour du plateau ---- */
+
 /**
- * Fit the stage frame over the viewport: it covers it entirely and is centred,
- * so no empty band ever shows. A zero dimension is treated as 1, which keeps
- * the scale finite on a viewport that has not been measured yet.
+ * Le plateau est le système de coordonnées : tout y est ancré, et rien n'en
+ * bouge. Autour, le **monde** : la bande où les plans continus — la voie, la
+ * terre, le massif, le ciel — ont le droit de continuer quand la scène recule
+ * et découvre ce qu'il y a de part et d'autre.
+ *
+ * Ces marges sont **fixes**, et non déduites de la fenêtre. Une bande répétée
+ * dont l'origine suivrait le viewport verrait la phase de ses traverses sauter
+ * à chaque redimensionnement, et la terre se resemer sous les roues.
+ *
+ * Leur taille vient du pire cas : la fenêtre la plus large qu'un recul
+ * autorisé puisse montrer. Au-delà, ce n'est pas le monde qui s'agrandit,
+ * c'est le recul qui s'arrête — voir `fitStage`.
+ */
+export const MONDE_MARGE_X = 420
+export const MONDE_MARGE_HAUT = 1200
+export const MONDE_MARGE_BAS = 320
+
+/**
+ * Ce qu'on garde au-dessus du plateau pour le massif seul. À sa plus grande
+ * taille (2,2 × 1,3), son sommet passe de quelques pixels au-dessus de y = 0 :
+ * sans cette marge il serait tranché net.
+ */
+export const MONDE_CIEL_MASSIF = 140
+
+export const MONDE = {
+  x: -MONDE_MARGE_X,
+  y: -MONDE_MARGE_HAUT,
+  width: STAGE.width + 2 * MONDE_MARGE_X,
+  height: STAGE.height + MONDE_MARGE_HAUT + MONDE_MARGE_BAS,
+} as const
+
+/**
+ * Ce qu'Emmanuelle a tranché, le 24 novembre 2026, sur des rendus à taille
+ * d'appareil : le train entier et la montagne à distance sur un téléphone, un
+ * peu de recul sur un écran d'ordinateur.
+ *
+ * Deux ancres, et rien entre les deux qu'une interpolation sur le **rapport
+ * largeur / hauteur**. Pas de seuil de largeur : une tablette en portrait fait
+ * 768 px — au-dessus de `SEUIL_MOBILE` — et c'est pourtant un portrait. Et un
+ * seuil ferait sauter le train de moitié au milieu d'un redimensionnement, là
+ * où `cadrageCiel` prend soin, lui, de rester continu.
+ *
+ * La descente se garde en **fraction de la hauteur** : 140 px sur les 915 de
+ * son rendu. En pixels, elle aurait voulu dire autre chose sur chaque écran.
+ *
+ * **L'ancre paysage a été reprise le 25 novembre 2026**, au vu du premier
+ * rendu large : « il faut que l'horizon soit plus bas et que le massif soit
+ * légèrement plus grand ». La descente passe de 20 à 70 px et le massif de 1
+ * à 1,25 — c'est la version qu'elle a choisie parmi quatre. 70 est aussi à peu
+ * près le maximum : plus bas, la signature du pied de page vient se poser sur
+ * le reflet. Le recul, lui, n'a pas bougé.
+ */
+export const CADRAGE_PORTRAIT = {
+  aspect: 412 / 915,
+  recul: 0.5,
+  massif: 1.3,
+  descente: 140 / 915,
+  tete: 0.53,
+} as const
+
+export const CADRAGE_PAYSAGE = {
+  aspect: 1480 / 690,
+  recul: 0.8,
+  massif: 1.25,
+  descente: 70 / 690,
+  tete: 0.5,
+} as const
+
+/** Où l'on se trouve entre les deux ancres : 0 au portrait, 1 au paysage. */
+function entreLesAncres(viewportW: number, viewportH: number): number {
+  const aspect = Math.max(viewportW, 1) / Math.max(viewportH, 1)
+  const t =
+    (aspect - CADRAGE_PORTRAIT.aspect) / (CADRAGE_PAYSAGE.aspect - CADRAGE_PORTRAIT.aspect)
+  return Math.min(Math.max(t, 0), 1)
+}
+
+/** De combien la scène recule, pour ce format. */
+export function reculDuFormat(viewportW: number, viewportH: number): number {
+  const t = entreLesAncres(viewportW, viewportH)
+  return CADRAGE_PORTRAIT.recul + t * (CADRAGE_PAYSAGE.recul - CADRAGE_PORTRAIT.recul)
+}
+
+/** De combien le massif grossit pour lui-même, sans entraîner le train. */
+export function massifDuFormat(viewportW: number, viewportH: number): number {
+  const t = entreLesAncres(viewportW, viewportH)
+  return CADRAGE_PORTRAIT.massif + t * (CADRAGE_PAYSAGE.massif - CADRAGE_PORTRAIT.massif)
+}
+
+/** De combien la voie descend dans le cadre, en pixels d'écran. */
+export function descenteDuFormat(viewportW: number, viewportH: number): number {
+  const t = entreLesAncres(viewportW, viewportH)
+  const part =
+    CADRAGE_PORTRAIT.descente + t * (CADRAGE_PAYSAGE.descente - CADRAGE_PORTRAIT.descente)
+  return Math.max(viewportH, 1) * part
+}
+
+/**
+ * Où se pose la tête de la locomotive, en part de la largeur du plateau.
+ *
+ * C'est elle qu'on vise, et non le centre de la rame : la locomotive regarde
+ * à droite, c'est son nez qui tient la composition. Dit ainsi, le cadrage ne
+ * bouge plus quand on change l'échelle du train ou qu'on lui attelle un
+ * wagon — la rame s'allonge vers l'arrière, jamais vers l'avant. En
+ * contrepartie, elle déborde du plateau à gauche, et c'est voulu : le train
+ * continue hors champ.
+ *
+ * **0,53 en portrait et 0,50 en paysage** depuis le 25 novembre 2026. Le nez
+ * était à 0,56 pour tous les formats depuis le 20 novembre, afin que
+ * réverbère, train, gare et panneau tiennent dans la même zone ; le panneau a
+ * quitté le mur entre-temps, et la scène a reculé. Emmanuelle a rejugé sur des
+ * rendus aux deux formats et l'a ramené vers la gauche — plus sur un écran
+ * large que sur un téléphone, où la place manque déjà.
+ *
+ * Ce que ça change sur un écran large : le recul montre maintenant plus que le
+ * plateau, et la rame y tient tout entière, queue comprise. C'est ce qu'elle a
+ * regardé en choisissant 0,50 ; le `continue hors champ` ci-dessus reste vrai
+ * des formats étroits, où elle déborde toujours.
+ *
+ * C'est le quatrième réglage à vivre entre les deux ancres, et le seul qui
+ * déplace un objet plutôt que le cadre — d'où `Train.cadrer`.
+ */
+export function teteDuFormat(viewportW: number, viewportH: number): number {
+  const t = entreLesAncres(viewportW, viewportH)
+  return CADRAGE_PORTRAIT.tete + t * (CADRAGE_PAYSAGE.tete - CADRAGE_PORTRAIT.tete)
+}
+
+/**
+ * Le nez le plus à droite qu'un format puisse donner.
+ *
+ * L'interpolation est bornée aux deux ancres : aucun écran ne peut pousser la
+ * rame plus loin que ça. C'est donc contre cette valeur, et non contre celle
+ * d'un format choisi, que se vérifie ce qui doit rester devant le train — le
+ * réverbère, le quai, la dernière travée de câble.
+ */
+export const TETE_LOCO_MAX = Math.max(CADRAGE_PORTRAIT.tete, CADRAGE_PAYSAGE.tete)
+
+/**
+ * Pose le plateau sur la fenêtre, reculé de ce que le format demande.
+ *
+ * Le recul s'arrête là où la fenêtre cesserait de tenir dans le monde : c'est
+ * ce plancher, et non la vigilance, qui rend vrai le seul anti-but de ce
+ * cadrage — **aucun plan continu ne doit s'arrêter avant le bord de l'écran**.
+ * Une dimension nulle vaut 1, ce qui garde l'échelle finie sur une fenêtre
+ * qu'on n'a pas encore mesurée.
  */
 export function fitStage(viewportW: number, viewportH: number): Frame {
   const width = Math.max(viewportW, 1)
   const height = Math.max(viewportH, 1)
-  const scale = Math.max(width / STAGE.width, height / STAGE.height)
+  const couvre = Math.max(width / STAGE.width, height / STAGE.height)
+  const voulue = couvre * reculDuFormat(width, height)
+  const plancher = Math.max(width / MONDE.width, height / MONDE.height)
+  const scale = Math.max(voulue, plancher)
   return {
     scale,
     offsetX: (width - STAGE.width * scale) / 2,
@@ -64,38 +210,44 @@ export const ECHELLE_TRAIN = 0.4
 export const ECHELLE_MONTAGNES = 2.2
 
 /**
- * Où se pose la tête de la locomotive, en part de la largeur du cadre.
- *
- * C'est elle qu'on vise, et non le centre de la rame : la locomotive regarde
- * à droite, c'est son nez qui tient la composition. Dit ainsi, le cadrage ne
- * bouge plus quand on change l'échelle du train ou qu'on lui attelle un
- * wagon — la rame s'allonge vers l'arrière, jamais vers l'avant. En
- * contrepartie, elle déborde du cadre à gauche, et c'est voulu : le train
- * continue hors champ.
- *
- * **0,56 et non 0,5** depuis le 20 novembre 2026 : la propriétaire a demandé
- * que la rame avance vers la droite, pour que réverbère, train, gare et panneau
- * tiennent à peu près dans la même zone. Le nez passe de 1160 à 1299, et vient
- * se ranger juste à gauche du réverbère, lui aussi décalé. (Le panneau a quitté
- * le mur depuis : c'est un rideau de la scène, voir `rideau.ts`. La raison du
- * 0,56 est datée, elle n'a pas été rejugée sans lui.)
- */
-export const TETE_LOCO = 0.56
-
-/**
  * Hauteur du voile qui éteint le pied du massif, en pixels de cadre, mesurée
  * depuis la ligne de rail. C'est ce sur quoi le trait blanc du train se détache.
  *
- * Il valait 380 et fermait à 0,75 : le pied du massif tombait alors exactement
- * à la couleur du ciel, et le train, n'ayant plus rien à masquer, flottait dans
- * un trou au lieu de découper une silhouette. Réduit à 230 / 0,40, le relief
- * reste visible derrière la rame — c'est le corps du train, qui est de la
- * couleur du fond, qui l'éteint là où il passe.
+ * **560 / 0,78 depuis le 25 novembre 2026**, contre 230 / 0,40. Emmanuelle :
+ * « il faut reprendre l'idée d'avoir un fondu en base de la montagne pour
+ * assurer la visibilité du train ». C'est elle qui l'avait réduit le 14
+ * novembre, et sa raison d'alors tient toujours : à 380 / **0,75**, le pied du
+ * massif tombait à la couleur du ciel et le train, n'ayant plus rien à
+ * masquer, flottait dans un trou au lieu de découper une silhouette. Elle a
+ * revu les deux formes côte à côte et choisi la **haute et douce** plutôt que
+ * la courte et fermée : le voile monte trois fois plus haut qu'avant, mais se
+ * ferme moins. Le relief reste lisible derrière la rame.
+ *
+ * Elle en a redemandé dans la foulée — « on ajoute du fondu en bas » — en même
+ * temps qu'elle resserrait le grain du massif : une montagne plus fine se
+ * referme sur le train, et il faut d'autant plus l'éteindre à son pied. C'est
+ * l'**opacité** qui a pris la demande, de 0,62 à 0,78, parce que la hauteur,
+ * elle, est au bout de ce qu'elle peut faire.
+ *
+ * **La butée, mesurée : 584.** Le haut du voile est le plancher du ciel des
+ * étoiles (`hautDuVoilePx`, que `cretePx` prend pour minimum), et il doit
+ * rester à `CIEL_SOMMET` sous la frise. Sur une fenêtre basse et large — un
+ * téléphone couché, 844 × 390 —, un voile plus haut que 584 px de cadre
+ * remonte à l'écran jusque sous la frise et ne laisse plus de ciel du tout.
+ * 560 garde vingt-quatre pixels de marge sous cette butée.
+ *
+ * Pour aller plus haut, il faudrait que la hauteur du voile dépende du format,
+ * comme le recul et le massif : le voile est aujourd'hui dessiné une fois, en
+ * pixels de cadre, et il faudrait le refaire à chaque cadrage.
+ *
+ * Deux choses ont changé entre-temps et justifient d'y revenir : la scène a
+ * reculé — le train est plus petit dans le cadre —, et le grain du massif est
+ * passé à 2, ce qui le rend plus présent derrière lui.
  */
-export const DEGRADE_HAUTEUR = 230
+export const DEGRADE_HAUTEUR = 560
 
 /** Jusqu'où le voile se ferme à la ligne de rail, de 0 à 1. */
-export const DEGRADE_OPACITE = 0.4
+export const DEGRADE_OPACITE = 0.78
 
 /**
  * The band the veil covers: full frame width, resting on the rail line and
@@ -108,7 +260,7 @@ export function cadreDegrade(hauteur: number): {
   width: number
   height: number
 } {
-  return { x: 0, y: HORIZON - hauteur, width: STAGE.width, height: hauteur }
+  return { x: MONDE.x, y: HORIZON - hauteur, width: MONDE.width, height: hauteur }
 }
 
 /* ---- La frise ---- */
@@ -175,14 +327,21 @@ export function margeVoieDroite(largeur: number): number {
 const ECART_MINIMUM = 80
 
 /**
- * Ce que prend, sur téléphone, la mention de la gare suivante — « PROCHAIN »
- * en français, « NEXT » en anglais. Mesuré à 7 px par caractère dans la
- * graisse de la frise, plus une marge : huit caractères tiennent largement.
+ * Ce que prend, sur téléphone, ce qui s'écrit sous le point de la gare
+ * suivante — le plus large de son **libellé** et de sa **mention**.
  *
- * Elle n'est pas décorative : c'est elle qui plafonne l'écartement. Si la
- * mention s'allonge un jour, c'est ce nombre qu'il faut refaire.
+ * C'était la mention jusqu'au 25 novembre 2026 : « PROCHAIN » en mono 9 px,
+ * interlettrage compris, fait 56 px, et 64 laissait une marge. Depuis que
+ * tout le site est en mono, c'est le libellé qui gagne : « plus loin » et
+ * « elsewhere », neuf caractères de mono 13 px, font **70,2 px** — mesurés
+ * dans le navigateur, pas estimés. D'où 76, qui garde la même marge.
+ *
+ * Elle n'est pas décorative : c'est elle qui plafonne l'écartement. Si un
+ * libellé s'allonge un jour, ou si la frise change de corps, c'est ce nombre
+ * qu'il faut refaire — et il ne casse aucun test en silence, il déborde à
+ * l'écran.
  */
-export const LARGEUR_MENTION_MOBILE = 64
+export const LARGEUR_LIBELLE_MOBILE = 76
 
 /**
  * Combien de gares la frise étale sur la largeur : quatre sur un écran, deux
@@ -226,7 +385,7 @@ export function ecartFrise(largeur: number, visibles: number): number {
    * Il ne mord que là où il le faut : au-delà de 420 px environ, l'étalement
    * est déjà sous le plafond et rien ne change.
    */
-  const place = largeur - margeVoieDroite(largeur) - fonduFrise(largeur) - ancre - LARGEUR_MENTION_MOBILE
+  const place = largeur - margeVoieDroite(largeur) - fonduFrise(largeur) - ancre - LARGEUR_LIBELLE_MOBILE
   return Math.max(ECART_MINIMUM, Math.min(etale, place))
 }
 
@@ -326,10 +485,14 @@ function borner(v: number, min: number, max: number): number {
  * de ce que beaucoup de GPU mobiles acceptent.
  */
 export function fenetreVisible(frame: Frame, viewportW: number, viewportH: number): Cadre {
-  const x0 = borner(-frame.offsetX / frame.scale, 0, STAGE.width)
-  const x1 = borner((viewportW - frame.offsetX) / frame.scale, 0, STAGE.width)
-  const y0 = borner(-frame.offsetY / frame.scale, 0, HORIZON)
-  const y1 = borner((viewportH - frame.offsetY) / frame.scale, 0, HORIZON)
+  const droite = MONDE.x + MONDE.width
+  const x0 = borner(-frame.offsetX / frame.scale, MONDE.x, droite)
+  const x1 = borner((viewportW - frame.offsetX) / frame.scale, MONDE.x, droite)
+  // Vers le haut, on ne remonte que ce que le sommet peut occuper : au-delà
+  // c'est du ciel, et le ciel n'est pas dessiné par le relief. Rendre plus
+  // haut ne ferait que peindre du vide, en pixels.
+  const y0 = borner(-frame.offsetY / frame.scale, -MONDE_CIEL_MASSIF, HORIZON)
+  const y1 = borner((viewportH - frame.offsetY) / frame.scale, -MONDE_CIEL_MASSIF, HORIZON)
   return { x: x0, y: y0, width: Math.max(x1 - x0, 1), height: Math.max(y1 - y0, 1) }
 }
 
@@ -445,26 +608,6 @@ export const CIEL_SOMMET = 60
  */
 export const PLANCHER_REFLET = 55
 
-/**
- * Ce qu'on descend la scène en plus, sur grand écran, pour dégager du ciel.
- *
- * Le décalage est d'ordinaire plafonné par le jeu du cadrage « cover »
- * (`-offsetY`), qui ne vaut qu'une poignée de pixels sur une fenêtre de bureau
- * ordinaire : 11 px à 1512 x 771. Au-delà, une bande du haut n'a plus de scène
- * derrière elle — ce qui condamnait la manœuvre quand la poussière vivait dans
- * le cadre. Elle se dessine désormais en coordonnées d'écran : cette bande
- * porte donc le fond et le grain comme le reste du ciel, et ne se voit pas.
- */
-export const DESCENTE_BUREAU = 20
-
-/**
- * Idem sur téléphone, où l'on descend davantage : le format est très haut, le
- * train y tombe trop près du milieu, et le ciel au-dessus du massif supporte
- * d'être généreux. Les deux valeurs sont séparées parce que ce sont deux
- * décisions d'Emmanuelle, prises à deux moments et sur deux formats.
- */
-export const DESCENTE_MOBILE = 60
-
 /** Plus petite échelle que la résolution puisse retenir. */
 const ECHELLE_MIN = 0.5
 
@@ -518,22 +661,25 @@ export function cadrageCiel(
   // fait sortir rails et train sur les fenêtres larges et basses. Si la cible
   // n'est plus atteinte, l'échelle se résout plus bas.
   const reflet = viewportH - (HORIZON * frame.scale + frame.offsetY)
-  // Sur grand écran on s'autorise `DESCENTE_BUREAU` au-delà du jeu : le
-  // plafond du reflet, lui, reste le vrai garde-fou — il est ce qui empêche
-  // rails et train de sortir par le bas.
-  const marge = jeu + (viewportW >= SEUIL_MOBILE ? DESCENTE_BUREAU : DESCENTE_MOBILE)
+  // La descente du format s'ajoute au jeu : le plafond du reflet, lui, reste
+  // le vrai garde-fou — il est ce qui empêche rails et train de sortir par le
+  // bas sur une fenêtre basse.
+  const marge = jeu + descenteDuFormat(viewportW, viewportH)
   const decalage = Math.min(marge, Math.max(0, reflet - PLANCHER_REFLET))
 
+  // Le massif a sa propre taille, qui ne suit pas le recul du train : c'est
+  // elle qu'on essaie de tenir, et qu'on rabote si le ciel n'y suffit pas.
+  const plafond = ECHELLE_MONTAGNES * massifDuFormat(viewportW, viewportH)
   const ciel = (e: number): number => cielAuSommet(viewportW, viewportH, e, decalage)
   // Quand le haut du voile plafonne la crête, rapetisser ne rend plus de ciel :
   // la cible devient le meilleur ciel disponible, ce qui garde l'échelle
   // continue (les deux définitions coïncident à la hauteur critique).
   const cible = Math.min(CIEL_SOMMET, ciel(ECHELLE_MIN))
   const tient = (e: number): boolean => ciel(e) >= cible
-  if (tient(ECHELLE_MONTAGNES)) return { decalage, echelle: ECHELLE_MONTAGNES }
+  if (tient(plafond)) return { decalage, echelle: plafond }
 
   let bas = ECHELLE_MIN
-  let haut = ECHELLE_MONTAGNES
+  let haut = plafond
   while (haut - bas > 1e-4) {
     const milieu = (bas + haut) / 2
     if (tient(milieu)) bas = milieu

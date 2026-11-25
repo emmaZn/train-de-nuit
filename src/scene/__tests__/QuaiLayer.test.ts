@@ -9,7 +9,7 @@ import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
 import { CADRES, HALO_HORLOGE, HORLOGE, HORLOGE_IMAGE, PIECES, cibleReverbere } from '@/scene/quai'
 import { lirePngIndexe } from './png'
-import { DUREE_ETAPE, HORIZON, STAGE, TETE_LOCO, cadrageScene } from '@/scene/layout'
+import { DUREE_ETAPE, HORIZON, STAGE, TETE_LOCO_MAX, cadrageScene } from '@/scene/layout'
 
 vi.mock('@/scene/poses', async (importOriginal) => {
   const vrai = await importOriginal<typeof import('@/scene/poses')>()
@@ -692,7 +692,7 @@ describe('le réverbère qu’on éteint', () => {
     // À l'échelle de référence elle reste à droite du nez de la loco. Plus bas
     // elle finit par le mordre, et c'est sans conséquence : la rame ne se
     // clique pas, et l'horloge est consultée avant elle dans `clicPx`.
-    expect(CIBLE.x0).toBeGreaterThan(STAGE.width * TETE_LOCO)
+    expect(CIBLE.x0).toBeGreaterThan(STAGE.width * TETE_LOCO_MAX)
   })
 
   it('se cherche là où l’île l’a emporté, pas à sa place d’arrêt', () => {

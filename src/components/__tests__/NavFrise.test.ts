@@ -9,7 +9,7 @@ import { useVoyage } from '@/stores/voyage'
 import {
   ANCRE_FRISE,
   ANCRE_FRISE_MOBILE,
-  LARGEUR_MENTION_MOBILE,
+  LARGEUR_LIBELLE_MOBILE,
   SEUIL_MOBILE,
   ecartFrise,
   fonduFrise,
@@ -211,7 +211,7 @@ test('la gare à quai reste offerte, même si c’est la page courante', async (
  */
 for (const largeur of [375, 390, 430]) {
   test(`à ${largeur} px, la gare suivante tient avant le masque`, () => {
-    const finDeLaMention = ANCRE_FRISE_MOBILE + ecartFrise(largeur, 2) + LARGEUR_MENTION_MOBILE
+    const finDeLaMention = ANCRE_FRISE_MOBILE + ecartFrise(largeur, 2) + LARGEUR_LIBELLE_MOBILE
     const debutDuMasque = largeur - margeVoieDroite(largeur) - fonduFrise(largeur)
     expect(finDeLaMention).toBeLessThanOrEqual(debutDuMasque)
   })

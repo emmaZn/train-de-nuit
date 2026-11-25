@@ -1,11 +1,13 @@
 import { markRaw, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import type { InjectionKey, Ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { retirerEcran } from '@/chargement'
 import { Scene } from '@/scene/Scene'
 import type { Frame } from '@/scene/layout'
 import { loadFond, saveFond } from '@/scene/palette'
+import { sensDuGlissement, surUnElementInteractif } from '@/scene/glissement'
+import { garePrecedente, gareSuivante } from '@/scene/types'
 import { useTraces } from '@/stores/traces'
 import { useVoyage } from '@/stores/voyage'
 
@@ -47,6 +49,16 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   // La route, pour une seule question : le CV est-il ouvert ? La scène, elle,
   // n'en saura jamais rien — c'est le pont qui connaît les deux mondes.
   const route = useRoute()
+  const router = useRouter()
+  /**
+   * Le geste en cours, s'il peut encore devenir un glissement.
+   *
+   * `consomme` est la règle déjà écrite dans `clicPx` — « un clic ne fait
+   * qu'une chose » — portée au geste entier : si l'appui a touché l'horloge,
+   * le réverbère, un oiseau ou un carreau, le doigt a déjà dit ce qu'il
+   * voulait, et le faire aussi changer de gare en ferait deux.
+   */
+  let geste: { id: number; x: number; y: number; temps: number; consomme: boolean } | null = null
   const { cible, enRoute, etapesRestantes, gare, legs } = storeToRefs(voyage)
   const traces = useTraces()
   const { etoiles } = storeToRefs(traces)
@@ -94,8 +106,65 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     if (route.name === 'cv') return
     // Faire tomber un oiseau ne doit pas aussi ouvrir la bulle d'une étoile :
     // un clic ne fait qu'une chose.
-    if (scene.value?.clicPx(event.clientX, event.clientY)) return
+    const pris = scene.value?.clicPx(event.clientX, event.clientY) ?? false
+    geste = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      temps: event.timeStamp,
+      consomme: pris || surUnElementInteractif(event.target),
+    }
+    if (pris) return
     scene.value?.setPointerPx(event.clientX, event.clientY)
+  }
+
+  /**
+   * Le doigt se lève : si sa course était un glissement, on change de gare.
+   *
+   * **Pourquoi ici et non dans un composant à lui** : c'est le seul endroit
+   * qui sache si l'appui a déjà servi à quelque chose. Un composant posé
+   * par-dessus ne verrait que des coordonnées, et rallumerait une fenêtre tout
+   * en faisant partir le train.
+   *
+   * Le CV est exclu comme il l'est des appuis : il défile, et sur toute la
+   * fenêtre.
+   */
+  function surRelache(event: PointerEvent) {
+    const depart = geste
+    geste = null
+    if (!depart || depart.id !== event.pointerId || depart.consomme) return
+    if (route.name === 'cv') return
+    const sens = sensDuGlissement(
+      event.clientX - depart.x,
+      event.clientY - depart.y,
+      event.timeStamp - depart.temps,
+      depart.x,
+      window.innerWidth,
+    )
+    if (!sens) return
+    /*
+     * D'où l'on compte : de la gare **visée** quand le train roule, et non de
+     * celle qu'il vient de quitter.
+     *
+     * `voyage.gare` reste la gare de départ pendant tout le trajet. Compter
+     * depuis elle rendait deux gestes de suite inutiles — le second redemandait
+     * la gare déjà visée — et faisait partir « en arrière » vers l'avant-
+     * dernière au lieu de revenir sur ses pas. Un glissement répond à ce qu'on
+     * a sous les yeux, et ce qu'on a sous les yeux pendant un trajet, c'est où
+     * l'on va.
+     */
+    const depuis = (enRoute.value && cible.value) || gare.value
+    const suivante = sens === 'suivante' ? gareSuivante(depuis) : garePrecedente(depuis)
+    // `partirVers` redirige un voyage en cours plutôt que de le refuser : on
+    // peut donc glisser pendant que le train roule, comme on peut cliquer une
+    // gare de la frise. C'est le routeur qui mène, ici comme là — la frise et
+    // le pouce ne doivent pas avoir deux chemins différents.
+    void router.push(`/${suivante}`)
+  }
+
+  /** Le doigt sort de l'écran, ou le système reprend la main : ce n'était rien. */
+  function surAnnulation() {
+    geste = null
   }
 
   onMounted(async () => {
@@ -128,6 +197,8 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     // `onBeforeUnmount` at once, and would find nothing to remove.
     window.addEventListener('pointermove', surPointeur, { passive: true })
     window.addEventListener('pointerdown', surAppui, { passive: true })
+    window.addEventListener('pointerup', surRelache, { passive: true })
+    window.addEventListener('pointercancel', surAnnulation, { passive: true })
 
     await instance.init()
     instance.setFond(fond.value)
@@ -167,6 +238,8 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   onBeforeUnmount(() => {
     window.removeEventListener('pointermove', surPointeur)
     window.removeEventListener('pointerdown', surAppui)
+    window.removeEventListener('pointerup', surRelache)
+    window.removeEventListener('pointercancel', surAnnulation)
     for (const off of detacher) off()
     scene.value?.dispose()
     scene.value = null

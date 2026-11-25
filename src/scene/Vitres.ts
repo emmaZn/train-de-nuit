@@ -24,7 +24,15 @@ import { ECHELLE_TRAIN } from './layout'
 import type { Frame } from './layout'
 import type { Manifest } from './types'
 
-/** Taille d'une cellule de grain, en texels du rendu — celle du massif. */
+/**
+ * Taille d'une cellule de grain, en texels du rendu.
+ *
+ * C'était celle du massif, et les deux ont marché ensemble jusqu'au 25
+ * novembre 2026, où le massif est passé à 2 : une vitre fait 82 px de cadre
+ * source, et un grain de 2 n'y laisserait qu'une poignée de cellules. Celui-ci
+ * est donc resté à 1,5, **et c'est un choix qui n'a pas été soumis** : si la
+ * matière des fenêtres doit suivre celle de la montagne, c'est ce nombre.
+ */
 export const GRAIN_ECRAN = 1.5
 
 /**
@@ -82,6 +90,20 @@ export const PAS_SEUIL = 0.02
 /** Entre deux extinctions, en secondes. */
 export const EXTINCTION: { min: number; max: number } = { min: 5, max: 14 }
 
+/**
+ * Rayon de capture d'une vitre, en pixels d'écran.
+ *
+ * Une vitre fait 82 px de cadre source, soit treize pixels d'écran sur un
+ * téléphone une fois la rame réduite et la scène reculée : on ne la vise pas
+ * avec un doigt. **On ne cherche donc pas la vitre touchée, mais la plus
+ * proche**, dans ce rayon. Les six vitres d'un wagon tiennent dans une centaine
+ * de pixels d'écran : un doigt les couvre presque toutes, et la plus proche est
+ * celle qu'on voulait. Il n'y a pas de cible de 44 px à tenir ici — ce n'est
+ * pas une commande, c'est un geste sur la scène, et se tromper de fenêtre
+ * n'empêche rien.
+ */
+export const RAYON_VITRE = 26
+
 /** Le gris du massif. */
 const GRIS = '237,237,237'
 
@@ -110,6 +132,43 @@ export function seuilVacillement(t: number, phase: number, amplitude = AMPLITUDE
   const a = Math.sin(t * 0.9 + phase)
   const b = Math.sin(t * 1.37 + phase * 2.3)
   return 1 - amplitude * (0.5 + 0.25 * a + 0.25 * b)
+}
+
+/**
+ * Le centre d'une vitre dans le cadre source — la vitre seule, **sans son
+ * halo** : deux halos voisins se recouvrent largement, et viser leur milieu
+ * reviendrait à viser entre les deux fenêtres.
+ */
+export function centreVitre(boite: readonly [number, number, number, number]): {
+  x: number
+  y: number
+} {
+  return { x: (boite[0] + boite[2]) / 2, y: (boite[1] + boite[3]) / 2 }
+}
+
+/**
+ * La vitre la plus proche d'un point, ou `null` si aucune n'est dans le rayon.
+ *
+ * Les coordonnées sont celles de la rame, rayon compris : c'est à l'appelant
+ * de convertir ses pixels d'écran, parce que lui seul sait à quelle échelle la
+ * rame est posée.
+ */
+export function vitreVisee(
+  centres: readonly { x: number; y: number }[],
+  x: number,
+  y: number,
+  rayon: number,
+): number | null {
+  let trouvee: number | null = null
+  let meilleure = rayon * rayon
+  centres.forEach((c, i) => {
+    const d = (c.x - x) * (c.x - x) + (c.y - y) * (c.y - y)
+    if (d <= meilleure) {
+      meilleure = d
+      trouvee = i
+    }
+  })
+  return trouvee
 }
 
 /** Le rectangle d'une vitre, halo compris, dans le cadre source. */
@@ -257,6 +316,8 @@ export class Vitres {
   private readonly origine: { x: number; y: number }
   private readonly anime: boolean
   private readonly dé = alea(20261114)
+  /** Le centre de chaque vitre, dans la rame, dans l'ordre de `this.vitres`. */
+  private readonly centres: { x: number; y: number }[] = []
   private frame: Frame | null = null
   private t = 0
   private depuisRedessin = 0
@@ -290,6 +351,10 @@ export class Vitres {
         const v = new Vitre(boite, (rang * BOITES.length + i) * 1.7, 101 + rang * 97 + i * 13)
         v.setAllumee(ALLUMEES[rang % ALLUMEES.length][i])
         this.vitres.push(v)
+        // Le groupe est posé en (wx, spec.y) et porte des points du cadre
+        // source : un point (sx, sy) retombe donc en (wx + sx - spec.x, sy).
+        const c = centreVitre(boite)
+        this.centres.push({ x: wx + c.x - spec.x, y: c.y })
         groupe.addChild(v.sprite)
       })
       this.racine.addChild(groupe)
@@ -325,6 +390,40 @@ export class Vitres {
     if (this.depuisRedessin < PERIODE_REDESSIN) return
     this.depuisRedessin = 0
     this.peindre()
+  }
+
+  /**
+   * Quelqu'un touche une fenêtre : elle s'allume, ou elle s'éteint.
+   *
+   * Emmanuelle, le 25 novembre 2026 : « tout comme je peux cliquer sur le
+   * réverbère et l'horloge, je veux pouvoir cliquer sur les fenêtres du train
+   * — même si elle peut se rallumer et s'éteindre aléatoirement toujours ».
+   * C'est la dernière phrase qui compte : rien n'est **verrouillé** ici. La
+   * vitre qu'on vient d'éteindre reste dans le tirage de `update`, et pourra
+   * se rallumer toute seule quelques secondes plus tard. On ne commande pas le
+   * train, on frappe à un carreau.
+   *
+   * `x`, `y` sont en pixels de cadre, `echelleCadre` est `frame.scale` : la
+   * rame ajoute la sienne par-dessus, et c'est elle qui est lue ici plutôt que
+   * recopiée, pour que le jour où le nez du train bouge — il bouge avec le
+   * format — rien n'ait à suivre.
+   */
+  toucher(x: number, y: number, echelleCadre: number): number | null {
+    const rame = this.racine.parent
+    const k = rame?.scale.x ?? 0
+    const e = echelleCadre > 0 ? echelleCadre : 1
+    if (!rame || !(k > 0)) return null
+    const i = vitreVisee(
+      this.centres,
+      (x - rame.position.x) / k,
+      (y - rame.position.y) / k,
+      RAYON_VITRE / (e * k),
+    )
+    if (i === null) return null
+    this.vitres[i].setAllumee(!this.vitres[i].estAllumee)
+    // Tout de suite, et non au prochain redessin : un geste doit répondre.
+    this.peindre()
+    return i
   }
 
   destroy(): void {

@@ -23,7 +23,24 @@ import {
   wagonX,
 } from '@/scene/Train'
 import { framePath } from '@/scene/assets'
-import { DUREE_ETAPE, ECHELLE_TRAIN, HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
+import {
+  CADRAGE_PAYSAGE,
+  CADRAGE_PORTRAIT,
+  DUREE_ETAPE,
+  ECHELLE_TRAIN,
+  HORIZON,
+  STAGE,
+} from '@/scene/layout'
+
+/**
+ * Une tête d'essai, et non celle d'un format réel : ces tests vérifient
+ * qu'`ancrageRame` honore le nombre qu'on lui donne, pas qu'il en devine un.
+ * Les deux valeurs d'Emmanuelle se tiennent dans `layout.test.ts`.
+ */
+const TETE = 0.53
+
+/** Le format d'où partent les trains de ce fichier : un téléphone en portrait. */
+const PORTRAIT = [412, 915] as const
 import type { Manifest } from '@/scene/types'
 
 test('le train quitte l’arrêt par le démarrage', () => {
@@ -153,14 +170,14 @@ test('les tampons se touchent, ils ne laissent pas de trou', () => {
 // Réduire le train : la rame rétrécit, mais ses roues restent sur la voie et
 // la rame reste centrée dans le cadre.
 test('la voie reste exactement à sa place quand le train rétrécit', () => {
-  const a = ancrageRame(LOCO, WAGON, 0.5)
+  const a = ancrageRame(LOCO, WAGON, 0.5, 1, TETE)
   expect(a.y + 0.5 * HORIZON).toBeCloseTo(HORIZON, 6)
 })
 
 test('la tête de la locomotive se pose au milieu du cadre', () => {
   const { droite } = emprise(LOCO, WAGON)
-  const a = ancrageRame(LOCO, WAGON, 0.5)
-  expect(a.x + 0.5 * droite).toBeCloseTo(STAGE.width * TETE_LOCO, 6)
+  const a = ancrageRame(LOCO, WAGON, 0.5, 1, TETE)
+  expect(a.x + 0.5 * droite).toBeCloseTo(STAGE.width * TETE, 6)
 })
 
 test('la rame s’étend vers l’arrière de la tête, jamais devant', () => {
@@ -171,8 +188,8 @@ test('la rame s’étend vers l’arrière de la tête, jamais devant', () => {
 test('la tête ne bouge pas quand l’échelle change', () => {
   const { droite } = emprise(LOCO, WAGON)
   for (const e of [0.3, 0.44, 0.8]) {
-    const a = ancrageRame(LOCO, WAGON, e)
-    expect(a.x + e * droite).toBeCloseTo(STAGE.width * TETE_LOCO, 6)
+    const a = ancrageRame(LOCO, WAGON, e, 1, TETE)
+    expect(a.x + e * droite).toBeCloseTo(STAGE.width * TETE, 6)
   }
 })
 
@@ -181,15 +198,15 @@ test('la tête ne bouge pas quand l’échelle change', () => {
 test('la tête ne bouge pas quand on attelle un wagon de plus', () => {
   const { droite } = emprise(LOCO, WAGON)
   for (const n of [1, 2, 3]) {
-    const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, n)
-    expect(a.x + ECHELLE_TRAIN * droite).toBeCloseTo(STAGE.width * TETE_LOCO, 6)
+    const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, n, TETE)
+    expect(a.x + ECHELLE_TRAIN * droite).toBeCloseTo(STAGE.width * TETE, 6)
   }
 })
 
 test('réduire de moitié divise la largeur de la rame par deux', () => {
   const { gauche, droite } = emprise(LOCO, WAGON)
   const pleine = droite - gauche
-  const a = ancrageRame(LOCO, WAGON, 0.5)
+  const a = ancrageRame(LOCO, WAGON, 0.5, 1, TETE)
   const g = a.x + 0.5 * gauche
   const d = a.x + 0.5 * droite
   expect(d - g).toBeCloseTo(pleine / 2, 6)
@@ -203,7 +220,7 @@ test('la rame va du tampon arrière du wagon au nez de la locomotive', () => {
 
 test('à échelle réduite, la rame tient dans le cadre', () => {
   const { gauche, droite } = emprise(LOCO, WAGON)
-  const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN)
+  const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, 1, TETE)
   expect(a.x + ECHELLE_TRAIN * gauche).toBeGreaterThanOrEqual(0)
   expect(a.x + ECHELLE_TRAIN * droite).toBeLessThanOrEqual(STAGE.width)
 })
@@ -253,15 +270,36 @@ test('allonger la rame étend son emprise vers l’arrière, pas vers l’avant'
 // Ce qui ne doit jamais arriver, c'est qu'elle dépasse à droite.
 test('la rame retenue ne dépasse pas à droite et pose sa tête au milieu', () => {
   const { droite } = emprise(LOCO, WAGON, WAGONS)
-  const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, WAGONS)
+  const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, WAGONS, TETE)
   const nez = a.x + ECHELLE_TRAIN * droite
-  expect(nez).toBeCloseTo(STAGE.width * TETE_LOCO, 6)
+  expect(nez).toBeCloseTo(STAGE.width * TETE, 6)
   expect(nez).toBeLessThanOrEqual(STAGE.width)
+})
+
+/**
+ * Le nez est le seul point du train qui dépende de la fenêtre. Ce test prend un
+ * vrai train, et le fait passer d'un format à l'autre : la rame doit suivre,
+ * sans qu'on ait à la reconstruire. C'est ce que `Scene.cadrer` lui demande à
+ * chaque redimensionnement, et dès la première image d'un téléphone.
+ */
+test('la rame suit le format, à la construction comme au recadrage', () => {
+  const manifeste = manifesteReel()
+  const { droite } = emprise(manifeste.train.loco, manifeste.train.wagon, WAGONS)
+  const nez = (train: Train) => train.rameContainer.position.x + ECHELLE_TRAIN * droite
+
+  const train = new Train(new Container(), manifeste, 412, 915)
+  expect(nez(train)).toBeCloseTo(STAGE.width * CADRAGE_PORTRAIT.tete, 6)
+
+  train.cadrer(1480, 690)
+  expect(nez(train)).toBeCloseTo(STAGE.width * CADRAGE_PAYSAGE.tete, 6)
+
+  // Et le nez recule bien, dans le sens qu'elle a demandé le 25 novembre 2026.
+  expect(CADRAGE_PAYSAGE.tete).toBeLessThan(CADRAGE_PORTRAIT.tete)
 })
 
 test('les roues restent sur la voie quelle que soit la longueur de la rame', () => {
   for (const n of [1, 2, 3]) {
-    const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, n)
+    const a = ancrageRame(LOCO, WAGON, ECHELLE_TRAIN, n, TETE)
     expect(a.y + ECHELLE_TRAIN * HORIZON).toBeCloseTo(HORIZON, 6)
   }
 })
@@ -403,7 +441,7 @@ afterEach(() => vi.restoreAllMocks())
 test('à quai, le train ne demande que ce qu’il montre', async () => {
   const demandes = espionnerLesImages()
   const manifeste = manifesteReel()
-  const train = new Train(new Container(), manifeste)
+  const train = new Train(new Container(), manifeste, ...PORTRAIT)
   await train.poserAQuai()
 
   // La voie, et la dernière image de chacune des deux séquences d'arrêt.
@@ -417,14 +455,14 @@ test('à quai, le train ne demande que ce qu’il montre', async () => {
 
 test('à quai, le train n’est pas encore complet', async () => {
   espionnerLesImages()
-  const train = new Train(new Container(), manifesteReel())
+  const train = new Train(new Container(), manifesteReel(), ...PORTRAIT)
   await train.poserAQuai()
   expect(train.complet).toBe(false)
 })
 
 test('les six séquences arrivent derrière, le départ d’abord', async () => {
   const demandes = espionnerLesImages()
-  const train = new Train(new Container(), manifesteReel())
+  const train = new Train(new Container(), manifesteReel(), ...PORTRAIT)
   await train.poserAQuai()
   demandes.length = 0
   await train.chargerLesSequences()
@@ -441,7 +479,7 @@ test('une séquence qui ne rend rien ne bloque pas le train pour toujours', asyn
   // Sinon le départ, qui attend `complet`, ne viendrait jamais : une image
   // manquante arrêterait le voyage au lieu de l'abîmer un peu.
   vi.spyOn(Assets, 'load').mockRejectedValue(new Error('réseau coupé'))
-  const train = new Train(new Container(), manifesteReel())
+  const train = new Train(new Container(), manifesteReel(), ...PORTRAIT)
   await train.poserAQuai()
   await train.chargerLesSequences()
   expect(train.complet).toBe(true)

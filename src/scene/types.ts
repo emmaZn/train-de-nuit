@@ -64,3 +64,14 @@ export function forwardSteps(from: Gare, to: Gare): number {
 export function gareSuivante(gare: Gare): Gare {
   return GARES[(GARES.indexOf(gare) + 1) % GARES.length]
 }
+
+/**
+ * La gare d'avant sur la ligne.
+ *
+ * Le train, lui, ne recule jamais : y aller lui fait faire presque le tour,
+ * comme le fait déjà un clic sur la gare passée de la frise. C'est la ligne
+ * qui est circulaire, pas la marche.
+ */
+export function garePrecedente(gare: Gare): Gare {
+  return GARES[(GARES.indexOf(gare) + GARES.length - 1) % GARES.length]
+}

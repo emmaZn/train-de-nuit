@@ -14,7 +14,7 @@ import {
 } from '@/scene/quai'
 import { lirePngIndexe } from './png'
 import { RECUL_HORS_CHAMP, solParEtape } from '@/scene/cables'
-import { HORIZON, STAGE, TETE_LOCO } from '@/scene/layout'
+import { HORIZON, STAGE, TETE_LOCO_MAX } from '@/scene/layout'
 
 describe('la géométrie du quai', () => {
   it('la gare sort du champ avant que la suivante entre', () => {
@@ -126,7 +126,7 @@ describe('la géométrie du quai', () => {
   it('le réverbère est dégagé du nez de la locomotive', () => {
     const demiEmbase =
       (CADRES.reverbere.largeur / 2) * (PIECES.reverbere.hauteur / CADRES.reverbere.hauteur)
-    expect(PIECES.reverbere.x - demiEmbase).toBeGreaterThan(STAGE.width * TETE_LOCO)
+    expect(PIECES.reverbere.x - demiEmbase).toBeGreaterThan(STAGE.width * TETE_LOCO_MAX)
   })
 
   /**

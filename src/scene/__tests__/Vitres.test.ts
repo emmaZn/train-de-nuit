@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs'
+
+import { Container } from 'pixi.js'
 import { describe, expect, it } from 'vitest'
 
 import {
+  Vitres,
   ALLUMEES,
   AMPLITUDE,
   BOITES,
@@ -12,12 +16,16 @@ import {
   MARGE,
   PAS_SEUIL,
   PERIODE_REDESSIN,
+  RAYON_VITRE,
   RETRAIT,
   alea,
   cadreVitre,
+  centreVitre,
   densiteVisee,
   seuilVacillement,
+  vitreVisee,
 } from '@/scene/Vitres'
+import type { Manifest } from '@/scene/types'
 
 describe('seuilVacillement', () => {
   it('ne descend jamais en dessous de l’amplitude annoncée, ni au-dessus de 1', () => {
@@ -145,8 +153,148 @@ describe('alea', () => {
   })
 })
 
+/**
+ * **« Je veux pouvoir cliquer sur les fenêtres du train pour allumer ou
+ * éteindre, même si elle peut se rallumer et s'éteindre aléatoirement
+ * toujours. »** Emmanuelle, le 25 novembre 2026.
+ *
+ * Une vitre fait 82 px de cadre source, soit une douzaine de pixels d'écran
+ * sur un téléphone : on ne la vise pas. C'est la **plus proche** qui répond,
+ * dans un rayon, et ces tests tiennent cette règle-là plutôt qu'un rectangle.
+ */
+describe('viser une fenêtre', () => {
+  const centres = BOITES.map((b) => centreVitre(b))
+
+  it('le centre est celui de la vitre, pas celui de son halo', () => {
+    // `cadreVitre` ajoute `MARGE` de chaque côté pour le halo ; deux halos
+    // voisins se recouvrent, et leur milieu tomberait entre deux fenêtres.
+    const c = centreVitre(BOITES[0])
+    const halo = cadreVitre(BOITES[0])
+    expect(c.x).toBeCloseTo((BOITES[0][0] + BOITES[0][2]) / 2, 6)
+    expect(halo.x).toBeLessThan(BOITES[0][0])
+    expect(halo.x + halo.largeur).toBeGreaterThan(BOITES[0][2])
+  })
+
+  it('rend la vitre qu’on désigne, quand on tombe dessus', () => {
+    centres.forEach((c, i) => {
+      expect(vitreVisee(centres, c.x, c.y, RAYON_VITRE)).toBe(i)
+    })
+  })
+
+  it('rend la plus proche, et non la première venue', () => {
+    // Entre deux fenêtres, légèrement vers la seconde.
+    const entre = (centres[0].x + centres[1].x) / 2 + 4
+    expect(vitreVisee(centres, entre, centres[0].y, 1e4)).toBe(1)
+    const avant = (centres[0].x + centres[1].x) / 2 - 4
+    expect(vitreVisee(centres, avant, centres[0].y, 1e4)).toBe(0)
+  })
+
+  it('ne rend rien quand on est loin de toutes', () => {
+    expect(vitreVisee(centres, centres[0].x, centres[0].y + 5000, 10)).toBeNull()
+    expect(vitreVisee([], 0, 0, 1e4)).toBeNull()
+  })
+
+  it('le rayon est large devant une vitre, et plus étroit que l’écart des deux', () => {
+    const vitre = BOITES[0][2] - BOITES[0][0]
+    const ecart = centres[1].x - centres[0].x
+    expect(RAYON_VITRE).toBeGreaterThan(vitre / 8)
+    // En pixels d'écran : il ne doit pas falloir viser au pixel près, mais le
+    // rayon ne sert à rien s'il couvre tout le wagon d'un coup — la plus
+    // proche trancherait de toute façon, et le geste perdrait son sens.
+    expect(RAYON_VITRE).toBeLessThan(ecart)
+  })
+})
+
+/**
+ * Le passage des pixels de cadre aux coordonnées de la rame — la seule partie
+ * de ce geste qui puisse être fausse sans se voir. La rame est posée par
+ * `Train.cadrer`, à une place qui dépend du format depuis le 25 novembre 2026 :
+ * ce test prend donc une rame arbitrairement posée, et vérifie qu'on retrouve
+ * la bonne fenêtre quand même.
+ */
+describe('toucher une fenêtre dans la scène', () => {
+  const manifeste = () =>
+    JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as Manifest
+
+  /** Une rame posée n'importe où, comme le ferait un format n'importe lequel. */
+  const poser = (x: number, y: number, k: number) => {
+    const rame = new Container()
+    rame.position.set(x, y)
+    rame.scale.set(k)
+    const m = manifeste()
+    const positions = [-900, -1800]
+    const vitres = new Vitres(rame, m, positions, false)
+    return { vitres, rame, spec: m.train.wagon, positions }
+  }
+
+  /** Le centre de la vitre `i` du wagon `rang`, en pixels de cadre. */
+  const enCadre = (
+    o: ReturnType<typeof poser>,
+    rang: number,
+    i: number,
+  ): { x: number; y: number } => {
+    const c = centreVitre(BOITES[i])
+    return {
+      x: o.rame.position.x + o.rame.scale.x * (o.positions[rang] + c.x - o.spec.x),
+      y: o.rame.position.y + o.rame.scale.x * c.y,
+    }
+  }
+
+  it('bascule la fenêtre qu’on désigne, dans l’un ou l’autre wagon', () => {
+    const o = poser(620, 70, 0.4)
+    for (const [rang, i] of [[0, 0], [0, 4], [1, 2], [1, 5]] as const) {
+      const p = enCadre(o, rang, i)
+      expect(o.vitres.toucher(p.x, p.y, 1), `wagon ${rang}, vitre ${i}`).toBe(
+        rang * BOITES.length + i,
+      )
+    }
+  })
+
+  it('rend `null` loin de la rame, et ne touche à rien', () => {
+    const o = poser(620, 70, 0.4)
+    expect(o.vitres.toucher(-5000, -5000, 1)).toBeNull()
+  })
+
+  /**
+   * Le point de la demande : « même si elle peut se rallumer et s'éteindre
+   * aléatoirement toujours ». Un carreau touché n'est pas verrouillé — il
+   * repasse simplement dans l'autre état, et le tirage de `update` pourra le
+   * reprendre comme n'importe quel autre.
+   */
+  it('éteint ce qui est allumé, rallume ce qui est éteint', () => {
+    const o = poser(620, 70, 0.4)
+    const p = enCadre(o, 0, 0)
+    const i = o.vitres.toucher(p.x, p.y, 1)
+    expect(i).toBe(0)
+    const j = o.vitres.toucher(p.x, p.y, 1)
+    expect(j).toBe(0)
+  })
+
+  /**
+   * Le rayon se compte en pixels d'écran, et c'est ce qui fait qu'un doigt
+   * trouve toujours un carreau : plus la scène est réduite, plus ces mêmes
+   * pixels couvrent de fenêtres, et la plus proche répond pour les autres.
+   *
+   * Le test ne dit donc pas « on touche la vitre visée » — à 0,25 d'échelle,
+   * quinze pixels d'écran enjambent deux fenêtres, et ce serait faux. Il dit
+   * la chose qui compte : **on ne frappe jamais dans le vide**.
+   */
+  it('à quinze pixels d’écran du centre, on touche toujours une fenêtre', () => {
+    const o = poser(620, 70, 0.4)
+    const p = enCadre(o, 0, 0)
+    for (const echelleCadre of [1, 0.5, 0.25]) {
+      const dx = 15 / echelleCadre
+      expect(o.vitres.toucher(p.x + dx, p.y, echelleCadre), `échelle ${echelleCadre}`).not.toBeNull()
+    }
+    // Et de près, c'est bien celle qu'on vise.
+    expect(o.vitres.toucher(p.x + 5, p.y, 1)).toBe(0)
+  })
+})
+
 describe('les réglages', () => {
-  it('garde le grain du massif', () => {
+  it('garde un grain plus fin que celui du massif', () => {
+    // Le massif est passé à 2 le 25 novembre 2026 ; une vitre est trop petite
+    // pour ce pas-là. Jamais soumis : voir le commentaire de la constante.
     expect(GRAIN_ECRAN).toBe(1.5)
   })
 

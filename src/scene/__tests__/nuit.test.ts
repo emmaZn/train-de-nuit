@@ -142,7 +142,7 @@ function rameMontee(reducedMotion = false) {
   const decor = new Container()
   const plans = plansDuDecor(decor)
   const manifeste = JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as Manifest
-  const train = monterLeTrain(plans, manifeste)
+  const train = monterLeTrain(plans, manifeste, 412, 915)
   monterLaRame(plans, train, manifeste, reducedMotion)
   const rame = train.rameContainer
   const nomme = (label: string) => {

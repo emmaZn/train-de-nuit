@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { HORIZON, STAGE, ECHELLE_TRAIN } from '@/scene/layout'
+import { HORIZON, MONDE, STAGE, ECHELLE_TRAIN } from '@/scene/layout'
 import {
   DEBUT,
   DECROISSANCE,
@@ -89,9 +89,13 @@ describe('semer', () => {
 })
 
 describe('cadreTerre', () => {
-  it('prend toute la largeur, sous le champignon du rail', () => {
+  it('prend toute la largeur du monde, sous le champignon du rail', () => {
+    // Du plateau seul, elle s'arrêtait net là où la voie s'arrêtait — ce qui
+    // ne se voyait pas tant que la scène débordait l'écran, et se voit depuis
+    // qu'elle recule.
     const c = cadreTerre()
-    expect(c).toEqual({ x: 0, y: HORIZON + DEBUT, width: STAGE.width, height: PROFONDEUR })
+    expect(c).toEqual({ x: MONDE.x, y: HORIZON + DEBUT, width: MONDE.width, height: PROFONDEUR })
+    expect(c.width).toBeGreaterThan(STAGE.width)
   })
 
   it('commence sous la ligne de rail et non dessus : les traverses restent nettes', () => {

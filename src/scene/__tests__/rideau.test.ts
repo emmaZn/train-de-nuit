@@ -88,9 +88,25 @@ describe('la géométrie du rideau', () => {
    * plus l'horloge qu'on vise mais le disque posé sur l'heure du bandeau, que
    * `PanneauDeparts.test.ts` garde à 44 px.
    */
-  it.each(FENETRES)('fait du halo de l’horloge une cible de 44 px d’écran à %i×%i', (w, h) => {
+  it.each(FENETRES)('fait de l’horloge une cible de 44 px d’écran à %i×%i', (w, h) => {
     const { frame } = cadrageScene(w, h)
-    expect(2 * HORLOGE.rayon * HALO_HORLOGE.rayon * frame.scale).toBeGreaterThanOrEqual(44)
+    // On mesure la **cible**, pas le halo dessiné. Les deux coïncidaient tant
+    // que la scène collait à l'écran ; depuis qu'elle recule, le halo tombe à
+    // 34 px sur un petit téléphone et c'est `horlogeTouchee` qui tient les 44,
+    // en élargissant sa cible à mesure que l'échelle baisse — comme le fait
+    // `cibleReverbere` depuis toujours.
+    const demi = 22 / frame.scale
+    expect(horlogeTouchee(HORLOGE.x + demi, HORLOGE.y, frame.scale)).toBe(true)
+    expect(horlogeTouchee(HORLOGE.x, HORLOGE.y + demi, frame.scale)).toBe(true)
+  })
+
+  it('n’élargit la cible de l’horloge que lorsque le halo n’y suffit plus', () => {
+    // Sur une grande fenêtre, le halo dépasse déjà les 44 px : la cible reste
+    // celle qu'on voit, et ne déborde pas sur ce qu'il y a autour.
+    const grand = cadrageScene(2560, 1080).frame
+    const halo = HORLOGE.rayon * HALO_HORLOGE.rayon
+    expect(2 * halo * grand.scale).toBeGreaterThanOrEqual(44)
+    expect(horlogeTouchee(HORLOGE.x + halo * 1.05, HORLOGE.y, grand.scale)).toBe(false)
   })
 })
 
@@ -188,8 +204,10 @@ describe('Rideau', () => {
    */
   it('suit le cadre quand la fenêtre change en pleine descente', () => {
     // Deux fenêtres dont `yPoseA` diffère : sur 1440×900 le plancher de 340
-    // s'applique, sur 2560×720 non — sinon le test comparerait 340 à 340.
-    const large = cadrageScene(2560, 720).frame
+    // s'applique, sur 3440×800 non — sinon le test comparerait 340 à 340.
+    // C'était 2560×720 ; depuis que la scène recule, cette fenêtre-là retombe
+    // elle aussi sur le plancher, et il a fallu aller chercher plus large.
+    const large = cadrageScene(3440, 800).frame
     expect(yPoseA(large)).not.toBeCloseTo(yPoseA(CADRE), 0)
     const r = nouveau()
     r.cadrer(CADRE)

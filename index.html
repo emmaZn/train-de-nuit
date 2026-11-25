@@ -54,7 +54,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400&family=JetBrains+Mono:wght@300;400&display=swap"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400&display=swap"
       rel="stylesheet"
     />
     <script>
@@ -179,9 +179,17 @@
         var STAGE_H = 1217
         var HORIZON = 921
         var SEUIL_MOBILE = 720
-        var DESCENTE_BUREAU = 20
-        var DESCENTE_MOBILE = 60
         var PLANCHER_REFLET = 55
+        var MONDE_X = -420
+        var MONDE_Y = -1200
+        var MONDE_W = STAGE_W + 2 * 420
+        var MONDE_H = STAGE_H + 1200 + 320
+        var ASPECT_PORTRAIT = 412 / 915
+        var ASPECT_PAYSAGE = 1480 / 690
+        var RECUL_PORTRAIT = 0.5
+        var RECUL_PAYSAGE = 0.8
+        var DESCENTE_PORTRAIT = 140 / 915
+        var DESCENTE_PAYSAGE = 70 / 690
         /* src/scene/Sky.ts */
         var PARALLAX = 14
         var DENSITE = 1 / 600
@@ -201,16 +209,26 @@
           }
         }
 
+        /* `entreLesAncres` de layout.ts : 0 au portrait, 1 au paysage. */
+        function entre(lw, lh) {
+          var t = (lw / lh - ASPECT_PORTRAIT) / (ASPECT_PAYSAGE - ASPECT_PORTRAIT)
+          return Math.min(Math.max(t, 0), 1)
+        }
+
         /* `cadrageScene` : `fitStage`, puis le décalage de `cadrageCiel`. */
         function cadre(w, h) {
           var lw = Math.max(w, 1)
           var lh = Math.max(h, 1)
-          var echelle = Math.max(lw / STAGE_W, lh / STAGE_H)
+          var t = entre(lw, lh)
+          var couvre = Math.max(lw / STAGE_W, lh / STAGE_H)
+          var voulue = couvre * (RECUL_PORTRAIT + t * (RECUL_PAYSAGE - RECUL_PORTRAIT))
+          var plancher = Math.max(lw / MONDE_W, lh / MONDE_H)
+          var echelle = Math.max(voulue, plancher)
           var hautY = (lh - STAGE_H * echelle) / 2
           var jeu = Math.max(0, -hautY)
           var reflet = h - (HORIZON * echelle + hautY)
-          var marge = jeu + (w >= SEUIL_MOBILE ? DESCENTE_BUREAU : DESCENTE_MOBILE)
-          var decalage = Math.min(marge, Math.max(0, reflet - PLANCHER_REFLET))
+          var descente = lh * (DESCENTE_PORTRAIT + t * (DESCENTE_PAYSAGE - DESCENTE_PORTRAIT))
+          var decalage = Math.min(jeu + descente, Math.max(0, reflet - PLANCHER_REFLET))
           return {
             scale: echelle,
             offsetX: (lw - STAGE_W * echelle) / 2,
@@ -229,12 +247,12 @@
             var suivant = alea(GRAINE)
             var libres = []
             for (var i = 0; i < nombre; i += 1) {
-              var gx = suivant() * STAGE_W
-              var gy = suivant() * STAGE_H
+              var gx = suivant() * MONDE_W
+              var gy = suivant() * MONDE_H
               var gr = 0.4 + suivant() * 0.9
               var ga = 0.06 + suivant() * 0.3
-              var x = gx * frame.scale + frame.offsetX
-              var y = gy * frame.scale + frame.offsetY
+              var x = (MONDE_X + gx) * frame.scale + frame.offsetX
+              var y = (MONDE_Y + gy) * frame.scale + frame.offsetY
               var r = gr * frame.scale
               if (x < 0 || x > w) continue
               if (y + r + bord <= sol) libres.push({ x: x, y: y, r: r, a: ga })
@@ -242,7 +260,7 @@
             return libres
           }
 
-          var surface = Math.max(STAGE_W, 1) * Math.max(STAGE_H, 1)
+          var surface = Math.max(MONDE_W, 1) * Math.max(MONDE_H, 1)
           var nombre = Math.max(
             PLANCHER,
             Math.round(surface * DENSITE * (mobile ? FACTEUR_MOBILE : 1))

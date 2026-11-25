@@ -186,9 +186,22 @@ test('à la taille du rendu Blender, on retrouve sa densité de grains', () => {
   expect(grainsParUnite(3840, TAILLE_BLENDER)).toBeCloseTo(128, 3)
 })
 
-test('le grain retenu est un peu plus gros que celui du rendu Blender', () => {
-  expect(GRAIN_ECRAN).toBeGreaterThan(TAILLE_BLENDER)
-  expect(GRAIN_ECRAN).toBeLessThan(TAILLE_BLENDER * 2)
+/*
+ * Ce test exigeait un grain **plus gros** que le pas du rendu Blender (1,2121),
+ * parce que le site reprenait alors le tramage du script : rester au-dessus,
+ * c'était rester dans sa famille. Le tramage a changé de nature le 25 novembre
+ * 2026 (voir `OMBRE`, `PLEIN`, `CONTRASTE`), et cette borne a perdu sa raison
+ * d'être le même jour — Emmanuelle règle désormais le grain à l'œil, de part et
+ * d'autre de cette valeur.
+ *
+ * Ce qui reste vrai, et qu'on garde : le grain tient dans le même ordre de
+ * grandeur que le rendu d'origine. En sortir, d'un côté ou de l'autre, ne
+ * serait plus le même dessin — c'est tout ce que les deux bornes disent
+ * maintenant, et c'est volontairement large.
+ */
+test('le grain retenu reste dans l’ordre de grandeur du rendu Blender', () => {
+  expect(GRAIN_ECRAN).toBeGreaterThan(TAILLE_BLENDER / 2)
+  expect(GRAIN_ECRAN).toBeLessThanOrEqual(TAILLE_BLENDER * 2)
 })
 
 // L'échelle agit sur l'ouverture de la caméra, et la hauteur est rattrapée

@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
-import { GARES, forwardSteps, gareSuivante } from '@/scene/types'
+import { GARES, forwardSteps, garePrecedente, gareSuivante } from '@/scene/types'
 import type { Gare } from '@/scene/types'
 
 // La boucle vit dans la scène, qui en a besoin sans connaître Vue. Le magasin
 // la réexporte : tout ce qui l'importait d'ici continue de marcher.
-export { GARES, forwardSteps, gareSuivante }
+export { GARES, forwardSteps, garePrecedente, gareSuivante }
 
 
 export const useVoyage = defineStore('voyage', {

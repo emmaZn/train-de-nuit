@@ -4,6 +4,7 @@ import {
   Container,
   FillGradient,
   Graphics,
+  Matrix,
   RenderTexture,
   Sprite,
   Texture,
@@ -27,9 +28,9 @@ import {
   DUREE_ETAPE,
   HORIZON,
   NUIT_CIEL,
+  MONDE,
   NUIT_PROFONDEUR,
   opaciteVoile,
-  STAGE,
   ECHELLE_TRAIN,
   cadrageScene,
   versCadre,
@@ -245,8 +246,13 @@ export function planSombre(plans: Plans, parent: Container, label: string): Cont
  * construction, bien avant les textures : un lien partagé vers « ailleurs »
  * est sombre dès la première image, et les rails arrivent au bout d'un `await`.
  */
-export function monterLeTrain(plans: Plans, manifest: Manifest): Train {
-  const train = new Train(plans.plateau, manifest)
+export function monterLeTrain(
+  plans: Plans,
+  manifest: Manifest,
+  viewportW: number,
+  viewportH: number,
+): Train {
+  const train = new Train(plans.plateau, manifest, viewportW, viewportH)
   plans.nuit.profond.push(...train.sombres)
   return train
 }
@@ -541,7 +547,8 @@ export class Scene {
     void this.quai.charger()
     // Le plateau lui-même ne porte pas de teinte (voir `Nuit`) : chaque plan
     // qui s'assombrit s'inscrit en naissant, par `planSombre`.
-    this.train = monterLeTrain(this.plans, manifest)
+    const ecran = this.app.screen
+    this.train = monterLeTrain(this.plans, manifest, ecran.width, ecran.height)
     // Devant la voie et devant le train : c'est le sol sur lequel il roule.
     this.terre = new Terre(planSombre(this.plans, this.plans.plateau, 'terre'))
     const planOiseaux = planSombre(this.plans, this.plans.plateau, 'oiseaux')
@@ -676,6 +683,9 @@ export class Scene {
     this.terre?.cadrer(frame, this.app.renderer.resolution, this.tailleMaxTexture())
     this.cables?.cadrer(frame, this.app.renderer.resolution)
     this.quai?.cadrer(frame, this.app.renderer.resolution, width < SEUIL_MOBILE)
+    // Le nez de la locomotive ne se pose pas au même endroit selon le format :
+    // la rame est le seul objet du plateau qui bouge avec la fenêtre.
+    this.train?.cadrer(width, height)
     this.rideau?.cadrer(frame)
     // Le cadre change `y` sans que le rideau ait bougé : le texte doit le savoir.
     this.emettreRideau()
@@ -685,13 +695,15 @@ export class Scene {
 
     this.refletTexture?.destroy(true)
     this.refletTexture = RenderTexture.create({
-      width: Math.round(STAGE.width * REFLET_RESOLUTION),
+      // Toute la largeur du monde : ce qui se reflète, c'est ce qu'on voit,
+      // et on voit maintenant au-delà du plateau.
+      width: Math.round(MONDE.width * REFLET_RESOLUTION),
       height: Math.round(HORIZON * REFLET_RESOLUTION),
     })
     // Au plus proche voisin : agrandi, un grain binaire doit le rester.
     this.refletTexture.source.scaleMode = 'nearest'
     this.refletSprite.texture = this.refletTexture
-    this.refletSprite.width = STAGE.width
+    this.refletSprite.width = MONDE.width
     this.refletSprite.height = HORIZON
 
     // Le masque de grain, à la densité de pixels de l'écran.
@@ -700,7 +712,7 @@ export class Scene {
     this.refletMasque.texture?.destroy(true)
     const masque = Texture.from(
       creerMasque(
-        Math.round(STAGE.width * k),
+        Math.round(MONDE.width * k),
         Math.round(HORIZON * k),
         cellule,
         k,
@@ -708,10 +720,10 @@ export class Scene {
     )
     masque.source.scaleMode = 'nearest'
     this.refletMasque.texture = masque
-    this.refletMasque.setSize(STAGE.width, HORIZON)
-    this.refletMasque.position.set(0, HORIZON)
+    this.refletMasque.setSize(MONDE.width, HORIZON)
+    this.refletMasque.position.set(MONDE.x, HORIZON)
     // Retourné sous la voie : le pied du décor touche son reflet.
-    this.refletSprite.position.set(0, HORIZON * 2)
+    this.refletSprite.position.set(MONDE.x, HORIZON * 2)
   }
 
   resize(): void {
@@ -767,8 +779,14 @@ export class Scene {
       this.basculerRideau()
       return true
     }
-    if (!this.oiseaux || !this.gagOuvert) return false
-    return this.oiseaux.cliquer(cadre.x, cadre.y)
+    if (this.gagOuvert && this.oiseaux?.cliquer(cadre.x, cadre.y)) return true
+    // Les fenêtres du train, en dernier. Elles sont basses et à gauche, loin de
+    // tout le reste, mais l'ordre a un sens : les oiseaux passent **devant** la
+    // rame (voir l'ordre des plans), donc un oiseau posé devant un wagon se
+    // laisse cliquer avant le carreau qu'il cache.
+    // `toucher` rend l'indice de la vitre, qui peut valoir zéro : on compare
+    // donc à `null` et non au vrai-faux, et `!=` prend l'absence de vitres.
+    return this.vitres?.toucher(cadre.x, cadre.y, f.scale) != null
   }
 
   /**
@@ -1347,7 +1365,14 @@ export class Scene {
       this.decor,
       REFLET_RESOLUTION,
       () => {
-        this.app.renderer.render({ container: this.decor, target: cible, clear: true })
+        // La texture commence au bord gauche du monde, pas à celui du
+        // plateau : le décor y entre décalé d'autant.
+        this.app.renderer.render({
+          container: this.decor,
+          target: cible,
+          clear: true,
+          transform: new Matrix().translate(-MONDE.x * REFLET_RESOLUTION, 0),
+        })
       },
       neigeDuFaisceau,
     )

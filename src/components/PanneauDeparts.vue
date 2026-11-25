@@ -75,7 +75,7 @@ import { CV, LINKEDIN, adresseMail } from '@/contenu/liens'
 import { departsEteints, departsReels, formaterHeure } from '@/scene/horaires'
 import { useLangue, useTextes } from '@/i18n'
 import type { Depart } from '@/scene/horaires'
-import { STAGE } from '@/scene/layout'
+import { MONDE } from '@/scene/layout'
 import { HALO_HORLOGE, HORLOGE } from '@/scene/quai'
 import { BRAS, RIDEAU } from '@/scene/rideau'
 import { useVoyage } from '@/stores/voyage'
@@ -262,13 +262,16 @@ const place = computed<Record<string, string>>((): Record<string, string> => {
  * **devant** elle (spec §5), et deux traits fins la traversent. Ils reprennent
  * donc le retrait de la scène, `BRAS.retrait`.
  *
- * Leur hauteur est celle de la scène entière : le cadrage « cover » garantit
- * que `STAGE.height × échelle` dépasse la fenêtre, donc qu'ils montent toujours
- * au-delà de son bord haut. C'est le rognage qui les coupe, pas un calcul — la
- * plaque peut être n'importe où entre sa rangée et sa pose.
+ * Leur hauteur est celle du **monde** entier, et non plus du seul plateau :
+ * c'est `fitStage` qui garantit que `MONDE.height × échelle` dépasse la
+ * fenêtre, et cette garantie-là tient encore. Celle du plateau est tombée le
+ * 24 novembre 2026, quand la scène s'est mise à reculer : les bras
+ * s'arrêtaient alors en l'air, quelques pixels sous le bord haut d'un
+ * téléphone. C'est le rognage qui les coupe, pas un calcul — la plaque peut
+ * être n'importe où entre sa rangée et sa pose.
  */
 const retraitBras = `${BRAS.retrait}px`
-const hauteurBras = `${STAGE.height}px`
+const hauteurBras = `${MONDE.height}px`
 
 /**
  * L'appui s'arrête sur le panneau.

@@ -46,10 +46,27 @@ export const CADRE = { width: 3840, height: 944 } as const
 // quand le defaut du script l'envoie a droite. Inverser ce seul signe fait
 // passer la correlation de 0.18 a 0.76 — c'est le reglage a ne pas perdre.
 export const SOLEIL = new Vector3(-1, -0.5, 0.35).normalize()
-export const OMBRE = 0.45
+/*
+ * Le tramage, **repris a l'oeil le 25 novembre 2026** : « j'aimerais bien avoir
+ * plus d'aplat noir et blanc sur la montagne, i guess plus de contraste, pour
+ * la lisibilite ». Emmanuelle a juge six formes cote a cote et pris celle-ci.
+ *
+ * **Le massif a change de maniere de se dessiner.** Il se lisait par son
+ * eclairement : la rampe s'ouvrait des 0,45 et tout le flanc s'allumait un
+ * peu. Elle l'a fermee a 0,9 — presque tout devient un aplat noir — et a monte
+ * `CRETES` de 0,25 a 0,8. C'est donc le **Layer Weight**, la lumiere des faces
+ * vues de biais, qui dessine maintenant la montagne : elle se lit par ses
+ * aretes, comme un trait, et non plus par ses surfaces.
+ *
+ * C'est ici que le massif **quitte la filiation de massif.py** : la geometrie,
+ * la camera et le grain en viennent toujours, le tramage non. Le script reste
+ * la source du relief, il n'est plus la source de son dessin.
+ */
+export const OMBRE = 0.9
 export const PLEIN = 0.9
-export const CONTRASTE = 2.2
-export const CRETES = 0.25
+export const CONTRASTE = 2
+/** Ce que les faces vues de biais ajoutent — c'est lui qui trace les aretes. */
+export const CRETES = 0.8
 /**
  * Taille d'une cellule de grain, **en pixels d'ecran**.
  *
@@ -61,6 +78,16 @@ export const CRETES = 0.25
  * Sous le pixel, une cellule qui glisse est reechantillonnee a chaque image
  * et le point se rallume ailleurs : plus la cellule est grosse, plus le nuage
  * est stable en rotation, et plus les points sont gros.
+ *
+ * **1,5 — la valeur d'origine, retrouvee le 25 novembre 2026** apres un long
+ * detour : 2,4 juge sur une planche agrandie, 2 en voyant la scene entiere,
+ * 1,2 une fois les aplats en place, et finalement 1,5, pose par Emmanuelle
+ * elle-meme dans le fichier. Le massif se lisant desormais par ses aretes et
+ * non par ses surfaces, la taille du point compte moins qu'elle ne comptait.
+ *
+ * La borne basse de son test est descendue dans l'operation : elle exigeait un
+ * grain plus gros que le pas de Blender, ce qui n'a plus de sens depuis que le
+ * tramage ne vient plus de la.
  */
 export const GRAIN_ECRAN = 1.5
 
