@@ -431,11 +431,11 @@ describe('la règle de dégagement', () => {
   // recalculent, ils ne se choisissent pas — seules les deux ancres sont des
   // choix.
   test.each([
-    [1512, 771, 84, 2.707],
-    [1280, 800, 100, 2.623],
-    [1440, 900, 113, 2.623],
-    [1728, 1117, 142, 2.611],
-    [390, 844, 147, 2.359],
+    [1512, 771, 84, 2.720],
+    [1280, 800, 100, 2.662],
+    [1440, 900, 113, 2.662],
+    [1728, 1117, 142, 2.653],
+    [390, 844, 147, 2.477],
     [844, 390, 40, 1.84],
   ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
     const c = cadrageCiel(w, h)
@@ -448,7 +448,7 @@ describe('la règle de dégagement', () => {
     // taille d'appareil : 412 × 915 et 1480 × 690. Tout le reste du cadrage
     // n'est qu'une interpolation entre eux, et peut bouger ; ces deux-là non.
     expect(reculDuFormat(412, 915)).toBeCloseTo(0.72, 6)
-    expect(massifDuFormat(412, 915)).toBeCloseTo(1.071, 6)
+    expect(massifDuFormat(412, 915)).toBeCloseTo(1.125, 6)
     expect(cadrageCiel(412, 915).decalage).toBeCloseTo(160, 0)
 
     expect(reculDuFormat(1480, 690)).toBeCloseTo(0.8, 6)
@@ -461,10 +461,13 @@ describe('la règle de dégagement', () => {
     // Le train recule dans les deux cas — il était à 0,56 partout — et recule
     // plus sur un écran large, où la queue de la rame rentrait dans le cadre.
     //
-    // Le portrait est reparti de 0,53 à 0,546 le soir même, sur le téléphone :
-    // « fais avancer le nez de la locomotive de 20 px ». Vingt pixels d'écran
-    // à ce format valent 0,0159 de la largeur du plateau.
-    expect(teteDuFormat(412, 915)).toBeCloseTo(0.546, 6)
+    // Le portrait est reparti de 0,53 à 0,546 puis à 0,562 le soir même, sur
+    // le téléphone : « fais avancer le nez de la locomotive de 20 px », deux
+    // fois. Vingt pixels d'écran à ce format valent 0,0159 de la largeur du
+    // plateau. Au second pas, le nez a rattrapé la deuxième travée de câble —
+    // à neuf centièmes de pixel près — et `POSITION_A_QUAI` a dû avancer avec
+    // lui, comme son commentaire prévenait qu'il le faudrait.
+    expect(teteDuFormat(412, 915)).toBeCloseTo(0.562, 6)
     expect(teteDuFormat(1480, 690)).toBeCloseTo(0.5, 6)
   })
 

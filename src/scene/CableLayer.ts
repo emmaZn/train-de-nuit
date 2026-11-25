@@ -28,17 +28,22 @@ export const POTEAUX = 3
 /**
  * Où se pose le premier poteau porteur de fils, à l'arrêt.
  *
- * **180 et non 60** depuis que la rame avance (20 novembre 2026, le nez passé
- * de 0,5 à 0,56). Ce nombre n'est pas libre : il suit le nez de la loco. Deux
- * gardes le tiennent — les fils doivent être dans le champ libre à sa droite,
- * et la deuxième travée entière aussi —, et à 60 la seconde tombait de trois
- * pixels. Il faut `POSITION_A_QUAI + TRAVEE ≥ TETE_LOCO_MAX × STAGE.width` :
- * le nez dépend du format depuis le 25 novembre, et c'est le plus à droite
- * qu'il puisse tomber — 0,53 — qu'il faut dégager, soit au moins 166. Les 180
- * tiennent, avec quatorze pixels de marge. Avancer encore la rame redemande de
- * l'avancer, lui aussi.
+ * **Ce nombre n'est pas libre : il suit le nez de la loco.** Deux gardes le
+ * tiennent — les fils doivent être dans le champ libre à sa droite, et la
+ * deuxième travée entière aussi. Il faut donc
+ * `POSITION_A_QUAI + TRAVEE ≥ TETE_LOCO_MAX × STAGE.width`, où le nez est le
+ * plus à droite qu'un format puisse le mettre.
+ *
+ * Il valait 60, puis **180** le 20 novembre 2026 quand la rame a avancé de 0,5
+ * à 0,56, puis **195** le 25 novembre, quand le nez du portrait est passé à
+ * 0,562 : la travée fait 1123,75 px de cadre, le nez tombe à 1303,84, et les
+ * 180 d'alors manquaient de **neuf centièmes de pixel**. Les 195 rendent les
+ * quinze pixels de marge d'avant.
+ *
+ * Avancer encore la rame redemandera de l'avancer, lui aussi — et le test le
+ * dira, il ne se contente pas de la marge, il la mesure.
  */
-export const POSITION_A_QUAI = 180
+export const POSITION_A_QUAI = 195
 
 /**
  * Combien de poteaux seuls, sans fils, de chaque côté de l'île.

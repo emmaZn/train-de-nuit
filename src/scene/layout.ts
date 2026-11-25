@@ -91,16 +91,16 @@ export const MONDE = {
 export const CADRAGE_PORTRAIT = {
   aspect: 412 / 915,
   recul: 0.72,
-  /* 1,02 × 1,05 : cinq pour cent de plus, demandés tels quels. */
-  massif: 1.071,
+  /* Cinq pour cent de plus, deux fois de suite : 1,02 → 1,071 → 1,125. */
+  massif: 1.125,
   descente: 160 / 915,
   /*
-   * 0,53 plus vingt pixels d'écran, convertis : à 412 × 915 la scène est à
+   * 0,53 plus vingt pixels d'écran, deux fois : à 412 × 915 la scène est à
    * 0,5413, et vingt pixels y valent 36,9 px de plateau, soit 0,0159 de sa
-   * largeur. Le nez avance donc à 0,546 — en portrait seulement, le paysage
-   * reste à 0,50.
+   * largeur. Le nez avance donc de 0,53 à 0,546, puis à **0,562** — en
+   * portrait seulement, le paysage reste à 0,50.
    */
-  tete: 0.546,
+  tete: 0.562,
 } as const
 
 export const CADRAGE_PAYSAGE = {
