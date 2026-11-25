@@ -13,6 +13,7 @@
 import { inject, onBeforeUnmount, ref, watch } from 'vue'
 import { SCENE_KEY } from '@/composables/useScene'
 import { useVoyage } from '@/stores/voyage'
+import PlaqueGrainee from '@/components/PlaqueGrainee.vue'
 import { duree, suivante, variante } from '@/components/repliques'
 import { useLangue } from '@/i18n'
 
@@ -64,7 +65,9 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="repliques" aria-live="polite">
-    <p v-if="phrase" class="replique">{{ phrase }}</p>
+    <PlaqueGrainee v-if="phrase" class="replique">
+      <p class="phrase">{{ phrase }}</p>
+    </PlaqueGrainee>
   </div>
   <button
     v-if="voyage.gare === 'plus-loin' && !voyage.enRoute"
@@ -83,38 +86,46 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+/*
+ * **La plaque d'« ici », ici aussi** — Emmanuelle, le 25 novembre 2026 : « je
+ * veux que les messages des bouvreuils utilisent le même encadré qu'ici ».
+ *
+ * Ce qui part avec : la tache de nuit. Le fond opaque de la plaque fait le
+ * même travail en mieux, et c'est déjà la raison pour laquelle « ici » n'en a
+ * plus. Ce qui reste : la place, en haut au centre, et l'entrée en fondu.
+ *
+ * Ce qu'il faut lui rendre : `pointer-events`. La plaque les reprend pour
+ * elle, et une phrase posée en plein ciel volerait le survol des étoiles et
+ * des oiseaux qui passent dessous — ce que ce composant s'interdit.
+ */
 .replique {
   position: absolute;
   top: 140px;
   left: 50%;
-  margin: 0;
   transform: translateX(-50%);
-  isolation: isolate;
-  white-space: nowrap;
-  font-family: var(--police-texte);
-  font-weight: 300;
-  font-size: 15px;
-  color: var(--texte);
-  opacity: var(--fort);
+  max-width: min(560px, calc(100vw - 32px));
+  pointer-events: none;
   animation: paraitre 0.35s ease-out both;
 }
 
+.replique :deep(.dedans) {
+  padding: 14px 20px 13px;
+}
+
 /*
- * Une tache de nuit derrière la phrase, comme la bulle d'étoile : elle se lit
- * par-dessus le grain du massif. Mélangée depuis `--fond`, elle suit l'œil.
+ * Les phrases vont de « Aïe. » à « Vous feriez mieux d'aller laisser une
+ * phrase, là-haut. » : la plaque se règle sur la sienne, et la plus longue
+ * passe à la ligne sur un téléphone plutôt que de sortir de son cadre.
  */
-.replique::before {
-  content: '';
-  position: absolute;
-  inset: -10px -28px;
-  z-index: -1;
-  background: radial-gradient(
-    ellipse at center,
-    color-mix(in srgb, var(--fond) 94%, transparent) 0%,
-    color-mix(in srgb, var(--fond) 88%, transparent) 35%,
-    color-mix(in srgb, var(--fond) 78%, transparent) 62%,
-    color-mix(in srgb, var(--fond) 0%, transparent) 100%
-  );
+.phrase {
+  margin: 0;
+  font-family: var(--police-texte);
+  font-weight: 300;
+  font-size: 15px;
+  line-height: 1.45;
+  text-align: center;
+  color: var(--texte);
+  opacity: var(--fort);
 }
 
 @keyframes paraitre {

@@ -186,9 +186,16 @@ test('à la taille du rendu Blender, on retrouve sa densité de grains', () => {
   expect(grainsParUnite(3840, TAILLE_BLENDER)).toBeCloseTo(128, 3)
 })
 
-test('le grain retenu est un peu plus gros que celui du rendu Blender', () => {
+/*
+ * Le grain à l'écran est plus gros que celui du rendu Blender, et c'est voulu :
+ * un rendu de 3840 px se regarde de loin, un écran de près. Le 25 novembre
+ * 2026, Emmanuelle l'a porté de 1,5 à 2,4 en jugeant trois finesses agrandies
+ * côte à côte — soit presque exactement le double du pas de Blender. La borne
+ * haute reste là pour dire qu'au-delà ce ne serait plus le même dessin.
+ */
+test('le grain retenu va du pas de Blender à son double', () => {
   expect(GRAIN_ECRAN).toBeGreaterThan(TAILLE_BLENDER)
-  expect(GRAIN_ECRAN).toBeLessThan(TAILLE_BLENDER * 2)
+  expect(GRAIN_ECRAN).toBeLessThanOrEqual(TAILLE_BLENDER * 2)
 })
 
 // L'échelle agit sur l'ouverture de la caméra, et la hauteur est rattrapée

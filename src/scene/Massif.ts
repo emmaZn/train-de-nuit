@@ -61,8 +61,14 @@ export const CRETES = 0.25
  * Sous le pixel, une cellule qui glisse est reechantillonnee a chaque image
  * et le point se rallume ailleurs : plus la cellule est grosse, plus le nuage
  * est stable en rotation, et plus les points sont gros.
+ *
+ * **2,4 depuis le 25 novembre 2026**, contre 1,5. Emmanuelle a jugé trois
+ * finesses cote a cote, agrandies : a 1,5 la montagne reste poudreuse, et
+ * c'est le cran du dessus qu'elle a pris. Le grain fait donc 1,2 pixel de CSS
+ * sur un ecran dense, la ou il en faisait 0,75 — deux fois le pas de Blender,
+ * a un cheveu pres, et le massif redevient un dessin plutot qu'un nuage.
  */
-export const GRAIN_ECRAN = 1.5
+export const GRAIN_ECRAN = 2.4
 
 /** Ce que donnait ton rendu Blender : 3840 / 15 / 2 = 128 grains par unite. */
 export const TAILLE_BLENDER = (15 * 2) / (ORTHO / ECHELLE_MASSIF)

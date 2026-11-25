@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, test } from 'vitest'
 
+import { GRAIN_ECRAN } from '@/scene/Massif'
 import { RESOLUTION_MAX, tailleDuRendu } from '@/scene/Relief'
 import { cadrageScene, fenetreVisible } from '@/scene/layout'
 
@@ -50,22 +51,22 @@ describe('la densité à laquelle le massif se rend', () => {
   test('sur un téléphone, le grain fait la même taille que sur son Mac', () => {
     const { frame } = cadrageScene(412, 915)
     const cadre = fenetreVisible(frame, 412, 915)
-    const GRAIN = 1.5
 
     /** La cellule de grain, en pixels de CSS, telle qu'on la voit. */
     const grainVu = (dpr: number) => {
       const rendue = tailleDuRendu(cadre.width, frame.scale, dpr, 4096)
       // Un texel du rendu, ramené aux pixels de CSS qu'il occupe à l'écran.
-      return (GRAIN * cadre.width * frame.scale) / rendue
+      return (GRAIN_ECRAN * cadre.width * frame.scale) / rendue
     }
 
-    const surSonMac = 0.75
+    // Ce que montre l'écran où elle a jugé : le grain divisé par sa densité.
+    const surSonMac = GRAIN_ECRAN / RESOLUTION_MAX
     expect(grainVu(2)).toBeCloseTo(surSonMac, 6)
     for (const dpr of [2.625, 3, 3.5, 4]) {
       expect(grainVu(dpr), `dpr ${dpr}`).toBeCloseTo(surSonMac, 6)
     }
-    // Et ce qu'on avait avant, pour mémoire : deux fois plus fin à 3.
-    expect((GRAIN * cadre.width * frame.scale) / (cadre.width * frame.scale * 3)).toBeCloseTo(0.5, 6)
+    // Et ce qu'on avait avant, pour mémoire : à 3, un tiers plus fin.
+    expect(GRAIN_ECRAN / 3).toBeLessThan(surSonMac)
   })
 
   test('même à cette densité, aucun GPU mobile n’est mis en difficulté', () => {
