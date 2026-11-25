@@ -779,8 +779,14 @@ export class Scene {
       this.basculerRideau()
       return true
     }
-    if (!this.oiseaux || !this.gagOuvert) return false
-    return this.oiseaux.cliquer(cadre.x, cadre.y)
+    if (this.gagOuvert && this.oiseaux?.cliquer(cadre.x, cadre.y)) return true
+    // Les fenêtres du train, en dernier. Elles sont basses et à gauche, loin de
+    // tout le reste, mais l'ordre a un sens : les oiseaux passent **devant** la
+    // rame (voir l'ordre des plans), donc un oiseau posé devant un wagon se
+    // laisse cliquer avant le carreau qu'il cache.
+    // `toucher` rend l'indice de la vitre, qui peut valoir zéro : on compare
+    // donc à `null` et non au vrai-faux, et `!=` prend l'absence de vitres.
+    return this.vitres?.toucher(cadre.x, cadre.y, f.scale) != null
   }
 
   /**
