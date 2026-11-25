@@ -214,10 +214,20 @@ export function grisDeNuit(nuit: number, max: number): number {
   return (canal << 16) | (canal << 8) | canal
 }
 
-/** Pose la nuit (0 à 1) sur les porteurs : teinte = 1 - opacité du voile. */
-export function appliquerNuit(plans: { nuit: Nuit }, nuit: number): void {
+/**
+ * Pose la nuit (0 à 1) sur les porteurs : teinte = 1 - opacité du voile.
+ *
+ * **De jour, il n'y a pas de voile.** Il existe pour faire ressortir le
+ * faisceau du réverbère ; de jour il n'y a pas de faisceau (piste C du 25/11),
+ * et surtout la teinte ne peut que *baisser* la luminance — ce qui, sur du
+ * papier, pousse vers le fond et efface le dessin en filigrane au lieu de le
+ * retirer dans la nuit. Assombrir vraiment n'est pas possible : l'encre est
+ * déjà au maximum, il n'y a rien de plus sombre à atteindre.
+ */
+export function appliquerNuit(plans: { nuit: Nuit }, nuit: number, mode: Mode = 'nuit'): void {
+  const valeur = mode === 'jour' ? 0 : nuit
   const teindre = (porteurs: Container[], max: number) => {
-    const gris = grisDeNuit(nuit, max)
+    const gris = grisDeNuit(valeur, max)
     for (const porteur of porteurs) porteur.tint = gris
   }
   teindre(plans.nuit.profond, NUIT_PROFONDEUR)
@@ -1364,7 +1374,7 @@ export class Scene {
       demarrage: this.profil.demarrage,
       reducedMotion: this.reducedMotion,
     })
-    appliquerNuit(this.plans, nuit)
+    appliquerNuit(this.plans, nuit, this.mode)
     // L'opacité de la neige **est** la nuit, sans rampe à elle : elle n'est
     // là qu'à « ailleurs », pleine dès la première image d'un lien partagé,
     // et absente d'une traversée sans arrêt.
