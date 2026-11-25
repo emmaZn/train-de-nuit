@@ -35,15 +35,16 @@ export const POTEAUX = 3
  * plus à droite qu'un format puisse le mettre.
  *
  * Il valait 60, puis **180** le 20 novembre 2026 quand la rame a avancé de 0,5
- * à 0,56, puis **195** le 25 novembre, quand le nez du portrait est passé à
- * 0,562 : la travée fait 1123,75 px de cadre, le nez tombe à 1303,84, et les
- * 180 d'alors manquaient de **neuf centièmes de pixel**. Les 195 rendent les
- * quinze pixels de marge d'avant.
+ * à 0,56, puis **195** le 25 novembre quand le nez du portrait est passé à
+ * 0,562 — les 180 d'alors manquaient de neuf centièmes de pixel —, puis **250**
+ * le même soir, le nez passant à 0,586. La travée fait 1123,75 px de cadre et
+ * le nez tombe maintenant à 1359,3 : il faut au moins 235,5, et 250 rendent
+ * les quinze pixels de marge d'avant.
  *
  * Avancer encore la rame redemandera de l'avancer, lui aussi — et le test le
  * dira, il ne se contente pas de la marge, il la mesure.
  */
-export const POSITION_A_QUAI = 195
+export const POSITION_A_QUAI = 250
 
 /**
  * Combien de poteaux seuls, sans fils, de chaque côté de l'île.

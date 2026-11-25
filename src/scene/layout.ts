@@ -95,12 +95,17 @@ export const CADRAGE_PORTRAIT = {
   massif: 1.125,
   descente: 160 / 915,
   /*
-   * 0,53 plus vingt pixels d'écran, deux fois : à 412 × 915 la scène est à
-   * 0,5413, et vingt pixels y valent 36,9 px de plateau, soit 0,0159 de sa
-   * largeur. Le nez avance donc de 0,53 à 0,546, puis à **0,562** — en
-   * portrait seulement, le paysage reste à 0,50.
+   * Le nez a avancé trois fois le 25 novembre 2026, en pixels d'écran : vingt,
+   * vingt, puis trente. À 412 × 915 la scène est à 0,5413, et un pixel d'écran
+   * y vaut 1,847 px de plateau — d'où 0,53 → 0,546 → 0,562 → **0,586**. En
+   * portrait seulement : le paysage reste à 0,50.
+   *
+   * **C'est à peu près le bout.** Le réverbère d'« ailleurs » est dégagé
+   * jusqu'à 0,5884, soit six pixels de plateau plus loin : un pas de plus et
+   * la rame lui rentre dedans. Le déplacer, lui, est un choix de composition,
+   * pas un ajustement — voir `PIECES.reverbere` dans `quai.ts`.
    */
-  tete: 0.562,
+  tete: 0.586,
 } as const
 
 export const CADRAGE_PAYSAGE = {

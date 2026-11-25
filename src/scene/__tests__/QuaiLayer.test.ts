@@ -9,7 +9,32 @@ import { appliquerNuit, plansDuDecor } from '@/scene/Scene'
 import { solParEtape } from '@/scene/cables'
 import { CADRES, HALO_HORLOGE, HORLOGE, HORLOGE_IMAGE, PIECES, cibleReverbere } from '@/scene/quai'
 import { lirePngIndexe } from './png'
-import { DUREE_ETAPE, HORIZON, STAGE, TETE_LOCO_MAX, cadrageScene } from '@/scene/layout'
+import {
+  DUREE_ETAPE,
+  ECHELLE_TRAIN,
+  HORIZON,
+  STAGE,
+  TETE_LOCO_MAX,
+  cadrageScene,
+} from '@/scene/layout'
+import { BOITES, centreVitre } from '@/scene/Vitres'
+import { emprise, wagonX } from '@/scene/Train'
+import type { SequenceSpec } from '@/scene/types'
+
+/**
+ * La fenêtre allumée la plus à droite de la rame, en pixels de plateau — le
+ * seul point du train qui réponde à un clic de ce côté-là.
+ */
+function vitreLaPlusADroite(): number {
+  const spec = (
+    JSON.parse(readFileSync('public/assets/manifest.json', 'utf8')) as {
+      train: { loco: SequenceSpec; wagon: SequenceSpec }
+    }
+  ).train
+  const ancreX = STAGE.width * TETE_LOCO_MAX - ECHELLE_TRAIN * emprise(spec.loco, spec.wagon, 2).droite
+  const c = centreVitre(BOITES[BOITES.length - 1])
+  return ancreX + ECHELLE_TRAIN * (wagonX(spec.loco, spec.wagon, 1) + c.x - spec.wagon.x)
+}
 
 vi.mock('@/scene/poses', async (importOriginal) => {
   const vrai = await importOriginal<typeof import('@/scene/poses')>()
@@ -689,10 +714,19 @@ describe('le réverbère qu’on éteint', () => {
       expect(c.y0).toBeGreaterThan(haut)
       expect(c.y1).toBe(HORIZON)
     }
-    // À l'échelle de référence elle reste à droite du nez de la loco. Plus bas
-    // elle finit par le mordre, et c'est sans conséquence : la rame ne se
-    // clique pas, et l'horloge est consultée avant elle dans `clicPx`.
-    expect(CIBLE.x0).toBeGreaterThan(STAGE.width * TETE_LOCO_MAX)
+    /*
+     * Sa cible mord désormais sur le nez de la locomotive, de treize pixels de
+     * plateau : le nez du portrait a avancé trois fois le 25 novembre 2026 et
+     * tombe à 1359,5, là où la cible commence à 1346,8.
+     *
+     * **Ce qui rendait ce chevauchement anodin a changé le même soir** — la
+     * rame se clique maintenant, par ses fenêtres. Mais la plus à droite
+     * d'entre elles est à 757 px de plateau, six cents pixels avant la cible :
+     * ce que celle-ci recouvre, c'est le capot de la loco, qui ne répond à
+     * rien. Le test tient donc cette distance-là, qui est la vraie garantie,
+     * et non une frontière que la composition a le droit de franchir.
+     */
+    expect(CIBLE.x0).toBeGreaterThan(vitreLaPlusADroite() + 200)
   })
 
   it('se cherche là où l’île l’a emporté, pas à sa place d’arrêt', () => {

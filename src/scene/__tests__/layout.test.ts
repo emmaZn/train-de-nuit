@@ -461,13 +461,12 @@ describe('la règle de dégagement', () => {
     // Le train recule dans les deux cas — il était à 0,56 partout — et recule
     // plus sur un écran large, où la queue de la rame rentrait dans le cadre.
     //
-    // Le portrait est reparti de 0,53 à 0,546 puis à 0,562 le soir même, sur
-    // le téléphone : « fais avancer le nez de la locomotive de 20 px », deux
-    // fois. Vingt pixels d'écran à ce format valent 0,0159 de la largeur du
-    // plateau. Au second pas, le nez a rattrapé la deuxième travée de câble —
-    // à neuf centièmes de pixel près — et `POSITION_A_QUAI` a dû avancer avec
-    // lui, comme son commentaire prévenait qu'il le faudrait.
-    expect(teteDuFormat(412, 915)).toBeCloseTo(0.562, 6)
+    // Le portrait est reparti trois fois le soir même, sur le téléphone :
+    // vingt pixels d'écran, vingt, puis trente — 0,53 → 0,546 → 0,562 →
+    // 0,586. `POSITION_A_QUAI` a dû avancer deux fois avec lui, la deuxième
+    // travée de câble devant rester entière à droite du nez. Le réverbère est
+    // dégagé jusqu'à 0,5884 : il n'y a plus la place d'un pas de plus.
+    expect(teteDuFormat(412, 915)).toBeCloseTo(0.586, 6)
     expect(teteDuFormat(1480, 690)).toBeCloseTo(0.5, 6)
   })
 
