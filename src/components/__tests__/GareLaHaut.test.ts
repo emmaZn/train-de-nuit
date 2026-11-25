@@ -817,12 +817,11 @@ function regleTraceEtroite(): string {
 }
 
 test('le bloc se pose dans le ciel, centré et large', () => {
-  // 148 px. C'était 204 — la hauteur qu'Emmanuelle avait posée elle-même le 23
-  // au soir, sur le sommet du massif. Le 25 novembre le massif a grandi d'un
-  // quart, et la plaque s'est retrouvée au milieu du relief au lieu d'être
-  // posée dessus : « sur desktop c'est trop bas ». Elle remonte sous la frise.
+  // 204 px : la hauteur qu'Emmanuelle a posée elle-même le 23 au soir, plus bas
+  // que la bande haute de la spec, et sur le sommet du massif. C'est la tache
+  // qui le rend lisible là.
   const bloc = regleTrace()
-  expect(bloc).toMatch(/top:\s*148px/)
+  expect(bloc).toMatch(/top:\s*204px/)
   expect(bloc).toMatch(/left:\s*50%/)
   expect(bloc).toMatch(/translateX\(-50%\)/)
 })

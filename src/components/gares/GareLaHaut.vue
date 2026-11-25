@@ -408,14 +408,10 @@ onBeforeUnmount(() => {
  * de la plaque qui éteint ce qu'il y a derrière, comme le corps du train et
  * comme le cartouche du panneau des départs.
  *
- * La place était celle qu'elle a posée le 23 au soir — 204 px, sur le sommet
- * du massif. **148 depuis le 25 novembre 2026** : « sur desktop c'est trop
- * bas », capture à l'appui. Le massif a grandi d'un quart ce soir-là, et la
- * plaque, qui se posait sur son sommet, se retrouvait au milieu du relief. Elle
- * remonte donc sous la frise, et le sommet repasse devant.
+ * La place, elle, est celle qu'elle a posée le 23 au soir et confirmée depuis.
  */
 .plaque-trace {
-  top: 148px;
+  top: 204px;
   left: 50%;
   transform: translateX(-50%);
   width: min(550px, calc(100vw - 2 * var(--marge-ecran)));

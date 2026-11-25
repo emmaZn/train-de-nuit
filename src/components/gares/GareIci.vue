@@ -41,10 +41,7 @@ const t = useTextes()
  * de deux lignes feraient trop.
  */
 .mot {
-  /* 156 et non 212 : « sur desktop c'est trop bas », 25 novembre 2026. La
-     plaque de « là-haut » a remonté d'autant le même jour, pour la même
-     raison — le massif a grandi d'un quart et venait sous le texte. */
-  top: 156px;
+  top: 212px;
   left: var(--marge-ecran);
   width: 536px;
   max-width: calc(100vw - 2 * var(--marge-ecran));
