@@ -187,15 +187,20 @@ test('à la taille du rendu Blender, on retrouve sa densité de grains', () => {
 })
 
 /*
- * Le grain à l'écran est plus gros que celui du rendu Blender, et c'est voulu :
- * un rendu de 3840 px se regarde de loin, un écran de près. Le 25 novembre
- * 2026, Emmanuelle l'a porté de 1,5 à 2 en jugeant trois finesses agrandies
- * côte à côte, puis la scène entière — un peu plus des trois quarts au-dessus
- * du pas de Blender. La borne haute reste là pour dire qu'au-delà du double ce
- * ne serait plus le même dessin.
+ * Ce test exigeait un grain **plus gros** que le pas du rendu Blender (1,2121),
+ * parce que le site reprenait alors le tramage du script : rester au-dessus,
+ * c'était rester dans sa famille. Le tramage a changé de nature le 25 novembre
+ * 2026 (voir `OMBRE`, `PLEIN`, `CONTRASTE`), et cette borne a perdu sa raison
+ * d'être le même jour — Emmanuelle règle désormais le grain à l'œil, de part et
+ * d'autre de cette valeur.
+ *
+ * Ce qui reste vrai, et qu'on garde : le grain tient dans le même ordre de
+ * grandeur que le rendu d'origine. En sortir, d'un côté ou de l'autre, ne
+ * serait plus le même dessin — c'est tout ce que les deux bornes disent
+ * maintenant, et c'est volontairement large.
  */
-test('le grain retenu va du pas de Blender à son double', () => {
-  expect(GRAIN_ECRAN).toBeGreaterThan(TAILLE_BLENDER)
+test('le grain retenu reste dans l’ordre de grandeur du rendu Blender', () => {
+  expect(GRAIN_ECRAN).toBeGreaterThan(TAILLE_BLENDER / 2)
   expect(GRAIN_ECRAN).toBeLessThanOrEqual(TAILLE_BLENDER * 2)
 })
 

@@ -51,21 +51,22 @@ export const SOLEIL = new Vector3(-1, -0.5, 0.35).normalize()
  * plus d'aplat noir et blanc sur la montagne, i guess plus de contraste, pour
  * la lisibilite ». Emmanuelle a juge six formes cote a cote et pris celle-ci.
  *
- * Ce que les trois nombres font ensemble : la rampe ne s'ouvre qu'au-dessus de
- * 0,72 d'eclairement, au lieu de 0,45 — tout ce qui est moins eclaire devient
- * un aplat noir franc —, elle va jusqu'a 1 et non plus 0,9 — les faces en
- * pleine lumiere saturent en aplat blanc —, et la puissance qui les relie
- * s'adoucit de 2,2 a 1,7, sans quoi ce seuil plus haut n'aurait fait
- * qu'assombrir.
+ * **Le massif a change de maniere de se dessiner.** Il se lisait par son
+ * eclairement : la rampe s'ouvrait des 0,45 et tout le flanc s'allumait un
+ * peu. Elle l'a fermee a 0,9 — presque tout devient un aplat noir — et a monte
+ * `CRETES` de 0,25 a 0,8. C'est donc le **Layer Weight**, la lumiere des faces
+ * vues de biais, qui dessine maintenant la montagne : elle se lit par ses
+ * aretes, comme un trait, et non plus par ses surfaces.
  *
  * C'est ici que le massif **quitte la filiation de massif.py** : la geometrie,
  * la camera et le grain en viennent toujours, le tramage non. Le script reste
  * la source du relief, il n'est plus la source de son dessin.
  */
-export const OMBRE = 0.72
-export const PLEIN = 1
-export const CONTRASTE = 1.7
-export const CRETES = 0.25
+export const OMBRE = 0.9
+export const PLEIN = 0.9
+export const CONTRASTE = 2
+/** Ce que les faces vues de biais ajoutent — c'est lui qui trace les aretes. */
+export const CRETES = 0.8
 /**
  * Taille d'une cellule de grain, **en pixels d'ecran**.
  *
@@ -78,14 +79,17 @@ export const CRETES = 0.25
  * et le point se rallume ailleurs : plus la cellule est grosse, plus le nuage
  * est stable en rotation, et plus les points sont gros.
  *
- * **2 depuis le 25 novembre 2026**, contre 1,5. Emmanuelle a juge trois
- * finesses cote a cote, agrandies : a 1,5 la montagne reste poudreuse. Elle a
- * d'abord pris 2,4, puis l'a ramene a 2 en voyant la scene entiere. Le grain
- * fait donc 1 pixel de CSS sur un ecran dense, la ou il en faisait 0,75 — un
- * peu plus des trois quarts au-dessus du pas de Blender, et le massif redevient
- * un dessin plutot qu'un nuage sans que ses points se mettent a compter.
+ * **1,5 — la valeur d'origine, retrouvee le 25 novembre 2026** apres un long
+ * detour : 2,4 juge sur une planche agrandie, 2 en voyant la scene entiere,
+ * 1,2 une fois les aplats en place, et finalement 1,5, pose par Emmanuelle
+ * elle-meme dans le fichier. Le massif se lisant desormais par ses aretes et
+ * non par ses surfaces, la taille du point compte moins qu'elle ne comptait.
+ *
+ * La borne basse de son test est descendue dans l'operation : elle exigeait un
+ * grain plus gros que le pas de Blender, ce qui n'a plus de sens depuis que le
+ * tramage ne vient plus de la.
  */
-export const GRAIN_ECRAN = 2
+export const GRAIN_ECRAN = 1.5
 
 /** Ce que donnait ton rendu Blender : 3840 / 15 / 2 = 128 grains par unite. */
 export const TAILLE_BLENDER = (15 * 2) / (ORTHO / ECHELLE_MASSIF)

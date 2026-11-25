@@ -213,24 +213,41 @@ export const ECHELLE_MONTAGNES = 2.2
  * Hauteur du voile qui éteint le pied du massif, en pixels de cadre, mesurée
  * depuis la ligne de rail. C'est ce sur quoi le trait blanc du train se détache.
  *
- * **540 / 0,62 depuis le 25 novembre 2026**, contre 230 / 0,40. Emmanuelle :
+ * **560 / 0,78 depuis le 25 novembre 2026**, contre 230 / 0,40. Emmanuelle :
  * « il faut reprendre l'idée d'avoir un fondu en base de la montagne pour
  * assurer la visibilité du train ». C'est elle qui l'avait réduit le 14
  * novembre, et sa raison d'alors tient toujours : à 380 / **0,75**, le pied du
  * massif tombait à la couleur du ciel et le train, n'ayant plus rien à
  * masquer, flottait dans un trou au lieu de découper une silhouette. Elle a
  * revu les deux formes côte à côte et choisi la **haute et douce** plutôt que
- * la courte et fermée : le voile monte deux fois plus haut qu'avant, mais se
+ * la courte et fermée : le voile monte trois fois plus haut qu'avant, mais se
  * ferme moins. Le relief reste lisible derrière la rame.
+ *
+ * Elle en a redemandé dans la foulée — « on ajoute du fondu en bas » — en même
+ * temps qu'elle resserrait le grain du massif : une montagne plus fine se
+ * referme sur le train, et il faut d'autant plus l'éteindre à son pied. C'est
+ * l'**opacité** qui a pris la demande, de 0,62 à 0,78, parce que la hauteur,
+ * elle, est au bout de ce qu'elle peut faire.
+ *
+ * **La butée, mesurée : 584.** Le haut du voile est le plancher du ciel des
+ * étoiles (`hautDuVoilePx`, que `cretePx` prend pour minimum), et il doit
+ * rester à `CIEL_SOMMET` sous la frise. Sur une fenêtre basse et large — un
+ * téléphone couché, 844 × 390 —, un voile plus haut que 584 px de cadre
+ * remonte à l'écran jusque sous la frise et ne laisse plus de ciel du tout.
+ * 560 garde vingt-quatre pixels de marge sous cette butée.
+ *
+ * Pour aller plus haut, il faudrait que la hauteur du voile dépende du format,
+ * comme le recul et le massif : le voile est aujourd'hui dessiné une fois, en
+ * pixels de cadre, et il faudrait le refaire à chaque cadrage.
  *
  * Deux choses ont changé entre-temps et justifient d'y revenir : la scène a
  * reculé — le train est plus petit dans le cadre —, et le grain du massif est
  * passé à 2, ce qui le rend plus présent derrière lui.
  */
-export const DEGRADE_HAUTEUR = 540
+export const DEGRADE_HAUTEUR = 560
 
 /** Jusqu'où le voile se ferme à la ligne de rail, de 0 à 1. */
-export const DEGRADE_OPACITE = 0.62
+export const DEGRADE_OPACITE = 0.78
 
 /**
  * The band the veil covers: full frame width, resting on the rail line and
