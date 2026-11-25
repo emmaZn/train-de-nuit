@@ -31,10 +31,23 @@ Les sources sont **hors du dépôt**, dans `~/projet_zero/`. Le dépôt ne conti
 sorties, dans `public/assets/`, décrites par `public/assets/manifest.json` : la carte de
 relief du massif, et les six séquences WebP du train.
 
+**Le train est servi deux fois, un dossier par mode.** `build_assets.py` écrit
+toujours dans `train/` : on construit donc à côté, puis on renomme. Le manifeste,
+lui, garde ses chemins en `/assets/train/` — les deux jeux ont exactement les mêmes
+boîtes et les mêmes comptes, et c'est `loadManifest` qui pose le préfixe du mode.
+Un visiteur ne télécharge que les images du sien.
+
 ```bash
 python3 tools/build_assets.py --src ~/projet_zero --out public/assets \
   --carte montagne_hd/tramage/massif-carte.png \
-  --train-src PTITRAIN_grain_corps --train-scale 0.5
+  --train-src PTITRAIN_c6 --train-scale 0.5
+
+# les deux jeux du train, depuis les deux cuissons
+python3 tools/build_assets.py --src ~/projet_zero --out /tmp/a --train-src PTITRAIN_c6
+python3 tools/build_assets.py --src ~/projet_zero --out /tmp/b --train-src PTITRAIN_c9
+rm -rf public/assets/train-nuit public/assets/train-jour
+cp -R /tmp/a/train public/assets/train-nuit   # 8,3 Mo
+cp -R /tmp/b/train public/assets/train-jour   # 8,5 Mo
 ```
 
 Options : `--carte` (aucune), `--train-src` (`PTITRAIN_grain_vivant`), `--train-scale` (0.5),

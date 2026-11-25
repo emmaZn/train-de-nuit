@@ -531,7 +531,7 @@ export class Scene {
     this.app.renderer.on('resize', () => this.cadrer())
     this.app.ticker.add((ticker) => this.tick(ticker.deltaMS / 1000))
 
-    const manifest = await loadManifest()
+    const manifest = await loadManifest(undefined, this.mode)
     // Sans `await` : le chargement des assets ne doit retarder ni la couleur
     // mémorisée, ni le parallax, ni le premier cadrage. C'est `pret` qui dit
     // quand le train et le massif sont là, à qui veut l'attendre.

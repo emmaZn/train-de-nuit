@@ -246,3 +246,101 @@ test('toutes les images sont demandées, une seule fois chacune', async () => {
   await loadSequence({ count: 30, path: '/t/{i}.webp' })
   expect([...vus].sort((a, b) => a - b)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1))
 })
+
+/**
+ * Un jeu d'images du train par mode. Le manifeste ne change pas : il garde ses
+ * chemins en `/assets/train/`, parce que les boîtes et les comptes sont
+ * identiques dans les deux jeux. C'est le chargement qui pose le préfixe, et
+ * un visiteur ne télécharge donc que les images de son mode.
+ */
+describe('le préfixe du train suit le mode', () => {
+  const manifeste = () => ({
+    stage: { width: 2320, height: 1217 },
+    train: {
+      loco: { count: 32, path: '/assets/train/loco/{i}.webp' },
+      wagon: { count: 32, path: '/assets/train/wagon/{i}.webp' },
+    },
+  })
+
+  function servir() {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({ ok: true, json: () => Promise.resolve(manifeste()) }),
+    )
+  }
+
+  test('sert le jeu de nuit par défaut', async () => {
+    servir()
+    const m = await loadManifest()
+    expect(m!.train.loco.path).toBe('/assets/train-nuit/loco/{i}.webp')
+  })
+
+  test('sert le jeu de jour en mode jour', async () => {
+    servir()
+    const m = await loadManifest('/assets/manifest.json', 'jour')
+    expect(m!.train.loco.path).toBe('/assets/train-jour/loco/{i}.webp')
+    expect(m!.train.wagon.path).toBe('/assets/train-jour/wagon/{i}.webp')
+  })
+
+  // Review Focus #4 : un préfixe inconnu retombe sur la nuit, pas sur des 404.
+  test('retombe sur la nuit pour un mode inconnu', async () => {
+    servir()
+    const m = await loadManifest('/assets/manifest.json', 'brouillard' as never)
+    expect(m!.train.loco.path).toBe('/assets/train-nuit/loco/{i}.webp')
+  })
+
+  test('ne touche pas aux chemins hors du dossier du train', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ ...manifeste(), carte: { path: '/assets/massif-carte.webp' } }),
+      }),
+    )
+    const m = await loadManifest('/assets/manifest.json', 'jour')
+    expect((m as unknown as { carte: { path: string } }).carte.path).toBe(
+      '/assets/massif-carte.webp',
+    )
+  })
+
+  // La voie vit dans le dossier du train et suit donc le préfixe. Elle est la
+  // même image dans les deux jeux — elle vient du repli, pas de la cuisson.
+  test('la voie suit le préfixe elle aussi', async () => {
+    vi.stubGlobal('fetch', () =>
+      Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ ...manifeste(), rails: { path: '/assets/train/rails.webp' } }),
+      }),
+    )
+    const m = await loadManifest('/assets/manifest.json', 'jour')
+    expect((m as unknown as { rails: { path: string } }).rails.path).toBe(
+      '/assets/train-jour/rails.webp',
+    )
+  })
+
+  test('rend null sur un manifeste illisible, mode ou pas', async () => {
+    vi.stubGlobal('fetch', () => Promise.reject(new TypeError('Failed to fetch')))
+    await expect(loadManifest('/nulle-part.json', 'jour')).resolves.toBeNull()
+  })
+})
+
+/** Les deux jeux sont servis, et ils portent le même nombre d'images. */
+describe('les deux jeux d’images du train sont là', () => {
+  const sequences = ['loco', 'wagon', 'loco-start', 'wagon-start', 'loco-stop', 'wagon-stop']
+
+  test('la voie est servie dans les deux jeux', () => {
+    expect(readdirSync('public/assets/train-nuit')).toContain('rails.webp')
+    expect(readdirSync('public/assets/train-jour')).toContain('rails.webp')
+  })
+
+  test.each(sequences)('%s existe dans les deux modes, au même compte', (sequence) => {
+    const nuit = readdirSync(join('public/assets/train-nuit', sequence))
+    const jour = readdirSync(join('public/assets/train-jour', sequence))
+    expect(nuit.length).toBeGreaterThan(0)
+    expect(jour).toEqual(nuit)
+  })
+
+  test('l’ancien dossier unique n’est plus servi', () => {
+    expect(() => readdirSync('public/assets/train')).toThrow()
+  })
+})

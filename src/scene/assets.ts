@@ -1,5 +1,32 @@
 import { Assets, Texture } from 'pixi.js'
+import type { Mode } from './palette'
 import type { Manifest, SequenceSpec } from './types'
+
+/** Le dossier qu'écrit `build_assets.py`, et que le mode remplace au chargement. */
+const JEU_ECRIT = '/assets/train/'
+
+/** Un dossier par mode, et un seul part sur le réseau par visite. */
+const JEUX: Record<Mode, string> = {
+  nuit: '/assets/train-nuit/',
+  jour: '/assets/train-jour/',
+}
+
+/**
+ * Pose le préfixe du mode sur tous les `path` du manifeste qui désignent le
+ * dossier du train — les six séquences, et la voie qui y vit aussi.
+ *
+ * Le manifeste, lui, ne change pas : les deux jeux ont exactement les mêmes
+ * boîtes et les mêmes comptes — seule la matière du trait diffère —, et il
+ * reste donc la seule source de ces nombres-là.
+ */
+function poserLeJeu(valeur: unknown, prefixe: string): void {
+  if (!valeur || typeof valeur !== 'object') return
+  const objet = valeur as Record<string, unknown>
+  for (const [cle, v] of Object.entries(objet)) {
+    if (cle === 'path' && typeof v === 'string') objet.path = v.replace(JEU_ECRIT, prefixe)
+    else poserLeJeu(v, prefixe)
+  }
+}
 
 /** `assets/mountains/{i}.webp` + 7 → `assets/mountains/0007.webp` */
 export function framePath(pattern: string, index: number): string {
@@ -10,11 +37,18 @@ export function framePath(pattern: string, index: number): string {
  * Never throws: a missing or unreadable manifest yields null, and the scene
  * then shows background and star dust rather than a black canvas.
  */
-export async function loadManifest(url = '/assets/manifest.json'): Promise<Manifest | null> {
+export async function loadManifest(
+  url = '/assets/manifest.json',
+  mode?: Mode,
+): Promise<Manifest | null> {
   try {
     const response = await fetch(url)
     if (!response.ok) return null
-    return (await response.json()) as Manifest
+    const manifeste = (await response.json()) as Manifest
+    // Un mode inconnu prend la nuit : mieux vaut le jeu de l'autre mode que
+    // deux cent trente-six images introuvables.
+    poserLeJeu(manifeste, JEUX[mode as Mode] ?? JEUX.nuit)
+    return manifeste
   } catch {
     return null
   }
