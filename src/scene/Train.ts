@@ -146,8 +146,14 @@ export function sequenceFor(state: TrainState): [TrainSequence, TrainSequence] {
  */
 export const ATTELAGE = 70
 
-/** Nombre de wagons attelés derrière la locomotive. Une valeur d'œil. */
-export const WAGONS = 2
+/**
+ * Nombre de wagons attelés derrière la locomotive. Une valeur d'œil : deux
+ * jusqu'au 25 novembre 2026, trois depuis — « il faut rajouter un wagon ».
+ *
+ * `Vitres.ALLUMEES` en porte autant de motifs de fenêtres, et un test tient
+ * les deux ensemble : avec moins, la rame aurait deux voitures identiques.
+ */
+export const WAGONS = 3
 
 /** Which sequence pairs with which, so a wagon is placed against its own loco. */
 const LOCO_DE: Record<TrainSequence, TrainSequence> = {

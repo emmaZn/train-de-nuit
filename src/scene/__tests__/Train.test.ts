@@ -510,3 +510,15 @@ test('sans train du tout, rien n’est retenu', () => {
   // voyage pour toujours.
   expect(enMarche(true, null)).toBe(true)
 })
+
+// Le 25 novembre 2026 : « il faut rajouter un wagon ». La rame passe de deux
+// voitures à trois — une valeur d'œil, comme l'attelage.
+test('la rame compte trois wagons derrière la locomotive', () => {
+  expect(WAGONS).toBe(3)
+})
+
+test('chaque wagon de plus allonge la rame d’une voiture, moins l’attelage', () => {
+  const deux = emprise(LOCO, WAGON, 2)
+  const trois = emprise(LOCO, WAGON, 3)
+  expect(deux.gauche - trois.gauche).toBe(WAGON.width - ATTELAGE)
+})

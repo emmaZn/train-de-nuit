@@ -26,6 +26,7 @@ import {
   vitreVisee,
 } from '@/scene/Vitres'
 import { cadrageScene } from '@/scene/layout'
+import { WAGONS } from '@/scene/Train'
 import type { Manifest } from '@/scene/types'
 
 describe('seuilVacillement', () => {
@@ -127,13 +128,16 @@ describe('les vitres d’un wagon', () => {
   })
 
   it('ne sont pas toutes allumées, et pas les mêmes d’un wagon à l’autre', () => {
-    expect(ALLUMEES).toHaveLength(2)
+    // Un motif par wagon, et tous différents : avec moins, `rang % longueur`
+    // ferait repasser le motif du premier wagon sur le dernier, et la rame
+    // aurait deux voitures identiques à la file.
+    expect(ALLUMEES).toHaveLength(WAGONS)
     for (const motif of ALLUMEES) {
       expect(motif).toHaveLength(BOITES.length)
       expect(motif.some((v) => v)).toBe(true)
       expect(motif.some((v) => !v)).toBe(true)
     }
-    expect(ALLUMEES[0]).not.toEqual(ALLUMEES[1])
+    expect(new Set(ALLUMEES.map((m) => m.join(''))).size).toBe(WAGONS)
   })
 })
 

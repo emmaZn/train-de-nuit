@@ -77,6 +77,10 @@ export const HALO_ALPHA = 0.5
 export const ALLUMEES: readonly (readonly boolean[])[] = [
   [true, true, false, true, false, true],
   [false, true, true, false, true, true],
+  // Le troisième wagon, ajouté le 25 novembre 2026 avec lui : un motif à lui,
+  // sans quoi `rang % longueur` lui rendrait celui du premier et la rame
+  // aurait deux voitures identiques à la file.
+  [true, false, true, true, true, false],
 ]
 
 /** De combien le vacillement fait baisser la densité, au plus. */
