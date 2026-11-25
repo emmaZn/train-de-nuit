@@ -197,10 +197,18 @@ large et plus délavée. Sans ça les anciennes se fondaient les unes dans les
 autres. (L'ancienne règle, « halo seulement au-dessus de 0,55 », ne vaut plus.)
 
 **De jour, une étoile est un point d'encre.** Sa lueur est un dégradé radial
-fait à la main : en négatif sur du papier, elle ne donnerait qu'une tache. Il
-reste le cœur, et la constellation se dessine à la plume sur la feuille. La
-montée d'une phrase se termine alors par une **condensation**, pas par un
-éclat (§6, « Les deux modes »).
+fait à la main : en négatif sur du papier, elle ne donnerait qu'une tache. La
+constellation se dessine donc à la plume sur la feuille, et la montée d'une
+phrase se termine par une **condensation**, pas par un éclat (§6, « Les deux
+modes »).
+
+**Mais le cœur seul ne suffisait pas** : à un pixel, une étoile était
+exactement ce que le ciel a déjà par milliers — un grain de poussière. De nuit
+c'est la **lueur** qui la détache, seize pixels de portée ; de jour, c'est la
+**taille**. L'éclat passe donc du côté du rayon — une étoile ancienne est un
+point plus petit, jamais une tache plus pâle, ce que la nuit fait déjà pour la
+portée de sa lueur — et l'opacité ne porte plus que le scintillement, dans une
+bande étroite près de l'encre pleine.
 
 ```ts
 // scintillement d'amplitude 0.12 + 0.35 * eclat

@@ -13,6 +13,36 @@ const DUREE_EXTINCTION = 1.2
 /** Reach of a star's glow and radius of its core, in CSS pixels. */
 const RAYON_LUEUR = 16
 const RAYON_COEUR = 1
+
+/**
+ * Le rayon du cœur **de jour**, en pixels CSS.
+ *
+ * De nuit, ce qui détache une étoile de la poussière du ciel, c'est sa lueur :
+ * seize pixels de portée autour d'un cœur d'un pixel. Sur du papier il n'y a
+ * pas de lueur — et un cœur d'un pixel est exactement ce que le ciel a déjà
+ * par milliers. Ce qui remplace la lumière, c'est la **taille** : un point
+ * d'encre franc, trois fois un grain, qu'on voit tout de suite comme dessiné.
+ *
+ * 3,4 d'abord, puis 2,9, 2,4 et 2,1 le 25 novembre 2026 : « un tout petit peu
+ * moins grasse, t'as forcé », « encore un peu moins », « moins ». Une valeur
+ * d'œil, réglée sur la scène qui tourne. L'écart entre une étoile neuve et une
+ * ancienne a été resserré en même temps (0,72 à 1 du rayon au lieu de 0,62) :
+ * c'étaient les neuves qui paraissaient grasses, et les anciennes ne peuvent
+ * pas descendre beaucoup plus bas sans retomber dans la poussière, dont les
+ * grains font un pixel.
+ */
+const RAYON_COEUR_JOUR = 1.7
+
+/**
+ * Le plancher d'encre d'une étoile de jour.
+ *
+ * De nuit l'éclat vit dans l'opacité : une étoile ancienne descend à 0,16 et
+ * se fond dans la nuit, ce qui est le geste voulu. De jour, la même opacité
+ * donnerait un gris de poussière sur le papier. L'éclat passe donc dans le
+ * rayon (ci-dessus), et l'opacité ne porte plus que le scintillement, dans une
+ * bande étroite près de l'encre pleine.
+ */
+const ENCRE_MIN_JOUR = 0.72
 /** Concentric rings the glow is built from. */
 const ANNEAUX = 14
 
@@ -83,11 +113,14 @@ export class Stars {
     // Brightness is applied once, on the whole object (`gfx.alpha`). Applying
     // it again here made an old star's glow fall to nothing and left only the
     // solid core, hard-edged — a button.
-    const coeur = RAYON_COEUR * (0.75 + 0.25 * e.eclat)
     if (this.mode === 'jour') {
-      e.gfx.circle(0, 0, coeur).fill({ color: 0xffffff })
+      // L'éclat passe dans le rayon : une étoile ancienne est un point plus
+      // petit, jamais une tache plus pâle — la règle que la nuit applique
+      // déjà à la portée de sa lueur.
+      e.gfx.circle(0, 0, RAYON_COEUR_JOUR * (0.72 + 0.28 * e.eclat)).fill({ color: 0xffffff })
       return
     }
+    const coeur = RAYON_COEUR * (0.75 + 0.25 * e.eclat)
     const portee = RAYON_LUEUR * (0.4 + 0.6 * e.eclat)
     for (let i = ANNEAUX; i >= 1; i--) {
       const t = i / ANNEAUX
@@ -103,7 +136,10 @@ export class Stars {
   setMode(mode: Mode): void {
     if (mode === this.mode) return
     this.mode = mode
-    for (const e of this.posees.values()) this.dessiner(e)
+    for (const e of this.posees.values()) {
+      this.dessiner(e)
+      e.gfx.alpha = this.alphaDe(e)
+    }
   }
 
   /**
@@ -186,6 +222,13 @@ export class Stars {
 
   /** Base brightness, dimmed by the twinkle unless motion is reduced. */
   private alphaDe(e: Posee): number {
+    // De jour, l'éclat est déjà dans le rayon : l'opacité ne porte plus que le
+    // scintillement, et jamais assez bas pour faire un gris de poussière.
+    if (this.mode === 'jour') {
+      if (this.reducedMotion) return 1
+      const onde = 0.5 + 0.5 * Math.sin(this.horloge * e.vitesse + e.phase)
+      return 1 - (1 - ENCRE_MIN_JOUR) * onde
+    }
     if (this.reducedMotion) return e.eclat
     const amplitude = amplitudeScintillement(e.eclat)
     const onde = 0.5 + 0.5 * Math.sin(this.horloge * e.vitesse + e.phase)
