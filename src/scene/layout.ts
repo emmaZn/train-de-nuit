@@ -302,14 +302,21 @@ export function margeVoieDroite(largeur: number): number {
 const ECART_MINIMUM = 80
 
 /**
- * Ce que prend, sur téléphone, la mention de la gare suivante — « PROCHAIN »
- * en français, « NEXT » en anglais. Mesuré à 7 px par caractère dans la
- * graisse de la frise, plus une marge : huit caractères tiennent largement.
+ * Ce que prend, sur téléphone, ce qui s'écrit sous le point de la gare
+ * suivante — le plus large de son **libellé** et de sa **mention**.
  *
- * Elle n'est pas décorative : c'est elle qui plafonne l'écartement. Si la
- * mention s'allonge un jour, c'est ce nombre qu'il faut refaire.
+ * C'était la mention jusqu'au 25 novembre 2026 : « PROCHAIN » en mono 9 px,
+ * interlettrage compris, fait 56 px, et 64 laissait une marge. Depuis que
+ * tout le site est en mono, c'est le libellé qui gagne : « plus loin » et
+ * « elsewhere », neuf caractères de mono 13 px, font **70,2 px** — mesurés
+ * dans le navigateur, pas estimés. D'où 76, qui garde la même marge.
+ *
+ * Elle n'est pas décorative : c'est elle qui plafonne l'écartement. Si un
+ * libellé s'allonge un jour, ou si la frise change de corps, c'est ce nombre
+ * qu'il faut refaire — et il ne casse aucun test en silence, il déborde à
+ * l'écran.
  */
-export const LARGEUR_MENTION_MOBILE = 64
+export const LARGEUR_LIBELLE_MOBILE = 76
 
 /**
  * Combien de gares la frise étale sur la largeur : quatre sur un écran, deux
@@ -353,7 +360,7 @@ export function ecartFrise(largeur: number, visibles: number): number {
    * Il ne mord que là où il le faut : au-delà de 420 px environ, l'étalement
    * est déjà sous le plafond et rien ne change.
    */
-  const place = largeur - margeVoieDroite(largeur) - fonduFrise(largeur) - ancre - LARGEUR_MENTION_MOBILE
+  const place = largeur - margeVoieDroite(largeur) - fonduFrise(largeur) - ancre - LARGEUR_LIBELLE_MOBILE
   return Math.max(ECART_MINIMUM, Math.min(etale, place))
 }
 

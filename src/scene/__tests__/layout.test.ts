@@ -30,7 +30,7 @@ import {
   MARGE_VOIE,
   MARGE_FRISE_MOBILE,
   ecartFrise,
-  LARGEUR_MENTION_MOBILE,
+  LARGEUR_LIBELLE_MOBILE,
   garesVisibles,
   DEGRADE_OPACITE,
   ECHELLE_MASSIF,
@@ -170,7 +170,7 @@ test('sur un téléphone, l’écart est la place qui reste, pas l’étalement'
   const l = 390
   const etale = (l - MARGE_FRISE_MOBILE - ANCRE_FRISE_MOBILE) * 0.95
   const place =
-    l - margeVoieDroite(l) - fonduFrise(l) - ANCRE_FRISE_MOBILE - LARGEUR_MENTION_MOBILE
+    l - margeVoieDroite(l) - fonduFrise(l) - ANCRE_FRISE_MOBILE - LARGEUR_LIBELLE_MOBILE
   expect(place).toBeLessThan(etale)
   expect(ecartFrise(l, 2)).toBeCloseTo(place, 6)
 })

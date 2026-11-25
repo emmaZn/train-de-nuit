@@ -15,8 +15,16 @@
   --marge-ecran: 40px;
   --murmure: 0.2;
 
-  --police-texte: 'Inter', system-ui, sans-serif;
+  /*
+   * **Tout le site est en mono depuis le 25 novembre 2026**, à la demande
+   * d'Emmanuelle. Les deux noms restent — ils disent l'intention de chaque
+   * texte, et non sa fonte —, mais ils désignent la même famille : le site
+   * n'a plus qu'une écriture, celle des horaires et des quais.
+   *
+   * Cela déborde le §4 du CONCEPT, qui donnait Inter au texte courant.
+   */
   --police-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --police-texte: var(--police-mono);
 }
 
 * {
