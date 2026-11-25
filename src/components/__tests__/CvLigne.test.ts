@@ -186,6 +186,13 @@ describe('CvLigne', () => {
     it('retire le bord perforé en jour', () => {
       expect(source).toMatch(/\[data-mode="jour"\]\s*\.perfo[^{]*\{[^}]*display:\s*none/)
     })
+
+    // Le 25/11 : « le CV n'a pas de contour ». Sans la plaque ni son ombre, la
+    // feuille n'avait plus de bord : le texte flottait sur la page. Un trait
+    // d'encre le lui rend — la même matière que les filets du tableau.
+    it('rend un contour à la feuille en jour', () => {
+      expect(bloc()).toMatch(/border:\s*1px solid var\(--encre\)/)
+    })
   })
 
   it('le focus entre dans le CV à l’ouverture', async () => {

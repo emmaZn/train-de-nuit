@@ -232,6 +232,11 @@ onBeforeUnmount(() => {
   --papier: var(--fond);
   --encre: var(--texte);
 
+  /* Un trait d'encre à la place de la plaque. Sans l'ombre portée ni le bord
+     perforé, la feuille n'avait plus de bord du tout et le texte flottait sur
+     la page : c'est la même matière que les filets du tableau, un simple
+     trait, et il fait de la page une feuille au lieu d'un fond. */
+  border: 1px solid var(--encre);
   box-shadow: none;
 }
 
