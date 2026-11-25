@@ -392,3 +392,48 @@ test('une place à peine plus basse ne fait qu’un petit arc', () => {
   const c = controlePour({ x: 100, y: 300 }, { x: 120, y: 304 })
   expect(300 - c.y).toBeLessThan(4)
 })
+
+/**
+ * De jour, la phrase se condense en point, sans éclat.
+ *
+ * `Dissolve` termine la montée par un halo de 22 px à 0,45 — une lueur, donc
+ * une tache une fois rendue sur du papier. Le geste reste, la lumière part,
+ * comme partout ailleurs le 25/11.
+ */
+describe('la dissolution selon le mode', () => {
+  /** Les remplissages d'alpha fractionnaire : les halos, pas les grains pleins. */
+  function halos(parent: Container, rayonMin: number): number {
+    const gfx = parent.children[0] as Graphics | undefined
+    if (!gfx) return 0
+    type Chemin = { action: string; data: number[] }
+    type Remplissage = { data: { path: { instructions: Chemin[] } } }
+    let compte = 0
+    for (const i of gfx.context.instructions) {
+      const cercle = (i as unknown as Remplissage).data.path.instructions.find(
+        (c) => c.action === 'circle',
+      )
+      if (cercle && cercle.data[2] >= rayonMin) compte += 1
+    }
+    return compte
+  }
+
+  async function jusquAuBout(mode: 'nuit' | 'jour') {
+    const { d, parent } = monter()
+    d.setMode(mode)
+    await souffler()
+    // `land` est ce qui lance la timeline : sans lui elle reste en pause.
+    void d.land(trace())
+    // Jusqu'au milieu de l'éclat final : au tout dernier instant son alpha
+    // tombe à zéro et le halo ne serait plus tracé de toute façon.
+    jouer(d, DUREE_DEFAIT + DUREE_MONTEE + DUREE_ECLAT / 2)
+    return parent
+  }
+
+  it('pose un halo final de nuit', async () => {
+    expect(halos(await jusquAuBout('nuit'), 10)).toBeGreaterThan(0)
+  })
+
+  it('n’en pose aucun de jour', async () => {
+    expect(halos(await jusquAuBout('jour'), 10)).toBe(0)
+  })
+})

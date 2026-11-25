@@ -1,5 +1,5 @@
-import { Container } from 'pixi.js'
-import { afterEach, beforeEach, vi } from 'vitest'
+import { Container, Graphics } from 'pixi.js'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Stars } from '@/scene/StarLayer'
 import { cadrageCiel } from '@/scene/layout'
 import { ETOILES_MAX_BUREAU, limiteEtoiles, projeter, projeterAuCadrage } from '@/scene/stars'
@@ -189,4 +189,46 @@ test('sur un format décalé, l’étoile se pose au cadrage de la scène', () =
   expect(decalage).toBeGreaterThan(0)
   const attendu = projeter({ x: 0.25, y: 0.5 }, 1512, 771, echelle, decalage)
   expect(racine.children[0].y).toBeCloseTo(attendu.py)
+})
+
+/**
+ * De jour, une étoile est un point d'encre.
+ *
+ * Sa lueur est une pile d'anneaux à l'alpha décroissant — un dégradé radial
+ * fait main, qui ne figurait dans aucune liste d'« entorses assumées » du
+ * CONCEPT. Sur du papier, le négatif d'un dégradé blanc donne une tache ; il
+ * reste donc le cœur, et la constellation se dessine à la plume.
+ */
+describe('les étoiles selon le mode', () => {
+  function cercles(racine: Container): number {
+    const gfx = racine.children[0] as Graphics | undefined
+    return gfx ? gfx.context.instructions.length : 0
+  }
+
+  function uneEtoile(mode?: 'nuit' | 'jour') {
+    const { stars, racine } = monter()
+    if (mode) stars.setMode(mode)
+    stars.setStars([trace(0)], 1200, 800)
+    return { stars, racine }
+  }
+
+  it('porte sa lueur de nuit : les anneaux, le disque et le cœur', () => {
+    expect(cercles(uneEtoile('nuit').racine)).toBeGreaterThan(5)
+  })
+
+  it('se réduit à son cœur de jour', () => {
+    expect(cercles(uneEtoile('jour').racine)).toBe(1)
+  })
+
+  it('retrouve sa lueur en revenant à la nuit', () => {
+    const { stars, racine } = uneEtoile('jour')
+    stars.setMode('nuit')
+    expect(cercles(racine)).toBeGreaterThan(5)
+  })
+
+  it('pose une étoile neuve sans lueur quand il fait déjà jour', () => {
+    const { stars, racine } = uneEtoile('jour')
+    stars.setStars([trace(0), trace(1)], 1200, 800)
+    expect(cercles(racine)).toBe(1)
+  })
 })

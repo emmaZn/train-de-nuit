@@ -327,6 +327,15 @@ export class Scene {
   private relief: Relief | null = null
   private train: Train | null = null
   private recolor: Filter | null = null
+  /**
+   * La recoloration des grains des phrases qui se défont.
+   *
+   * `dissous` est accroché à `app.stage`, **hors de `decor`** : il doit donc
+   * porter son propre filtre, sinon ses grains resteraient blancs — invisibles
+   * sur le papier du jour. Il est posé dès la construction : il ne dépend ni
+   * du contexte WebGL ni du manifeste.
+   */
+  private readonly recolorDissous: Filter = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
   /** La terre sous les rails : devant le reflet, devant le train. */
   private terre: Terre | null = null
   /** Les vitres allumées des wagons : dans la rame, et seules à n'être pas teintées. */
@@ -457,6 +466,8 @@ export class Scene {
     // Le mode est connu **avant** `init` : c'est lui qui donne la couleur du
     // renderer dès la première image, et le jeu d'images du train à charger.
     this.mode = opts.mode ?? DEFAUT
+    setRecolorMode(this.recolorDissous, this.mode === 'jour')
+    this.dissous.filters = [this.recolorDissous]
     this.pret = new Promise<void>((resoudre) => {
       this.tenirPret = resoudre
     })
@@ -1025,6 +1036,9 @@ export class Scene {
       grains: grainsDePhrase(phrase, from),
       allumer,
     })
+    // Le mode courant tout de suite : une phrase lâchée de jour se condense
+    // en point sans éclat, dès sa première image.
+    dissolution.setMode(this.mode)
     this.dissolutions.add(dissolution)
     return dissolution
   }
@@ -1214,6 +1228,9 @@ export class Scene {
     // l'objet, pas la lumière.
     this.quai?.setMode(mode)
     this.vitres?.setMode(mode)
+    this.stars?.setMode(mode)
+    setRecolorMode(this.recolorDissous, mode === 'jour')
+    for (const d of this.dissolutions) d.setMode(mode)
     // Le fond du canevas, lui, est bien la couleur du mode : c'est ce qu'on
     // voit autour des sprites, et il doit tomber sur la même valeur que le sol
     // à l'intérieur d'eux.

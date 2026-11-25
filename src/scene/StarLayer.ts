@@ -3,6 +3,7 @@ import { cadrageCiel } from './layout'
 import { amplitudeScintillement, eclat, etoileSous, limiteEtoiles, projeter } from './stars'
 import type { EtoilePosee } from './stars'
 import type { Trace } from './types'
+import type { Mode } from './palette'
 
 const JOUR_MS = 86_400_000
 /** Pointer reach around a star, in CSS pixels. */
@@ -57,6 +58,14 @@ export class Stars {
    */
   private limite: number | null = null
 
+  /**
+   * Le mode du site. **De jour, une étoile est un point d'encre** : sa lueur
+   * est une pile d'anneaux à l'alpha décroissant, et le négatif d'un dégradé
+   * blanc sur du papier ne donne qu'une tache. La constellation se dessine
+   * alors à la plume, sur la feuille.
+   */
+  private mode: Mode = 'nuit'
+
   constructor(parent: Container, opts: { reducedMotion: boolean }) {
     this.reducedMotion = opts.reducedMotion
     parent.addChild(this.racine)
@@ -74,8 +83,12 @@ export class Stars {
     // Brightness is applied once, on the whole object (`gfx.alpha`). Applying
     // it again here made an old star's glow fall to nothing and left only the
     // solid core, hard-edged — a button.
-    const portee = RAYON_LUEUR * (0.4 + 0.6 * e.eclat)
     const coeur = RAYON_COEUR * (0.75 + 0.25 * e.eclat)
+    if (this.mode === 'jour') {
+      e.gfx.circle(0, 0, coeur).fill({ color: 0xffffff })
+      return
+    }
+    const portee = RAYON_LUEUR * (0.4 + 0.6 * e.eclat)
     for (let i = ANNEAUX; i >= 1; i--) {
       const t = i / ANNEAUX
       const r = coeur + (portee - coeur) * t
@@ -84,6 +97,13 @@ export class Stars {
     }
     e.gfx.circle(0, 0, coeur * 1.6).fill({ color: 0xffffff, alpha: 0.45 })
     e.gfx.circle(0, 0, coeur).fill({ color: 0xffffff })
+  }
+
+  /** Le mode du site : toutes les étoiles déjà posées se retracent. */
+  setMode(mode: Mode): void {
+    if (mode === this.mode) return
+    this.mode = mode
+    for (const e of this.posees.values()) this.dessiner(e)
   }
 
   /**

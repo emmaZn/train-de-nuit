@@ -1021,3 +1021,44 @@ describe('la scène bascule de mode', () => {
     expect(interne.app.renderer.background.color).toBe(0x151517)
   })
 })
+
+/**
+ * Les grains des phrases qui se défont vivent **hors du décor** : ils sont
+ * accrochés à la scène Pixi, pas au conteneur qui porte le filtre. Sans filtre
+ * à eux, ils resteraient blancs — donc invisibles sur le papier du jour.
+ */
+describe('la dissolution est recolorée elle aussi', () => {
+  type InterneDissous = {
+    dissous: { filters: unknown }
+    recolorDissous: import('pixi.js').Filter
+  }
+
+  test('le conteneur des grains porte son propre filtre', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneDissous
+    expect(interne.dissous.filters).toHaveLength(1)
+  })
+
+  test('ce filtre bascule avec le mode', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneDissous
+    const u = (interne.recolorDissous.resources.recolorUniforms as {
+      uniforms: Record<string, unknown>
+    }).uniforms
+    expect(u.uJour).toBe(0)
+    scene.setMode('jour')
+    expect(u.uJour).toBe(1)
+  })
+
+  test('une scène ouverte de jour part avec le filtre déjà basculé', () => {
+    const scene = new Scene(document.createElement('canvas'), {
+      reducedMotion: false,
+      mode: 'jour',
+    })
+    const interne = scene as unknown as InterneDissous
+    const u = (interne.recolorDissous.resources.recolorUniforms as {
+      uniforms: Record<string, unknown>
+    }).uniforms
+    expect(u.uJour).toBe(1)
+  })
+})
