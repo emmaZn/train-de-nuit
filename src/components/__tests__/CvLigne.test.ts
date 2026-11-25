@@ -155,6 +155,39 @@ describe('CvLigne', () => {
     expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
   })
 
+  /**
+   * De jour, **il n'y a plus de feuille** : la page est la feuille.
+   *
+   * Sous l'inversion, « papier » et « encre » échangent leur sens : la plaque
+   * deviendrait un rectangle presque noir, plein écran, sur une page beige.
+   * On retire donc la plaque, son ombre et son bord perforé, et on écrit
+   * directement sur la page. Ça amende la règle du 22/11 — « la feuille change
+   * avec l'œil, c'est un papier posé dans cette nuit-là » : elle ne vaut que
+   * de nuit.
+   */
+  describe('la feuille selon le mode', () => {
+    const source = readFileSync('src/components/CvLigne.vue', 'utf8')
+    const bloc = () => source.match(/\[data-mode="jour"\][^{]*\{([^}]*)\}/)?.[1] ?? ''
+
+    it('pose une feuille distincte du fond en nuit', () => {
+      expect(source).toContain('--papier: color-mix')
+      expect(source).toContain('--encre: color-mix')
+    })
+
+    it('fond la feuille dans la page en jour', () => {
+      expect(bloc()).toMatch(/--papier:\s*var\(--fond\)/)
+      expect(bloc()).toMatch(/--encre:\s*var\(--texte\)/)
+    })
+
+    it('retire l’ombre portée de la plaque en jour', () => {
+      expect(bloc()).toMatch(/box-shadow:\s*none/)
+    })
+
+    it('retire le bord perforé en jour', () => {
+      expect(source).toMatch(/\[data-mode="jour"\]\s*\.perfo[^{]*\{[^}]*display:\s*none/)
+    })
+  })
+
   it('le focus entre dans le CV à l’ouverture', async () => {
     const { wrapper } = await monter('/ailleurs/cv')
     expect(document.activeElement).toBe(wrapper.find('.cv').element)
