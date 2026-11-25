@@ -23,15 +23,17 @@ const RAYON_COEUR = 1
  * par milliers. Ce qui remplace la lumière, c'est la **taille** : un point
  * d'encre franc, trois fois un grain, qu'on voit tout de suite comme dessiné.
  *
- * 3,4 d'abord, puis 2,9, 2,4 et 2,1 le 25 novembre 2026 : « un tout petit peu
- * moins grasse, t'as forcé », « encore un peu moins », « moins ». Une valeur
- * d'œil, réglée sur la scène qui tourne. L'écart entre une étoile neuve et une
+ * 3,4 d'abord, puis 2,9, 2,4, 2,1 — et **1,6, posé par Emmanuelle elle-même**
+ * le 25 novembre 2026 : « un tout petit peu moins grasse, t'as forcé »,
+ * « encore un peu moins », « moins », « ok 1.6 parfait ». Une valeur d'œil,
+ * réglée sur la scène qui tourne. Une étoile neuve fait donc 1,60 de rayon,
+ * une ancienne 1,22. L'écart entre une étoile neuve et une
  * ancienne a été resserré en même temps (0,72 à 1 du rayon au lieu de 0,62) :
  * c'étaient les neuves qui paraissaient grasses, et les anciennes ne peuvent
  * pas descendre beaucoup plus bas sans retomber dans la poussière, dont les
  * grains font un pixel.
  */
-const RAYON_COEUR_JOUR = 1.7
+const RAYON_COEUR_JOUR = 1.6
 
 /**
  * Le plancher d'encre d'une étoile de jour.

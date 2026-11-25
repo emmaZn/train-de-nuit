@@ -250,8 +250,14 @@ describe('les étoiles selon le mode', () => {
    * peut pas être de la lumière : c'est de la **taille**.
    */
   it('fait de jour un point bien plus gros qu’un grain de poussière', () => {
-    const { racine } = uneEtoile('jour')
-    expect(rayon(racine)).toBeGreaterThanOrEqual(2)
+    // Un grain de poussière du ciel fait un pixel. Même la plus ancienne des
+    // étoiles doit rester au-dessus, sans quoi elle s'y noie — c'est très
+    // exactement ce qui se passait avec le cœur d'un pixel. Le garde-fou est
+    // là pour ça : il tombe si quelqu'un remet l'étoile à la taille d'un grain.
+    const { stars, racine } = monter()
+    stars.setMode('jour')
+    stars.setStars([vieille()], 1200, 800)
+    expect(rayon(racine)).toBeGreaterThan(1.1)
   })
 
   it('garde de jour l’éclat dans la taille, pas seulement dans l’encre', () => {
