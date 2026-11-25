@@ -46,9 +46,25 @@ export const CADRE = { width: 3840, height: 944 } as const
 // quand le defaut du script l'envoie a droite. Inverser ce seul signe fait
 // passer la correlation de 0.18 a 0.76 — c'est le reglage a ne pas perdre.
 export const SOLEIL = new Vector3(-1, -0.5, 0.35).normalize()
-export const OMBRE = 0.45
-export const PLEIN = 0.9
-export const CONTRASTE = 2.2
+/*
+ * Le tramage, **repris a l'oeil le 25 novembre 2026** : « j'aimerais bien avoir
+ * plus d'aplat noir et blanc sur la montagne, i guess plus de contraste, pour
+ * la lisibilite ». Emmanuelle a juge six formes cote a cote et pris celle-ci.
+ *
+ * Ce que les trois nombres font ensemble : la rampe ne s'ouvre qu'au-dessus de
+ * 0,72 d'eclairement, au lieu de 0,45 — tout ce qui est moins eclaire devient
+ * un aplat noir franc —, elle va jusqu'a 1 et non plus 0,9 — les faces en
+ * pleine lumiere saturent en aplat blanc —, et la puissance qui les relie
+ * s'adoucit de 2,2 a 1,7, sans quoi ce seuil plus haut n'aurait fait
+ * qu'assombrir.
+ *
+ * C'est ici que le massif **quitte la filiation de massif.py** : la geometrie,
+ * la camera et le grain en viennent toujours, le tramage non. Le script reste
+ * la source du relief, il n'est plus la source de son dessin.
+ */
+export const OMBRE = 0.72
+export const PLEIN = 1
+export const CONTRASTE = 1.7
 export const CRETES = 0.25
 /**
  * Taille d'une cellule de grain, **en pixels d'ecran**.

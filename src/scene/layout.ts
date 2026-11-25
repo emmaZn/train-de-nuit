@@ -213,16 +213,24 @@ export const ECHELLE_MONTAGNES = 2.2
  * Hauteur du voile qui éteint le pied du massif, en pixels de cadre, mesurée
  * depuis la ligne de rail. C'est ce sur quoi le trait blanc du train se détache.
  *
- * Il valait 380 et fermait à 0,75 : le pied du massif tombait alors exactement
- * à la couleur du ciel, et le train, n'ayant plus rien à masquer, flottait dans
- * un trou au lieu de découper une silhouette. Réduit à 230 / 0,40, le relief
- * reste visible derrière la rame — c'est le corps du train, qui est de la
- * couleur du fond, qui l'éteint là où il passe.
+ * **540 / 0,62 depuis le 25 novembre 2026**, contre 230 / 0,40. Emmanuelle :
+ * « il faut reprendre l'idée d'avoir un fondu en base de la montagne pour
+ * assurer la visibilité du train ». C'est elle qui l'avait réduit le 14
+ * novembre, et sa raison d'alors tient toujours : à 380 / **0,75**, le pied du
+ * massif tombait à la couleur du ciel et le train, n'ayant plus rien à
+ * masquer, flottait dans un trou au lieu de découper une silhouette. Elle a
+ * revu les deux formes côte à côte et choisi la **haute et douce** plutôt que
+ * la courte et fermée : le voile monte deux fois plus haut qu'avant, mais se
+ * ferme moins. Le relief reste lisible derrière la rame.
+ *
+ * Deux choses ont changé entre-temps et justifient d'y revenir : la scène a
+ * reculé — le train est plus petit dans le cadre —, et le grain du massif est
+ * passé à 2,4, ce qui le rend plus présent derrière lui.
  */
-export const DEGRADE_HAUTEUR = 230
+export const DEGRADE_HAUTEUR = 540
 
 /** Jusqu'où le voile se ferme à la ligne de rail, de 0 à 1. */
-export const DEGRADE_OPACITE = 0.4
+export const DEGRADE_OPACITE = 0.62
 
 /**
  * The band the veil covers: full frame width, resting on the rail line and
