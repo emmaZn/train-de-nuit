@@ -13,7 +13,7 @@ import StarTooltip from '@/components/StarTooltip.vue'
 import { FRAME_KEY, RIDEAU_KEY, SCENE_KEY, useScene } from '@/composables/useScene'
 
 const canvas = ref<HTMLCanvasElement | null>(null)
-const { scene, fond, frame, rideau, changerFond } = useScene(canvas)
+const { scene, mode, frame, rideau, basculerMode } = useScene(canvas)
 
 // La scène descend aux gares, qui lui demandent une dissolution.
 provide(SCENE_KEY, scene)
@@ -47,7 +47,7 @@ const cvOuvert = computed(() => route.name === 'cv')
     <PanneauDeparts />
     <StarTooltip />
     <EtoilesListe />
-    <EyeButton :fond="fond" @change="changerFond" />
+    <EyeButton :mode="mode" @change="basculerMode" />
     <LangueButton />
     <Signature />
   </div>

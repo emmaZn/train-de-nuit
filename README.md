@@ -31,10 +31,27 @@ Les sources sont **hors du dépôt**, dans `~/projet_zero/`. Le dépôt ne conti
 sorties, dans `public/assets/`, décrites par `public/assets/manifest.json` : la carte de
 relief du massif, et les six séquences WebP du train.
 
+**Le train est servi deux fois, un dossier par mode.** `build_assets.py` écrit
+toujours dans `train/` : on construit donc à côté, puis on renomme. Le manifeste,
+lui, garde ses chemins en `/assets/train/` — les deux jeux ont exactement les mêmes
+boîtes et les mêmes comptes, et c'est `loadManifest` qui pose le préfixe du mode.
+Un visiteur ne télécharge que les images du sien.
+
 ```bash
+# le manifeste, la carte de relief et le reste. Le `train/` qu'il écrit au
+# passage ne sert à rien — `loadManifest` pose toujours un préfixe de mode —
+# et se jette après : ce sont les deux commandes d'en dessous qui comptent.
 python3 tools/build_assets.py --src ~/projet_zero --out public/assets \
   --carte montagne_hd/tramage/massif-carte.png \
-  --train-src PTITRAIN_grain_corps --train-scale 0.5
+  --train-src PTITRAIN_c6 --train-scale 0.5
+rm -rf public/assets/train
+
+# les deux jeux du train, depuis les deux cuissons
+python3 tools/build_assets.py --src ~/projet_zero --out /tmp/a --train-src PTITRAIN_c6
+python3 tools/build_assets.py --src ~/projet_zero --out /tmp/b --train-src PTITRAIN_c9
+rm -rf public/assets/train-nuit public/assets/train-jour
+cp -R /tmp/a/train public/assets/train-nuit   # 8,3 Mo
+cp -R /tmp/b/train public/assets/train-jour   # 8,5 Mo
 ```
 
 Options : `--carte` (aucune), `--train-src` (`PTITRAIN_grain_vivant`), `--train-scale` (0.5),
@@ -46,15 +63,24 @@ Options : `--carte` (aucune), `--train-src` (`PTITRAIN_grain_vivant`), `--train-
 `--train-src` peut désigner un dossier sans `01_rails` : la voie est alors prise dans
 `PTITRAIN_grain_vivant`, la seule à en contenir une.
 
-Les sources du train ne sont pas livrées telles quelles : `PTITRAIN_grain_corps` se
-fabrique depuis `PTITRAIN_plein`, et la voie depuis la seule qui en contienne une.
+Les sources du train ne sont pas livrées telles quelles : elles se fabriquent depuis
+`PTITRAIN_plein`, et la voie depuis la seule qui en contienne une.
+
+**Il y a deux cuissons, une par mode.** Même recette, un seul chiffre de différence :
+le contour de silhouette, **6 px de source en nuit, 9 en jour**. Le trait dessiné fait
+environ 4 px, soit 1 px de cadre une fois le train posé à 0,400 : une cellule de grain
+de 3 px suffit à le couper, et la silhouette est ce qui tient la lecture du véhicule.
+Le jour en demande plus que la nuit — des points noirs sur du papier ne débordent pas
+comme des points blancs sur de la nuit.
 
 ```bash
 # le train : trait à pleine luminosité au gris du massif, une matière dans le
-# corps, et un trait moins troué
-python3 outils/grain_train.py PTITRAIN_plein PTITRAIN_grain_corps \
-  --trait=1,1 --gris=#EDEDED --corps=0.05,0.01 --trous=0.08 --coupe=492
-cp -r PTITRAIN_grain_blanc/01_rails PTITRAIN_grain_corps/   # ou le bloc ci-dessous
+# corps, un trait moins troué, et le contour élargi
+python3 outils/grain_train.py PTITRAIN_plein PTITRAIN_c6 \
+  --trait=1,1 --gris=#EDEDED --corps=0.05,0.01 --trous=0.08 --coupe=492 --contour=6
+python3 outils/grain_train.py PTITRAIN_plein PTITRAIN_c9 \
+  --trait=1,1 --gris=#EDEDED --corps=0.05,0.01 --trous=0.08 --coupe=492 --contour=9
+cp -r PTITRAIN_grain_blanc/01_rails PTITRAIN_c6/   # ou le bloc ci-dessous
 
 # la voie : déjà grainée, et son grain est dans l'alpha ; la luminance ne
 # portait que l'assombrissement, plafonné à 203. On l'aplatit au même gris.

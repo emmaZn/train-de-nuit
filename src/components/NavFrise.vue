@@ -236,7 +236,9 @@ const entrees = computed(() => {
 /* à quai : point plein + halo, libellé plus grand */
 .gare[data-etat='a-quai'] .point {
   background: var(--trait);
-  box-shadow: 0 0 0 4px rgb(230 230 234 / 10%), 0 0 14px 3px rgb(230 230 234 / 28%);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--trait) 10%, transparent),
+    0 0 14px 3px color-mix(in srgb, var(--trait) 28%, transparent);
 }
 
 .gare[data-etat='a-quai'] .libelle {
@@ -248,7 +250,7 @@ const entrees = computed(() => {
 .gare[data-etat='prochain'] .point {
   position: relative;
   background: none;
-  box-shadow: 0 0 10px 2px rgb(230 230 234 / 18%);
+  box-shadow: 0 0 10px 2px color-mix(in srgb, var(--trait) 18%, transparent);
 }
 
 .gare[data-etat='prochain'] .point::after {
@@ -289,7 +291,36 @@ const entrees = computed(() => {
   height: 7px;
   background: var(--trait);
   border-radius: 50%;
-  box-shadow: 0 0 12px 3px rgb(230 230 234 / 30%);
+  box-shadow: 0 0 12px 3px color-mix(in srgb, var(--trait) 30%, transparent);
+}
+
+/* De jour, la lueur s'en va et l'anneau prend sa place.
+
+   Une lueur est de la lumière ; sur du papier, son négatif n'est qu'une tache
+   (spec du 25/11, critère 8). Mais la gare « à quai » et le marqueur ont
+   besoin d'une emphase, sans quoi la frise ne dit plus où l'on est : c'est un
+   anneau d'encre net, séparé du point par un cran de papier. Aucun flou. */
+:root[data-mode="jour"] .gare[data-etat='a-quai'] .point {
+  box-shadow:
+    0 0 0 2px var(--fond),
+    0 0 0 3px var(--trait);
+}
+
+:root[data-mode="jour"] .gare[data-etat='prochain'] .point {
+  box-shadow: none;
+}
+
+:root[data-mode="jour"] .marqueur {
+  box-shadow:
+    0 0 0 2px var(--fond),
+    0 0 0 3px var(--trait);
+}
+
+/* La voie « s'éclaircit là où l'on se trouve » : de jour, elle ne peut pas —
+   un dégradé d'encre en travers de la ligne serait une bavure. Le marqueur
+   suffit à tenir le lieu. */
+:root[data-mode="jour"] .halo {
+  display: none;
 }
 
 .gare:focus-visible {

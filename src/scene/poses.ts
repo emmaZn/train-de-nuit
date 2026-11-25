@@ -190,8 +190,15 @@ export async function fabriquerPiece(
  *
  * Le poteau électrique, lui, garde la matière dans son fût : sa masse est une
  * structure, pas une silhouette dessinée pour la ligne.
+ *
+ * **Le contour est épaissi d'une cellule** depuis le 25 novembre 2026 : « sur
+ * les oiseaux il faut aussi renforcer le contour du tracé, en mode light et en
+ * mode sombre ». C'est la même constatation que pour le train — le trait
+ * dessiné fait à peu près une cellule de large, et une cellule de grain suffit
+ * à le couper —, et une seule valeur sert aux deux modes. La bande gagnée
+ * respire comme le reste du trait : elle prend les mêmes trous.
  */
-export const RECETTE_POSE: Recette = { matiere: { haut: 0, bas: 0 }, trous: TROUS }
+export const RECETTE_POSE: Recette = { matiere: { haut: 0, bas: 0 }, trous: TROUS, contour: 1 }
 
 /** Une pose d'oiseau : la pièce au ratio du cadre des poses, et rien d'autre. */
 export function fabriquerPose(

@@ -219,6 +219,31 @@ onBeforeUnmount(() => {
   box-shadow: 0 24px 60px rgb(0 0 0 / 55%);
 }
 
+/* De jour, **il n'y a plus de feuille** : la page est la feuille, et on écrit
+   directement dessus.
+
+   Sous l'inversion, « papier » et « encre » échangeraient leur sens — la
+   plaque deviendrait un rectangle presque noir, plein écran, sur une page
+   beige. On retire donc la plaque : sa dérivation, son ombre portée (un
+   dégradé, que le jour ne veut nulle part) et son bord perforé. Le texte, lui,
+   ne bouge pas : les trois niveaux d'encre se dérivent de `--encre` et suivent
+   tout seuls. Ça amende la règle du 22 novembre, qui ne vaut que de nuit. */
+:root[data-mode="jour"] .feuille {
+  --papier: var(--fond);
+  --encre: var(--texte);
+
+  /* Un trait d'encre à la place de la plaque. Sans l'ombre portée ni le bord
+     perforé, la feuille n'avait plus de bord du tout et le texte flottait sur
+     la page : c'est la même matière que les filets du tableau, un simple
+     trait, et il fait de la page une feuille au lieu d'un fond. */
+  border: 1px solid var(--encre);
+  box-shadow: none;
+}
+
+:root[data-mode="jour"] .perfo {
+  display: none;
+}
+
 /* Le bord perforé : du décor, et rien d'autre — d'où l'`aria-hidden`. Les trous
    sont un dégradé répété, pas des éléments : il n'y a rien à lire dedans. */
 .perfo {

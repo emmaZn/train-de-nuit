@@ -39,7 +39,8 @@ import {
 } from './layout'
 import type { Frame } from './layout'
 import type { Relief } from './Relief'
-import { DEFAUT, fondToHex } from './palette'
+import { COULEURS, DEFAUT, fondToHex } from './palette'
+import type { Mode } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
@@ -48,7 +49,7 @@ import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { Neige } from './NeigeLayer'
 import { nuitDeLaGare } from './nuit'
-import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
+import { createRecolorFilter, setRecolorMode } from './recolor'
 import { forwardSteps } from './types'
 import type { Gare, Manifest, Trace } from './types'
 
@@ -213,10 +214,20 @@ export function grisDeNuit(nuit: number, max: number): number {
   return (canal << 16) | (canal << 8) | canal
 }
 
-/** Pose la nuit (0 à 1) sur les porteurs : teinte = 1 - opacité du voile. */
-export function appliquerNuit(plans: { nuit: Nuit }, nuit: number): void {
+/**
+ * Pose la nuit (0 à 1) sur les porteurs : teinte = 1 - opacité du voile.
+ *
+ * **De jour, il n'y a pas de voile.** Il existe pour faire ressortir le
+ * faisceau du réverbère ; de jour il n'y a pas de faisceau (piste C du 25/11),
+ * et surtout la teinte ne peut que *baisser* la luminance — ce qui, sur du
+ * papier, pousse vers le fond et efface le dessin en filigrane au lieu de le
+ * retirer dans la nuit. Assombrir vraiment n'est pas possible : l'encre est
+ * déjà au maximum, il n'y a rien de plus sombre à atteindre.
+ */
+export function appliquerNuit(plans: { nuit: Nuit }, nuit: number, mode: Mode = 'nuit'): void {
+  const valeur = mode === 'jour' ? 0 : nuit
   const teindre = (porteurs: Container[], max: number) => {
-    const gris = grisDeNuit(nuit, max)
+    const gris = grisDeNuit(valeur, max)
     for (const porteur of porteurs) porteur.tint = gris
   }
   teindre(plans.nuit.profond, NUIT_PROFONDEUR)
@@ -273,18 +284,19 @@ export function monterLaRame(
   train: Train,
   manifest: Manifest,
   reducedMotion: boolean,
+  mode: Mode = 'nuit',
 ): { vitres: Vitres; fumee: Fumee } {
   const spec = manifest.train
   const positions = Array.from({ length: WAGONS }, (_, i) => wagonX(spec.loco, spec.wagon, i + 1))
   const rame = train.rameContainer
-  const vitres = new Vitres(rame, manifest, positions, reducedMotion)
+  const vitres = new Vitres(rame, manifest, positions, reducedMotion, mode)
   // La fumée sort de la cheminée, donc elle vit dans la rame elle aussi.
   // Elle n'est pas une lumière : elle porte sa teinte.
   const fumee = new Fumee(planSombre(plans, rame, 'fumee'), reducedMotion)
   return { vitres, fumee }
 }
 
-export type SceneOptions = { reducedMotion: boolean }
+export type SceneOptions = { reducedMotion: boolean; mode?: Mode }
 
 /**
  * Où une île est accrochée sur la ligne, et où elle est posée à l'écran.
@@ -326,6 +338,20 @@ export class Scene {
   private relief: Relief | null = null
   private train: Train | null = null
   private recolor: Filter | null = null
+  /**
+   * La recoloration des grains des phrases qui se défont.
+   *
+   * `dissous` est accroché à `app.stage`, **hors de `decor`** : il doit donc
+   * porter son propre filtre, sinon ses grains resteraient blancs — invisibles
+   * sur le papier du jour. Il est posé dès la construction : il ne dépend ni
+   * du contexte WebGL ni du manifeste.
+   */
+  private readonly recolorDissous: Filter = createRecolorFilter(fondToHex(COULEURS.nuit.fond), {
+    // `'inherit'` : le conteneur n'avait pas de filtre avant le mode jour, et
+    // une passe en 1× rendrait son grain flou sur un écran à deux pixels par
+    // point. La nuit ne doit pas bouger.
+    resolution: 'inherit',
+  })
   /** La terre sous les rails : devant le reflet, devant le train. */
   private terre: Terre | null = null
   /** Les vitres allumées des wagons : dans la rame, et seules à n'être pas teintées. */
@@ -403,7 +429,12 @@ export class Scene {
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
-  private fond = DEFAUT as string
+  private mode: Mode = DEFAUT
+
+  /** La couleur du sol du mode courant : une seule source, c'est `COULEURS`. */
+  private get fond(): string {
+    return COULEURS[this.mode].fond
+  }
   private phase = 0
   /**
    * L'arrivée du voyage en cours a-t-elle déjà été annoncée ?
@@ -448,6 +479,11 @@ export class Scene {
   constructor(canvas: HTMLCanvasElement, opts: SceneOptions) {
     this.canvas = canvas
     this.reducedMotion = opts.reducedMotion
+    // Le mode est connu **avant** `init` : c'est lui qui donne la couleur du
+    // renderer dès la première image, et le jeu d'images du train à charger.
+    this.mode = opts.mode ?? DEFAUT
+    setRecolorMode(this.recolorDissous, this.mode === 'jour')
+    this.dissous.filters = [this.recolorDissous]
     this.pret = new Promise<void>((resoudre) => {
       this.tenirPret = resoudre
     })
@@ -478,7 +514,13 @@ export class Scene {
     }
 
     this.vivante = true
-    this.recolor = createRecolorFilter(fondToHex(this.fond))
+    // **Le sol du filtre est l'encre dans les deux modes.** Le jour est un
+    // remappage de ce que la nuit aurait donné : `uSol = lum(uFond)` en est le
+    // zéro. Y mettre le papier porterait ce zéro à 0,93, et tout ce qui est en
+    // dessous — le gris du corps du train, à 0,929 — retomberait sur un papier
+    // plat. C'est le fond du renderer qui suit le mode, pas celui du filtre.
+    this.recolor = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
+    setRecolorMode(this.recolor, this.mode === 'jour')
 
     // Le ciel se mesure en pixels d'écran — un téléphone ne voit qu'un quart
     // de la largeur du cadre —, mais il se dessine entre le massif et le
@@ -516,7 +558,7 @@ export class Scene {
     this.app.renderer.on('resize', () => this.cadrer())
     this.app.ticker.add((ticker) => this.tick(ticker.deltaMS / 1000))
 
-    const manifest = await loadManifest()
+    const manifest = await loadManifest(undefined, this.mode)
     // Sans `await` : le chargement des assets ne doit retarder ni la couleur
     // mémorisée, ni le parallax, ni le premier cadrage. C'est `pret` qui dit
     // quand le train et le massif sont là, à qui veut l'attendre.
@@ -573,9 +615,13 @@ export class Scene {
 
     // Les vitres et la fumée se posent dans la rame, à leur place : elles en
     // suivent l'échelle et la position sans rien avoir à recalculer.
-    const rame = monterLaRame(this.plans, this.train, manifest, this.reducedMotion)
+    const rame = monterLaRame(this.plans, this.train, manifest, this.reducedMotion, this.mode)
     this.vitres = rame.vitres
     this.fumee = rame.fumee
+    // Ceinture : tout ce qui naît après un `await` de `peupler` a manqué le
+    // `setMode` que `useScene` envoie à la fin d'`init`. Le passer en
+    // paramètre suffit aujourd'hui ; ceci couvre la prochaine couche.
+    this.poserLeMode()
     this.assombrir()
     this.cadrer()
 
@@ -1010,6 +1056,9 @@ export class Scene {
       grains: grainsDePhrase(phrase, from),
       allumer,
     })
+    // Le mode courant tout de suite : une phrase lâchée de jour se condense
+    // en point sans éclat, dès sa première image.
+    dissolution.setMode(this.mode)
     this.dissolutions.add(dissolution)
     return dissolution
   }
@@ -1184,30 +1233,38 @@ export class Scene {
     this.relief?.setLegs(this.legsParcourues)
   }
 
-  /** Fades the colour of the night over about a second (CONCEPT.md §6). */
-  setFond(hex: string): void {
-    const depart = hexToUnit(fondToHex(this.fond))
-    const arrivee = hexToUnit(fondToHex(hex))
-    this.fond = hex
-    const etat = { t: 0 }
-    gsap.to(etat, {
-      t: 1,
-      duration: this.reducedMotion ? 0 : 1,
-      ease: 'power1.inOut',
-      onUpdate: () => {
-        const melange = depart.map((c, i) => c + (arrivee[i] - c) * etat.t)
-        const couleur =
-          (Math.round(melange[0] * 255) << 16) |
-          (Math.round(melange[1] * 255) << 8) |
-          Math.round(melange[2] * 255)
-        if (this.recolor) setRecolorFond(this.recolor, couleur)
-        if (this.vivante) this.app.renderer.background.color = couleur
-        // Vue écoute pour écrire `--fond` au même rythme : tout ce qui est en
-        // CSS — la tache de nuit du formulaire, celle de la bulle — fond avec
-        // la scène au lieu de sauter d'une image.
-        this.emitter.emit('fond', '#' + couleur.toString(16).padStart(6, '0'))
-      },
-    })
+  /**
+   * Le mode du site, d'un seul geste.
+   *
+   * Pas de fondu : la bascule **recharge la page** (spec du 25/11, §6). Un
+   * fondu d'une seconde entre la nuit et le papier passerait par un gris plat
+   * plein écran, et les deux modes n'ont de toute façon pas le même jeu
+   * d'images du train.
+   */
+  setMode(mode: Mode): void {
+    this.mode = mode
+    if (this.recolor) setRecolorMode(this.recolor, mode === 'jour')
+    setRecolorMode(this.recolorDissous, mode === 'jour')
+    this.poserLeMode()
+    // Le fond du canevas, lui, est bien la couleur du mode : c'est ce qu'on
+    // voit autour des sprites, et il doit tomber sur la même valeur que le sol
+    // à l'intérieur d'eux.
+    if (this.vivante) this.app.renderer.background.color = fondToHex(this.fond)
+    // Vue écoute pour écrire les tokens CSS et `data-mode` : la scène ne
+    // connaît pas le DOM, et tout ce qui est en CSS suit le même mode.
+    this.emitter.emit('mode', mode)
+  }
+
+  /**
+   * Descend le mode courant sur les couches qui portent une lueur en propre :
+   * de jour, on dessine l'objet, pas la lumière. Appelée par `setMode` et par
+   * `peupler`, parce que les vitres naissent après que `setMode` est passé.
+   */
+  private poserLeMode(): void {
+    this.quai?.setMode(this.mode)
+    this.vitres?.setMode(this.mode)
+    this.stars?.setMode(this.mode)
+    for (const d of this.dissolutions) d.setMode(this.mode)
   }
 
   private tick(dt: number): void {
@@ -1334,7 +1391,7 @@ export class Scene {
       demarrage: this.profil.demarrage,
       reducedMotion: this.reducedMotion,
     })
-    appliquerNuit(this.plans, nuit)
+    appliquerNuit(this.plans, nuit, this.mode)
     // L'opacité de la neige **est** la nuit, sans rampe à elle : elle n'est
     // là qu'à « ailleurs », pleine dès la première image d'un lien partagé,
     // et absente d'une traversée sans arrêt.

@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { expect, test } from 'vitest'
 
 import { TEXTES } from '@/i18n/textes'
-import { DEFAUT } from '@/scene/palette'
+import { COULEURS, DEFAUT } from '@/scene/palette'
 
 /**
  * Ce que le document dit de lui-même, et qui n'existait pas : `index.html` ne
@@ -94,7 +94,7 @@ test('les deux langues sont annoncées', () => {
 test('la couleur du navigateur est la nuit par défaut', () => {
   // Le script de tête pose déjà `--fond` avant le premier pixel ; celle-ci
   // teinte ce qui est autour, la barre d'adresse d'un téléphone.
-  expect(meta('theme-color')).toBe(DEFAUT)
+  expect(meta('theme-color')).toBe(COULEURS[DEFAUT].fond)
 })
 
 /**
@@ -119,4 +119,37 @@ test('le Worker ne sert que des fichiers, il n’exécute rien', () => {
   // déclarerait un ferait exécuter du code à chaque requête pour rien.
   const config = readFileSync('wrangler.jsonc', 'utf8')
   expect(config).not.toMatch(/^\s*"main"\s*:/m)
+})
+
+/**
+ * Les tokens de couleur suivent le mode, et rien d'autre ne les décide.
+ *
+ * `index.html` pose `data-mode` sur `<html>` avant la feuille de style ; c'est
+ * ce sélecteur-ci qui transforme la page. Les trois valeurs de la nuit restent
+ * sur `:root` : elles sont le défaut, au sens propre.
+ */
+describe('base.css porte les deux modes', () => {
+  const css = readFileSync('src/styles/base.css', 'utf8')
+
+  test('la nuit est sur :root', () => {
+    const racine = css.match(/:root\s*\{([\s\S]*?)\n\}/)?.[1] ?? ''
+    expect(racine).toMatch(new RegExp(`--fond:\\s*${COULEURS.nuit.fond}`, 'i'))
+    expect(racine).toMatch(new RegExp(`--texte:\\s*${COULEURS.nuit.texte}`, 'i'))
+    expect(racine).toMatch(new RegExp(`--trait:\\s*${COULEURS.nuit.trait}`, 'i'))
+  })
+
+  test('le jour redéfinit les trois mêmes tokens', () => {
+    const bloc = css.match(/:root\[data-mode="jour"\]\s*\{([\s\S]*?)\n\}/)?.[1] ?? ''
+    expect(bloc).toMatch(new RegExp(`--fond:\\s*${COULEURS.jour.fond}`, 'i'))
+    expect(bloc).toMatch(new RegExp(`--texte:\\s*${COULEURS.jour.texte}`, 'i'))
+    expect(bloc).toMatch(new RegExp(`--trait:\\s*${COULEURS.jour.trait}`, 'i'))
+  })
+
+  // `--fond: #2e2313` ne servait plus depuis que le script de tête l'écrase :
+  // une valeur morte qui entretenait la confusion sur la couleur de la nuit.
+  test('plus aucune couleur de l’ancienne palette', () => {
+    for (const mort of ['#2e2313', '#1a120b']) {
+      expect(css.toLowerCase()).not.toContain(mort)
+    }
+  })
 })

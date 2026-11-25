@@ -4,6 +4,7 @@ import { projeterAuCadrage } from './stars'
 
 import type { Place } from './stars'
 import type { Trace } from './types'
+import type { Mode } from './palette'
 
 /** Where the grain climbs to: the place the star will occupy once lit. */
 export function cibleDuGrain(place: Place, viewportW: number, viewportH: number) {
@@ -218,6 +219,12 @@ export class Dissolve implements Poignee {
   private readonly opts: DissolveOptions
   private readonly tl: gsap.core.Timeline
   private readonly etat = { defait: 0, montee: 0, eclat: 0 }
+  /**
+   * Le mode du site. De jour, la phrase **se condense en point, sans éclat** :
+   * les deux halos de la montée sont des lueurs, et une lueur rendue en
+   * négatif sur du papier n'est qu'une tache. Le geste reste.
+   */
+  private mode: Mode = 'nuit'
   private readonly gfx = new Graphics()
   private readonly cible: { x: number; y: number }
   private readonly finie: Promise<void>
@@ -399,6 +406,11 @@ export class Dissolve implements Poignee {
     }
   }
 
+  /** Le mode du site. Le prochain tracé suit ; on ne retrace pas en plein vol. */
+  setMode(mode: Mode): void {
+    this.mode = mode
+  }
+
   private dessiner(): void {
     if (this.gfx.destroyed) return
     const g = this.gfx
@@ -428,7 +440,9 @@ export class Dissolve implements Poignee {
     // Temps 3 : un seul grain monte en courbe, avec son halo et sa traîne.
     if (montee > 0) {
       const tete = this.courbe(montee)
-      g.circle(tete.x, tete.y, RAYON_HALO_VOYAGEUR).fill({ color: 0xffffff, alpha: 0.12 })
+      if (this.mode !== 'jour') {
+        g.circle(tete.x, tete.y, RAYON_HALO_VOYAGEUR).fill({ color: 0xffffff, alpha: 0.12 })
+      }
       for (let i = TRAINE; i >= 0; i--) {
         const p = this.courbe(montee - i * PAS_TRAINE)
         g.circle(p.x, p.y, i === 0 ? RAYON_VOYAGEUR : RAYON_GRAIN).fill({
@@ -439,7 +453,7 @@ export class Dissolve implements Poignee {
     }
 
     // Temps 4 : le halo grossit puis se pose, pendant que l'étoile s'allume.
-    if (eclat > 0) {
+    if (eclat > 0 && this.mode !== 'jour') {
       g.circle(this.cible.x, this.cible.y, 2 + RAYON_HALO_FINAL * eclat).fill({
         color: 0xffffff,
         alpha: 0.45 * (1 - eclat),

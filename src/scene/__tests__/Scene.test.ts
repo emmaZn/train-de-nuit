@@ -5,6 +5,8 @@ import { Application, Container } from 'pixi.js'
 import { Quai } from '@/scene/QuaiLayer'
 import { Scene, plansDuDecor, poserCiel, poserMonde } from '@/scene/Scene'
 import { cadrageScene, HORIZON, SEUIL_MOBILE } from '@/scene/layout'
+import { COULEURS, fondToHex } from '@/scene/palette'
+import { createRecolorFilter, recolorPixel } from '@/scene/recolor'
 import { HORLOGE, PIECES, cibleReverbere } from '@/scene/quai'
 import { Rideau, yPoseA } from '@/scene/rideau'
 import type { Trace } from '@/scene/types'
@@ -922,4 +924,141 @@ test('le massif descend pendant que le train descend', () => {
   const pose = corps.indexOf('await this.train.poserAQuai()')
   expect(lance).toBeGreaterThan(-1)
   expect(lance).toBeLessThan(pose)
+})
+
+/**
+ * La bascule de mode. Elle ne fond plus sur une seconde : le site recharge
+ * (spec du 25/11, §6), donc `setMode` est instantané — un seul geste, une
+ * seule émission.
+ */
+describe('la scène bascule de mode', () => {
+  type InterneMode = {
+    vivante: boolean
+    recolor: import('pixi.js').Filter | null
+    app: { renderer: { background: { color: number } } }
+  }
+
+  function uniformes(filtre: import('pixi.js').Filter): Record<string, unknown> {
+    return (filtre.resources.recolorUniforms as { uniforms: Record<string, unknown> }).uniforms
+  }
+
+  test('émet le mode qu’on lui donne, une fois et pas trente', () => {
+    const scene = sceneSansRendu()
+    const emis: string[] = []
+    scene.on('mode', (m) => emis.push(m))
+    scene.setMode('jour')
+    expect(emis).toEqual(['jour'])
+  })
+
+  // Review Focus #3 : `init` est sorti par son `catch`, il n'y a ni renderer
+  // ni filtre. La page doit quand même pouvoir changer de mode.
+  test('ne jette pas sans contexte WebGL', () => {
+    const scene = sceneSansRendu()
+    expect(() => scene.setMode('jour')).not.toThrow()
+  })
+
+  test('pose le papier sur le fond du renderer en jour', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneMode
+    interne.vivante = true
+    interne.app = { renderer: { background: { color: 0 } } }
+    scene.setMode('jour')
+    expect(interne.app.renderer.background.color).toBe(0xf2eee6)
+  })
+
+  test('allume le jour dans le filtre', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneMode
+    interne.recolor = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
+    scene.setMode('jour')
+    expect(uniformes(interne.recolor!).uJour).toBe(1)
+  })
+
+  /**
+   * **Le sol du shader reste l'encre dans les deux modes.** Le jour est un
+   * remappage de ce que la nuit aurait donné, et `uSol = lum(uFond)` est le
+   * zéro de ce remappage : y mettre le papier porterait le zéro à 0,93 et tout
+   * ce qui est en dessous — le gris du corps du train à 0,929 — retomberait
+   * sur du papier plat. C'est le fond du **renderer** qui suit le mode, pas
+   * celui du filtre.
+   */
+  test('garde l’encre au sol du filtre, même de jour', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneMode
+    interne.recolor = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
+    scene.setMode('jour')
+    expect((uniformes(interne.recolor!).uFond as Float32Array)[0]).toBeCloseTo(0x15 / 255, 4)
+  })
+
+  test('laisse le gris du corps du train devenir de l’encre, pas du papier', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneMode
+    interne.recolor = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
+    scene.setMode('jour')
+    const u = uniformes(interne.recolor!)
+    const en255 = (v: Float32Array): [number, number, number] => [
+      Math.round(v[0] * 255),
+      Math.round(v[1] * 255),
+      Math.round(v[2] * 255),
+    ]
+    // #EDEDED, le gris de `--gris` dans la recette des séquences.
+    const rendu = recolorPixel([0xed, 0xed, 0xed], en255(u.uFond as Float32Array), {
+      papier: en255(u.uPapier as Float32Array),
+      encre: en255(u.uEncre as Float32Array),
+    })
+    expect(rendu[0]).toBeLessThan(100)
+  })
+
+  test('revient à la nuit sans laisser de jour derrière', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneMode
+    interne.vivante = true
+    interne.app = { renderer: { background: { color: 0 } } }
+    interne.recolor = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
+    scene.setMode('jour')
+    scene.setMode('nuit')
+    expect(uniformes(interne.recolor!).uJour).toBe(0)
+    expect(interne.app.renderer.background.color).toBe(0x151517)
+  })
+})
+
+/**
+ * Les grains des phrases qui se défont vivent **hors du décor** : ils sont
+ * accrochés à la scène Pixi, pas au conteneur qui porte le filtre. Sans filtre
+ * à eux, ils resteraient blancs — donc invisibles sur le papier du jour.
+ */
+describe('la dissolution est recolorée elle aussi', () => {
+  type InterneDissous = {
+    dissous: { filters: unknown }
+    recolorDissous: import('pixi.js').Filter
+  }
+
+  test('le conteneur des grains porte son propre filtre', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneDissous
+    expect(interne.dissous.filters).toHaveLength(1)
+  })
+
+  test('ce filtre bascule avec le mode', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneDissous
+    const u = (interne.recolorDissous.resources.recolorUniforms as {
+      uniforms: Record<string, unknown>
+    }).uniforms
+    expect(u.uJour).toBe(0)
+    scene.setMode('jour')
+    expect(u.uJour).toBe(1)
+  })
+
+  test('une scène ouverte de jour part avec le filtre déjà basculé', () => {
+    const scene = new Scene(document.createElement('canvas'), {
+      reducedMotion: false,
+      mode: 'jour',
+    })
+    const interne = scene as unknown as InterneDissous
+    const u = (interne.recolorDissous.resources.recolorUniforms as {
+      uniforms: Record<string, unknown>
+    }).uniforms
+    expect(u.uJour).toBe(1)
+  })
 })

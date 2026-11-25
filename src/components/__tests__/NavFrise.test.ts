@@ -237,3 +237,52 @@ test('sur un écran, elle reste entière', async () => {
   expect(wrapper.get('[data-etat="prochain"] .mention').text()).toBe('PROCHAIN ARRÊT')
   window.innerWidth = 1024
 })
+
+/**
+ * La frise selon le mode.
+ *
+ * Trois lueurs y étaient écrites **en dur** à la couleur de trait de la nuit,
+ * `rgb(230 230 234)` : elles ne suivaient donc pas le mode, et sur du papier
+ * elles devenaient invisibles — la gare « à quai » et le prochain arrêt
+ * perdaient leur seule emphase, et la frise cessait de dire où l'on est.
+ *
+ * De jour, elles ne reviennent pas sous forme de lueur : une lueur en négatif
+ * sur du papier est une tache (critère 8 de la spec). C'est un **anneau net**
+ * qui tient l'emphase, et la lueur de la voie s'en va.
+ */
+describe('la frise selon le mode', () => {
+  const source = readFileSync('src/components/NavFrise.vue', 'utf8')
+
+  it('ne code plus la couleur de trait de la nuit en dur', () => {
+    expect(source).not.toContain('230 230 234')
+  })
+
+  it('garde ses lueurs de nuit, dérivées du token', () => {
+    expect(source).toMatch(/box-shadow:[^;]*color-mix\(in srgb, var\(--trait\)/)
+  })
+
+  it('remplace la lueur du point à quai par un anneau net en jour', () => {
+    expect(source).toMatch(
+      /\[data-mode="jour"\][^{]*\[data-etat='a-quai'\][^{]*\{[^}]*box-shadow:[^;]*var\(--trait\)/,
+    )
+  })
+
+  it('retire la lueur de la voie en jour', () => {
+    expect(source).toMatch(/\[data-mode="jour"\][^{]*\.halo[^{]*\{[^}]*display:\s*none/)
+  })
+
+  it('ne laisse aucun flou dans les ombres du jour', () => {
+    const blocs = [...source.matchAll(/:root\[data-mode="jour"\][^{]*\{([^}]*)\}/g)]
+    expect(blocs.length).toBeGreaterThan(0)
+    for (const [, corps] of blocs) {
+      const ombre = corps.match(/box-shadow:([^;]*);/)
+      if (!ombre) continue
+      // Un rayon de flou est le troisième nombre d'une ombre : il doit rester
+      // à zéro — un anneau, pas une lueur.
+      for (const couche of ombre[1].split(',')) {
+        const nombres = couche.match(/-?\d+px/g) ?? []
+        if (nombres.length >= 3) expect(nombres[2]).toBe('0px')
+      }
+    }
+  })
+})

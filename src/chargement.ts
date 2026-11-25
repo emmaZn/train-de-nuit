@@ -46,3 +46,33 @@ export async function retirerEcran(
   await patienter(FONDU)
   ecran.remove()
 }
+
+/**
+ * L'écran d'attente, à l'envers : il remonte, et la main revient quand le fondu
+ * est fini. C'est ce qui couvre le rechargement de la bascule de mode.
+ *
+ * On en repose un neuf plutôt que de ranimer l'ancien : `retirerEcran` le
+ * retire du document, et c'est bien ce qu'il faut — il porte un canevas de
+ * trois mille cinq cents grains qui n'a plus rien à faire là. Celui-ci est un
+ * aplat de `--nuit-attente`, que l'appelant pose sur la couleur **où l'on va**,
+ * pour que le rechargement ne coupe pas d'une couleur à l'autre.
+ *
+ * En mouvement réduit, il arrive d'un coup et rend la main tout de suite.
+ */
+export async function remettreEcran(
+  reducedMotion = false,
+  racine: Document = document,
+): Promise<void> {
+  const ecran = racine.createElement('div')
+  ecran.id = 'chargement'
+  ecran.setAttribute('aria-hidden', 'true')
+  if (!reducedMotion) ecran.classList.add('parti')
+  racine.body.appendChild(ecran)
+  if (reducedMotion) return
+
+  // Forcer le calcul de la mise en page : sans cet état de départ lu par le
+  // navigateur, la transition n'a rien d'où partir et l'écran saute.
+  void ecran.offsetHeight
+  ecran.classList.remove('parti')
+  await patienter(FONDU)
+}

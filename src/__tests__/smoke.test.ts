@@ -13,7 +13,13 @@ vi.mock('@/composables/useScene', async (importOriginal) => {
   const reel = await importOriginal<typeof import('@/composables/useScene')>()
   return {
     ...reel,
-    useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(null), rideau: ref(null), changerFond: () => {} }),
+    useScene: () => ({
+      scene: ref(null),
+      mode: ref('nuit' as const),
+      frame: ref(null),
+      rideau: ref(null),
+      basculerMode: async () => {},
+    }),
   }
 })
 
@@ -31,7 +37,7 @@ test('App se monte et contient le canvas de la scène', async () => {
 
 test('App pose l’icône œil par-dessus la scène', async () => {
   const wrapper = await monter()
-  expect(wrapper.find('button[aria-label="Changer la couleur de la nuit"]').exists()).toBe(true)
+  expect(wrapper.find('button[aria-label="Basculer entre le jour et la nuit"]').exists()).toBe(true)
 })
 
 test('la gare ici affiche son nom et sa phrase', async () => {

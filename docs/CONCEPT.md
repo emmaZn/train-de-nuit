@@ -196,6 +196,20 @@ opacité — une étoile pâle est un point **plus petit**, jamais une tache plu
 large et plus délavée. Sans ça les anciennes se fondaient les unes dans les
 autres. (L'ancienne règle, « halo seulement au-dessus de 0,55 », ne vaut plus.)
 
+**De jour, une étoile est un point d'encre.** Sa lueur est un dégradé radial
+fait à la main : en négatif sur du papier, elle ne donnerait qu'une tache. La
+constellation se dessine donc à la plume sur la feuille, et la montée d'une
+phrase se termine par une **condensation**, pas par un éclat (§6, « Les deux
+modes »).
+
+**Mais le cœur seul ne suffisait pas** : à un pixel, une étoile était
+exactement ce que le ciel a déjà par milliers — un grain de poussière. De nuit
+c'est la **lueur** qui la détache, seize pixels de portée ; de jour, c'est la
+**taille**. L'éclat passe donc du côté du rayon — une étoile ancienne est un
+point plus petit, jamais une tache plus pâle, ce que la nuit fait déjà pour la
+portée de sa lueur — et l'opacité ne porte plus que le scintillement, dans une
+bande étroite près de l'encre pleine.
+
 ```ts
 // scintillement d'amplitude 0.12 + 0.35 * eclat
 ```
@@ -208,7 +222,7 @@ autres. (L'ancienne règle, « halo seulement au-dessus de 0,55 », ne vaut plus
 
 ## 6. Décor et mouvements
 
-- **Fond** : nuit encre, `#151517` par défaut, avec une poussière d'étoiles. **La couleur de fond change** avec l'icône « œil » en haut à droite (voir « Couleur de fond variable » ci-dessous).
+- **Fond** : nuit encre, `#151517` par défaut, avec une poussière d'étoiles. **Le site a deux modes** — la nuit, et le jour qui en est le négatif sur papier `#F2EEE6` —, et l'icône « œil » en haut à droite bascule de l'un à l'autre (voir « Les deux modes » ci-dessous).
 - **L'ordre des plans** : le massif, puis **le ciel** — poussière et étoiles-voyageuses ensemble —, puis le **fond du plateau** (le voile du pied, les câbles de « plus loin », le décor éteint du quai d'« ailleurs »), puis les **lumières**, puis le **plateau** (les rails, le train — vitres comprises — la fumée, la terre, les oiseaux). Le ciel passe donc **devant la montagne** : son grain continue sur le flanc au lieu de s'arrêter net sur la silhouette, qui laissait le massif en masse noire au milieu d'un ciel dense. La poussière couvre tout l'écran **jusqu'à la voie**, et le voile du pied, qui passe devant elle, l'éteint doucement en approchant des rails — sans l'éteindre tout à fait : le pied du massif doit rester visible derrière la rame, sans quoi le train, n'ayant plus rien à masquer, flotte dans un trou au lieu d'y découper une silhouette. Sous la voie il n'y a plus de ciel : le reflet ne renvoie ni la poussière ni les étoiles — il renverrait le même grain une seconde fois, et des sosies d'étoiles qui ne répondent à rien.
   - **Le décor du quai** (le bâtiment, le banc, la valise, la bordure) est dans le fond du plateau : devant le ciel, derrière la rame. Le bâtiment cache donc les étoiles qui tombent derrière lui, et n'a pas de poussière sur son mur : une maison est pleine, une montagne ne l'est pas.
   - **Les lumières** — le réverbère et son faisceau, le cadre du panneau, l'horloge — sont dans leur propre plan, **devant le voile du pied** (qui sinon éteindrait le bas du faisceau) et **derrière la rame** (sinon le réverbère lui passerait par-dessus à chaque départ). Les vitres du train, elles, appartiennent à la rame : elles sont **dedans**, montées au milieu d'elle, et la fumée passe après elles.
@@ -219,30 +233,49 @@ autres. (L'ancienne règle, « halo seulement au-dessus de 0,55 », ne vaut plus
   - **Calculé à partir de l'état du voyage, pas déclenché par un événement** (`nuit.ts`) : arrivée directe sur `/ailleurs` (lien partagé) → sombre dès la première image ; mouvement réduit → un basculement net, sans rampe ; traverser « ailleurs » sans s'arrêter → **pas d'assombrissement** : il est lié à l'arrêt, pas au lieu.
   - Le dosage — jusqu'où ça descend, en combien de temps — se règle dans la scène en mouvement, pas sur une capture.
 - **Montagnes** : nuage de points / grain. **Elles tournent légèrement quand le train avance**, comme un relief vu depuis un train en marche. Le massif n'est plus une séquence d'images mais un rendu calculé dans le navigateur, depuis la carte de relief (voir §12.1) : la rotation est continue et le grain reste net sur tous les écrans. **Elles tournent avec la distance parcourue, pas avec le temps** : le relief démarre et s'arrête donc avec le train, au lieu de tourner à vitesse constante pendant qu'il freine.
-- **Train** : version **pleine** (il masque le décor derrière lui), et **son corps prend la couleur du fond**, quelle qu'elle soit. Les séquences sont donc prises avec un corps **noir** — `PTITRAIN_grain_blanc`, c'est-à-dire `PTITRAIN_plein` passée au grain avec le trait laissé à pleine luminosité : c'est le rendu qui remplace ce noir par la couleur du moment. La rame est une locomotive et **deux wagons**, attelés tampons contre tampons. Séquences : rouler, démarrer, s'arrêter. Il ralentit longuement à l'approche d'une gare — le freinage prend près de la moitié de l'étape, deux fois plus que le démarrage — s'arrête, puis repart. Les images des roues y avancent avec la **distance** et non avec le temps : elles ralentissent donc avec le sol au lieu de tourner à plein régime jusqu'à se figer.
-- **Les vitres** : les wagons roulent **fenêtres allumées** — avec, à « ailleurs », le réverbère, le cadre du panneau et l'horloge, ce sont les seules lumières de la scène, et ce sont les seules qui soient des voyageurs. Elles ne sont pas cuites dans les images : les deux wagons partagent leurs textures et s'allumeraient donc à l'identique, alors qu'ici chacun a son motif, et **toutes ne sont pas allumées**. Posées au rendu, leur grain se calcule aussi à la densité de pixels de l'écran, au lieu de traverser les deux réductions qui le salissaient. Chaque vitre **vacille** lentement — un seul champ aléatoire tiré une fois, dont le seuil monte et descend, comme le massif ; un bruit neuf à chaque image la ferait bouillir — et de temps en temps l'une d'elles s'éteint ou se rallume. **La cabine du conducteur reste éteinte** : une vitre allumée derrière son dos effacerait ses traits blancs. Autour de chaque vitre, une lueur : c'est **la première entorse assumée** à « blanc ou absent », un dégradé et non du grain, choisie à l'œil contre un halo en points. Les trois autres sont les sources de la gare (§4.4) : la lanterne du réverbère, le cône de son faisceau, et le halo de l'horloge. Elles ont été assumées au même titre, et la liste des *sources* s'arrête là. Le grisement des points du reflet (ci-dessous) est une cinquième mi-teinte assumée, mais d'une autre nature : elle éteint, elle n'allume pas.
+- **Train** : version **pleine** (il masque le décor derrière lui), et **son corps prend la couleur du fond**, quelle qu'elle soit. Les séquences sont donc prises avec un corps **noir** — `PTITRAIN_plein` passée au grain avec le trait laissé à pleine luminosité : c'est le rendu qui remplace ce noir par la couleur du moment. **Il y a deux cuissons, une par mode**, qui ne diffèrent que par la largeur du contour de silhouette : `PTITRAIN_c6` (6 px de source) pour la nuit, `PTITRAIN_c9` (9 px) pour le jour. Le trait dessiné fait environ 4 px, soit 1 px de cadre à l'échelle où le train est posé : une cellule de grain de 3 px suffisait à le couper, et la silhouette est ce qui tient la lecture du véhicule. Le jour en demande plus que la nuit, parce que des points noirs sur du papier ne débordent pas comme des points blancs sur de la nuit. La rame est une locomotive et **deux wagons**, attelés tampons contre tampons. Séquences : rouler, démarrer, s'arrêter. Il ralentit longuement à l'approche d'une gare — le freinage prend près de la moitié de l'étape, deux fois plus que le démarrage — s'arrête, puis repart. Les images des roues y avancent avec la **distance** et non avec le temps : elles ralentissent donc avec le sol au lieu de tourner à plein régime jusqu'à se figer.
+- **Les vitres** : les wagons roulent **fenêtres allumées** — avec, à « ailleurs », le réverbère, le cadre du panneau et l'horloge, ce sont les seules lumières de la scène, et ce sont les seules qui soient des voyageurs. Elles ne sont pas cuites dans les images : les deux wagons partagent leurs textures et s'allumeraient donc à l'identique, alors qu'ici chacun a son motif, et **toutes ne sont pas allumées**. Posées au rendu, leur grain se calcule aussi à la densité de pixels de l'écran, au lieu de traverser les deux réductions qui le salissaient. Chaque vitre **vacille** lentement — un seul champ aléatoire tiré une fois, dont le seuil monte et descend, comme le massif ; un bruit neuf à chaque image la ferait bouillir — et de temps en temps l'une d'elles s'éteint ou se rallume. **La cabine du conducteur reste éteinte** : une vitre allumée derrière son dos effacerait ses traits blancs. Autour de chaque vitre, une lueur : c'est **la première entorse assumée** à « blanc ou absent », un dégradé et non du grain, choisie à l'œil contre un halo en points. Les trois autres sont les sources de la gare (§4.4) : la lanterne du réverbère, le cône de son faisceau, et le halo de l'horloge. **Cette liste était incomplète** : la lueur des étoiles des voyageurs (§5) et l'éclat final d'une dissolution en sont aussi — des dégradés radiaux faits à la main, relevés le 25 novembre 2026. Le grisement des points du reflet (ci-dessous) est une mi-teinte assumée de plus, mais d'une autre nature : elle éteint, elle n'allume pas. **Et c'est une liste de nuit** : de jour il n'y en a aucune, hors le grisement du reflet (voir « Les deux modes »).
 - **La terre** : quelques grains sous les rails, pour que le train repose sur quelque chose au lieu de flotter au bord du reflet. **Rien n'y est rempli** — seulement des points blancs à pleine luminance, dont la densité s'éteint vers le bas, en paquets le long de la voie plutôt qu'en voile uniforme. Comme rien n'est opaque, elle se pose sur le haut du reflet et en adoucit la couture au lieu de le recouvrir. Elle file à la vitesse **exacte** de la voie — elle est à la même distance — et à la distance, pas au temps : elle démarre, freine et s'arrête avec le train. Son grain se mesure en **texels du rendu**, comme celui du massif, et non en pixels de la source comme celui du train : il garde donc la même taille quelles que soient la fenêtre et la densité de pixels de l'écran.
 - **La fumée** : des **bouffées** rondes sortent de la cheminée l'une après l'autre, enflent, se couchent en arrière selon la vitesse du train, puis se referment. À quai le panache monte droit en se balançant ; en marche il s'étale en chapelet sur les wagons. Chaque bouffée est faite de quelques lobes **tirés une fois à sa naissance** et portés ensuite sans rien retirer au hasard : elle garde sa forme en grandissant au lieu de bouillonner. Elle est de la **couleur du fond**, comme le corps du train : elle cache la montagne au lieu de s'ajouter à son grain. Les images de la locomotive portaient une fumée **dessinée**, qui montait et s'effaçait sur la boucle ; elle est retirée à la fabrication des assets — celle-ci suit la vitesse, l'autre ne le pouvait pas.
 - **Reflet** : sous la voie, le décor et le train retournés. **Atténué par la densité, pas par l'opacité** : le reflet est rendu à pleine force et un masque de grain lui retire des points, de plus en plus en descendant. Ce qui reste garde sa luminance — blanc ou absent — et l'eau se défait en s'éloignant au lieu de pâlir. Il était auparavant à 16 % d'opacité et flouté : la bande occupait 18 % de la hauteur de l'écran pour 0,4 % de couverture, et son atténuation fabriquait exactement les mi-teintes que le projet refuse. La bande sous la voie reste **de la couleur du fond**, comme le reste de la nuit : on a essayé de l'assombrir, mais cela ne fait que donner plus de contraste aux points, qui ressortent alors trop en bas. Ce sont l'extinction du reflet et le **grisement de ses points** qui vident le bas de l'écran : ils se raréfient en descendant, et ce qui reste s'éteint vers le fond. C'est la seule mi-teinte assumée ici — des points aussi blancs tout en bas que contre la voie ressortaient trop.
 - **Grain** : partout, la même matière que les montagnes.
 - **Mouvements** : lents, comme un souffle. Pas d'à-coups mécaniques — la vitesse du train monte et descend en courbe douce, pas en ligne droite, pour que l'accélération elle-même ne saute pas aux transitions.
 - **Typographie** : Inter (Light / Regular) pour les textes, JetBrains Mono pour les petites mentions (frise, compteurs, panneau des départs).
-- **Couleur de fond variable** — règle unique : **dans tous les assets, le noir devient la couleur du fond.** Le train, les poteaux, le quai d'« ailleurs » et le corps des oiseaux sont dessinés avec du noir ; au rendu, ce noir est remplacé par la couleur de fond courante.
+- **La règle unique** : **dans tous les assets, le noir devient la couleur du fond.** Le train, les poteaux, le quai d'« ailleurs » et le corps des oiseaux sont dessinés avec du noir ; au rendu, ce noir est remplacé par la couleur de fond courante.
   - En shader (PixiJS / Three.js) : `rgb = mix(uFond, texel.rgb, luminance(texel.rgb))`, alpha inchangé. Le noir devient le fond, le blanc reste blanc, les gris se mélangent.
+  - **Elle a une seconde borne depuis le 25 novembre 2026.** Le jour n'est pas une quatrième couleur de fond : c'est la nuit **remappée** entre deux pôles, le papier et l'encre. Le calcul de la nuit ne bouge pas d'une virgule ; on lit sa luminance et on la renvoie entre les deux :
+
+    ```glsl
+    vec3 nuit = mix(uFond, straight, lum);          // inchangé
+    float n   = dot(nuit, LUMA);
+    float t   = clamp((n - uSol) / (1.0 - uSol), 0.0, 1.0);
+    vec3 jour = mix(uPapier, uEncre, t);
+    sortie    = mix(nuit, jour, uJour);
+    ```
+
+    `uSol = lum(uFond)` n'est pas un détail : un pixel de sol — le noir des assets, que la nuit rend à `#151517` — a une luminance de 0,083 et non 0. Sans cette normalisation il retomberait sur un gris, et le corps plein du train deviendrait un pavé sur une page plus claire. **`uFond` reste l'encre dans les deux modes** : c'est le zéro du remappage, et y mettre le papier porterait ce zéro à 0,93 — tout ce qui est en dessous, le gris du corps à 0,929 compris, s'aplatirait. C'est le fond du *renderer* qui suit le mode, pas celui du filtre.
   - En canvas 2D : sur un canvas hors écran, dessiner l'image, puis `globalCompositeOperation = 'lighten'` et remplir avec la couleur de fond, puis `'destination-in'` et redessiner l'image pour garder sa forme. Mettre en cache le résultat, recalculé seulement quand la couleur change.
-  - La couleur est une seule variable (`--fond` côté CSS, `uFond` côté scène), animée en douceur (GSAP, ~1 s) quand on clique sur l'œil.
+  - Côté CSS, les trois tokens `--fond`, `--texte` et `--trait` sont définis pour la nuit sur `:root` et redéfinis sous `:root[data-mode="jour"]`. Plus de fondu : la bascule recharge la page (ci-dessous).
   - `--fond=#RRGGBB` dans `grain_train.py` ne sert que pour des exports statiques (Figma, image de partage).
-- **L'icône « œil »** (en haut à droite, simple trait clair, sans fond de bouton) : chaque clic passe à la couleur suivante du cycle, en fondu (~1 s). Le choix est mémorisé pour la visite suivante (`localStorage`, avec repli silencieux s'il est indisponible). C'est un `<button>` avec `aria-label="Changer la couleur de la nuit"`. Palette validée (toutes sombres, contraste > 12:1 avec le texte `#ececf0`) :
+- **Les deux modes.** Il n'y a plus de cycle de couleurs : il y a **la nuit et le jour**, et le jour est le négatif de la nuit — une gravure sur papier, pas un thème clair. Les deux modes sont ceux de `src/scene/palette.ts`, qui fait foi :
 
-  Le cycle est celui de `src/scene/palette.ts`, qui fait foi :
+  | | Nuit | Jour |
+  |---|---|---|
+  | Fond | `#151517` (encre) | `#F2EEE6` (papier) |
+  | Texte | `#ececf0` | `#151517` |
+  | Trait | `#e6e6ea` | `#151517` |
 
-  | Nom | Couleur |
-  |---|---|
-  | encre (par défaut) | `#151517` |
-  | noir | `#000` |
-  | vieille photo | `#2f1b0c` |
+  Le papier a été choisi parmi trois beiges, rendus sur la scène en mouvement ; `#EDE4D4` (plus jaune) et `#E8E2D6` (plus gris) ont été écartés. **La teinte encre sert deux fois** : sol de la nuit, trait du jour. Contraste du texte : 15:1 de nuit, 17:1 de jour.
 
-- **Couleurs** : fond `#151517` par défaut ; blanc légèrement grisé `#ececf0` pour le texte, opacités pour la hiérarchie (0.95 / 0.6 / 0.42 / 0.2), traits `#e6e6ea`, corps noirs `#0b0b0c`.
+  - **Pas de mode automatique** selon le réglage du système : c'est un geste, pas une préférence devinée.
+  - **De jour, aucun dégradé nulle part.** Les quatre lumières de la gare gardent leur objet et perdent leur lueur — la lanterne, le cadran et ses aiguilles, le cadre du panneau, le grain des carreaux restent de l'encre ; le cône du faisceau, le halo de l'horloge et la lueur des vitres ne sont pas dessinés. « Ailleurs » perd donc son théâtre de jour : la scène se délave au lieu de s'assombrir, et il ne reste que le trait. C'est assumé.
+  - **De jour, il n'y a plus de feuille de CV** : la page *est* la feuille. La plaque, son ombre et son bord perforé ne sont posés qu'en mode nuit — sans quoi l'inversion en ferait un rectangle presque noir sur une page beige.
+
+- **L'icône « œil »** (en haut à droite, simple trait clair, sans fond de bouton) : chaque clic **bascule de mode et recharge la page**, derrière l'écran d'attente qui remonte. Le choix est mémorisé pour la visite suivante (`localStorage`, clé `train-de-nuit:mode`, avec repli silencieux s'il est indisponible). C'est un `<button>` avec `aria-label="Basculer entre le jour et la nuit"`.
+
+  **Pourquoi recharger plutôt que fondre.** Un fondu d'une seconde entre la nuit et le papier passerait par un gris plat plein écran, et les deux modes n'ont pas le même jeu d'images du train : le rechargement règle les deux d'un coup, puisque le mode est alors connu **avant** le premier dessin. Il est lu dans `localStorage` par un script inline d'`index.html`, avant le moindre module, et posé en `data-mode` sur `<html>`. C'est l'écran d'attente qu'on réutilise, pas une dissolution neuve : le geste du site, à l'endroit.
+
+- **Couleurs** : voir le tableau des deux modes ci-dessus ; opacités pour la hiérarchie (0.95 / 0.6 / 0.42 / 0.2), corps noirs `#0b0b0c` dans les sources.
 
 ## 7. Assets disponibles
 
@@ -256,7 +289,9 @@ Tous dans `~/projet_zero/` (à copier ou convertir dans le dépôt, voir §10) :
 | `blender/erosion.py`, `blender/massif.py` | fabriquent la carte, puis la rendent. `massif.py` est la source du portage GLSL |
 | `PTITRAIN_blanc/` | traits blancs seuls, sans fond (non retenue) |
 | `PTITRAIN_plein/` | source du train, version pleine, corps noir : `02_locomotive`, `03_wagon`, `04_start_locomotive`, `05_start_wagon`, `06_stop_locomotive`, `07_stop_wagon` |
-| `PTITRAIN_grain_corps/` | **séquences retenues** : `PTITRAIN_plein` passée au grain avec `--trait=1,1 --gris=#EDEDED --corps=0.05,0.01 --trous=0.08 --coupe=492`. Le corps y reçoit une matière — des points à pleine luminance dont seule la densité varie, du toit vers le bas — et le trait est moins troué. Contient aussi `01_rails`, repris de `PTITRAIN_grain_blanc`. Les commandes sont dans le README du dépôt |
+| `PTITRAIN_c6/` | **séquences retenues, mode nuit** : `PTITRAIN_plein` passée au grain avec `--trait=1,1 --gris=#EDEDED --corps=0.05,0.01 --trous=0.08 --coupe=492 --contour=6`. Le corps y reçoit une matière — des points à pleine luminance dont seule la densité varie, du toit vers le bas —, le trait est moins troué, et le contour de silhouette est élargi à 6 px de source. Contient aussi `01_rails`, repris de `PTITRAIN_grain_blanc`. Les commandes sont dans le README du dépôt |
+| `PTITRAIN_c9/` | **séquences retenues, mode jour** : la même recette avec `--contour=9`. Servie dans `public/assets/train-jour/` |
+| `PTITRAIN_grain_corps/` | l'étape d'avant les deux cuissons : la même recette sans `--contour`. Le contour y faisait environ 4 px de source, soit 1 px de cadre : une cellule de grain de 3 px le coupait |
 | `PTITRAIN_grain_blanc/` | l'étape d'avant : même chose sans `--corps` ni `--trous`, corps vide. Garde la seule `01_rails` au bon gris |
 | `outils/grain_train.py` | génère la version grain. Sans `--trait`, il assombrit chaque pixel du trait (0,65–0,90) : le train devient gris et s'efface dans la montagne. `--trait=1,1 --gris=#EDEDED` applique la règle du massif |
 | `PTITRAIN_grain_vivant/` | version pleine avec grain vivant, corps noir (non retenue ; on y prend seulement `01_rails`, la seule voie disponible) |
@@ -449,7 +484,7 @@ match /traces/{id} {
    train strictement de profil : de vrais rails fuiraient vers un point de fuite et
    jureraient. Et la voie ne fait que 20 px de haut, trop peu pour un tramage. Elle reste
    une bande 2D qui défile, grainée comme le reste.
-4. ~~L'icône « œil »~~ : **décidé** — elle fait défiler un **cycle de couleurs de fond**, et rien d'autre. Palette validée (§6).
+4. ~~L'icône « œil »~~ : **décidé** — elle bascule entre **deux modes**, la nuit et le jour, et recharge la page derrière l'écran d'attente. Le cycle de trois couleurs sombres du 14/11 est abandonné depuis le 25/11 (§6, « Les deux modes »).
 5. ~~**Contact**~~ : **décidé et complet.** Le formulaire de message est devenu un `mailto:`, et le PDF du CV a disparu — le CV est une page du site (§4.5). Les deux adresses sont confirmées : le profil **LinkedIn** le 22 novembre 2026, l'**adresse mail** le 24. Elles vivent dans `src/contenu/liens.ts`, et l'adresse y est assemblée au montage : ni le source ni le HTML servi ne la portent d'un seul tenant, et un test le vérifie.
 6. ~~Hébergeur~~ : **décidé — Cloudflare**, à l'adresse gratuite
    **`www.train-de-nuit.workers.dev`** ; pas de nom de domaine acheté.

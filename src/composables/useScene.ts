@@ -2,11 +2,12 @@ import { markRaw, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue
 import type { InjectionKey, Ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
-import { retirerEcran } from '@/chargement'
+import { remettreEcran, retirerEcran } from '@/chargement'
 import { Scene } from '@/scene/Scene'
 import { HORIZON } from '@/scene/layout'
 import type { Frame } from '@/scene/layout'
-import { loadFond, saveFond } from '@/scene/palette'
+import { COULEURS, loadMode, saveMode } from '@/scene/palette'
+import type { Mode } from '@/scene/palette'
 import { sensDuGlissement, surUnElementInteractif } from '@/scene/glissement'
 import { garePrecedente, gareSuivante } from '@/scene/types'
 import { useTraces } from '@/stores/traces'
@@ -35,6 +36,11 @@ export const FRAME_KEY: InjectionKey<Ref<Frame | null>> = Symbol('frame')
 export type EtatRideau = { y: number; baisse: boolean }
 export const RIDEAU_KEY: InjectionKey<Ref<EtatRideau | null>> = Symbol('rideau')
 
+/** Le réglage système « réduire les animations ». Lu à chaque fois, pas figé. */
+function mouvementReduit(): boolean {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}
+
 /**
  * The one bridge between Vue and the scene. The scene knows nothing of Vue:
  * it is told what the store holds, and it reports back through events.
@@ -43,7 +49,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   // `shallowRef` : la scène est déjà `markRaw`, et c'est elle qu'on partage —
   // une référence profonde en rendrait un type que `SCENE_KEY` ne reconnaît pas.
   const scene = shallowRef<Scene | null>(null)
-  const fond = ref<string>(loadFond())
+  const mode = ref<Mode>(loadMode())
   const frame = shallowRef<Frame | null>(null)
   const rideau = shallowRef<EtatRideau | null>(null)
   const voyage = useVoyage()
@@ -60,14 +66,30 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
    * voulait, et le faire aussi changer de gare en ferait deux.
    */
   let geste: { id: number; x: number; y: number; temps: number; consomme: boolean } | null = null
+  /** Une bascule de mode est-elle déjà partie ? Elle finit par un rechargement. */
+  let bascule = false
   const { cible, enRoute, etapesRestantes, gare, legs } = storeToRefs(voyage)
   const traces = useTraces()
   const { etoiles } = storeToRefs(traces)
 
   const detacher: Array<() => void> = []
 
-  function poserFond(hex: string) {
-    document.documentElement.style.setProperty('--fond', hex)
+  /**
+   * Les couleurs du mode sur la racine, et le mode lui-même.
+   *
+   * `data-mode` est ce que lit `base.css` — et la feuille du CV, qui s'efface
+   * de jour. Les trois tokens sont écrits en ligne par-dessus : le script de
+   * tête d'`index.html` fait déjà le premier geste, celui-ci le refait quand
+   * le mode change, et surtout **même quand il n'y a pas de scène** — pas de
+   * canevas, pas de WebGL : la page a quand même ses couleurs.
+   */
+  function poserMode(valeur: Mode) {
+    const racine = document.documentElement
+    racine.dataset.mode = valeur
+    const couleurs = COULEURS[valeur]
+    racine.style.setProperty('--fond', couleurs.fond)
+    racine.style.setProperty('--texte', couleurs.texte)
+    racine.style.setProperty('--trait', couleurs.trait)
   }
 
   /**
@@ -87,15 +109,29 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     document.documentElement.style.setProperty('--y-voie', `${Math.round(y)}px`)
   }
 
-  function appliquerFond(valeur: string) {
-    fond.value = valeur
-    saveFond(valeur)
-    // On n'écrit pas la couleur ici : la scène la fait fondre sur une seconde
-    // et l'émet à chaque image (CONCEPT §6). Écrire d'un coup ferait basculer
-    // la tache de nuit du formulaire sur une nuit encore en train de changer.
-    // Sans scène — avant l'init — il n'y a pas de fondu : on pose directement.
-    if (scene.value) scene.value.setFond(valeur)
-    else poserFond(valeur)
+  /**
+   * La bascule : on écrit le choix, l'écran d'attente remonte, la page
+   * recharge, et le site réarrive dans l'autre mode.
+   *
+   * **Pourquoi recharger.** Un fondu d'une seconde entre la nuit et le papier
+   * passerait par un gris plat plein écran, et les deux modes n'ont pas le
+   * même jeu d'images du train : recharger règle les deux d'un coup, puisque
+   * le mode est alors connu avant le premier dessin. C'est l'écran d'attente
+   * qu'on réutilise, pas une dissolution neuve — le départ et l'arrivée sont
+   * le geste du site, à l'endroit.
+   */
+  async function basculerMode(valeur: Mode) {
+    // Une seule bascule à la fois : l'écran d'attente ne couvre le bouton
+    // qu'une image après le clic, et Entrée maintenue en tire plusieurs.
+    if (bascule) return
+    bascule = true
+    mode.value = valeur
+    saveMode(valeur)
+    // L'écran remonte dans la couleur **où l'on va** : sinon le rechargement
+    // couperait d'un fond à l'autre au moment où la page revient.
+    document.documentElement.style.setProperty('--nuit-attente', COULEURS[valeur].fond)
+    await remettreEcran(mouvementReduit())
+    window.location.reload()
   }
 
   function surPointeur(event: PointerEvent) {
@@ -186,7 +222,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   }
 
   onMounted(async () => {
-    document.documentElement.style.setProperty('--fond', fond.value)
+    poserMode(mode.value)
     if (!canvas.value) {
       // Pas de canevas, donc pas de scène, donc rien à attendre : l'écran
       // d'attente n'a personne pour le relever.
@@ -194,9 +230,9 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
       return
     }
 
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    const reducedMotion = mouvementReduit()
     // markRaw : Pixi tient ses propres références, le rendre réactif le casserait.
-    const instance = markRaw(new Scene(canvas.value, { reducedMotion }))
+    const instance = markRaw(new Scene(canvas.value, { reducedMotion, mode: mode.value }))
     scene.value = instance
 
     // L'écran d'attente d'`index.html` s'efface quand le train et le massif
@@ -206,7 +242,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
     detacher.push(instance.on('progress', (p) => voyage.setProgression(p)))
     detacher.push(instance.on('arrived', () => voyage.finirEtape()))
-    detacher.push(instance.on('fond', poserFond))
+    detacher.push(instance.on('mode', poserMode))
     detacher.push(instance.on('frame', (f) => { frame.value = f; poserVoie(f) }))
     // Un objet neuf à chaque émission : `shallowRef` ne réagit qu'à un changement de référence.
     detacher.push(instance.on('rideau', (y, baisse) => { rideau.value = { y, baisse } }))
@@ -219,7 +255,9 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     window.addEventListener('pointercancel', surAnnulation, { passive: true })
 
     await instance.init()
-    instance.setFond(fond.value)
+    // Après `init` : c'est ce geste qui descend le mode dans les couches que
+    // l'init vient de construire — la gare, les vitres, les étoiles.
+    instance.setMode(mode.value)
     instance.setGare(gare.value)
     instance.setVoyage(enRoute.value, etapesRestantes.value, cible.value)
     instance.setLegs(legs.value)
@@ -263,5 +301,5 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     scene.value = null
   })
 
-  return { scene, fond, frame, rideau, changerFond: appliquerFond }
+  return { scene, mode, frame, rideau, basculerMode }
 }

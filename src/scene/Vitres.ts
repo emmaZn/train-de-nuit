@@ -23,6 +23,7 @@ import { Container, Sprite, Texture } from 'pixi.js'
 import { ECHELLE_TRAIN } from './layout'
 import type { Frame } from './layout'
 import type { Manifest } from './types'
+import type { Mode } from './palette'
 
 /**
  * Taille d'une cellule de grain, en texels du rendu.
@@ -76,6 +77,10 @@ export const HALO_ALPHA = 0.5
 export const ALLUMEES: readonly (readonly boolean[])[] = [
   [true, true, false, true, false, true],
   [false, true, true, false, true, true],
+  // Le troisième wagon, ajouté le 25 novembre 2026 avec lui : un motif à lui,
+  // sans quoi `rang % longueur` lui rendrait celui du premier et la rame
+  // aurait deux voitures identiques à la file.
+  [true, false, true, true, true, false],
 ]
 
 /** De combien le vacillement fait baisser la densité, au plus. */
@@ -217,6 +222,7 @@ class Vitre {
   private k = 1
   private dernierSeuil = -1
   private allumee = true
+  private mode: Mode = 'nuit'
 
   constructor(boite: readonly [number, number, number, number], phase: number, graine: number) {
     this.boite = boite
@@ -265,7 +271,10 @@ class Vitre {
       this.texture?.source.update()
       return
     }
-    this.halo(ctx, canvas, effectif)
+    // De jour, le carreau garde son grain et perd sa lueur : « un carré de
+    // grain sombre, ça suffit ». Le halo est un dégradé radial — la seule
+    // entorse de cette pièce, et elle ne tient pas sur du papier.
+    if (this.mode !== 'jour') this.halo(ctx, canvas, effectif)
     const marge = MARGE * this.k
     const bord = (i: number) => Math.round(i * GRAIN_ECRAN)
     ctx.fillStyle = `rgb(${GRIS})`
@@ -298,6 +307,13 @@ class Vitre {
 
   setAllumee(v: boolean): void {
     this.allumee = v
+  }
+
+  /** Le mode. Le seuil déjà peint est oublié : la texture doit se refaire. */
+  setMode(mode: Mode): void {
+    if (mode === this.mode) return
+    this.mode = mode
+    this.dernierSeuil = -1
   }
 
   get estAllumee(): boolean {
@@ -334,6 +350,7 @@ export class Vitres {
     manifest: Manifest,
     positionsWagons: number[],
     reducedMotion: boolean,
+    mode: Mode = 'nuit',
   ) {
     // Nommée : c'est la seule branche de la scène qui ne porte aucune teinte,
     // ni sur elle ni sur un ancêtre, et un test doit pouvoir le dire.
@@ -349,6 +366,11 @@ export class Vitres {
       groupe.position.set(wx, spec.y)
       BOITES.forEach((boite, i) => {
         const v = new Vitre(boite, (rang * BOITES.length + i) * 1.7, 101 + rang * 97 + i * 13)
+        // Le mode **à la naissance** : les vitres naissent après le premier
+        // `await` de `Scene.peupler`, donc après le `setMode` que `useScene`
+        // envoie dès la fin d'`init`. Le leur donner après coup les laissait
+        // peindre leur halo une fois, sur le papier.
+        v.setMode(mode)
         v.setAllumee(ALLUMEES[rang % ALLUMEES.length][i])
         this.vitres.push(v)
         // Le groupe est posé en (wx, spec.y) et porte des points du cadre
@@ -359,6 +381,19 @@ export class Vitres {
       })
       this.racine.addChild(groupe)
     })
+  }
+
+  /**
+   * Le mode du site, descendu sur chaque carreau. De jour, la lueur s'en va et
+   * le grain reste — les vitres sont la seule branche de la scène qui ne porte
+   * aucune teinte, et elles restent encrées à « ailleurs » pendant que le
+   * reste se délave.
+   */
+  setMode(mode: Mode): void {
+    for (const v of this.vitres) v.setMode(mode)
+    // Tout de suite, et non au prochain redessin : celui-ci n'arrive qu'une
+    // fois par `PERIODE_REDESSIN`, et la bascule se verrait traîner.
+    this.peindre()
   }
 
   cadrer(frame: Frame, resolution: number): void {

@@ -216,6 +216,29 @@ describe('l’assombrissement par teinte', () => {
     expect(clarte(plans.ciel)).toBeGreaterThan(clarte(plans.massif))
   })
 
+  /**
+   * **De jour, il n'y a pas de voile.**
+   *
+   * Le voile existe pour faire ressortir le faisceau du réverbère (§6). De
+   * jour il n'y a pas de faisceau — la lueur s'en va, piste C du 25/11 —, et
+   * surtout : baisser la luminance pousse vers le **papier**. La gare et le
+   * massif s'effaçaient donc en filigrane au lieu de se retirer dans la nuit.
+   * « Soit on l'enlève en mode light, soit on assombrit plutôt d'éclairer » —
+   * on l'enlève : l'encre est déjà à son maximum, il n'y a rien de plus
+   * sombre à atteindre.
+   */
+  it('de jour, aucun porteur n’est teinté, même à pleine nuit', () => {
+    const { plans } = decorMonte()
+    appliquerNuit(plans, 1, 'jour')
+    for (const n of [...plans.nuit.profond, ...plans.nuit.ciel]) expect(clarte(n)).toBe(1)
+  })
+
+  it('de nuit, le voile tombe comme avant', () => {
+    const { plans } = decorMonte()
+    appliquerNuit(plans, 1, 'nuit')
+    expect(clarte(plans.massif)).toBeCloseTo(1 - NUIT_PROFONDEUR, 2)
+  })
+
   it('à mi-nuit, le ciel est encore plus clair', () => {
     const { plans } = decorMonte()
     appliquerNuit(plans, 0.5)

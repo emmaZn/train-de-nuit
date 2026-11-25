@@ -1,5 +1,5 @@
-import { Container } from 'pixi.js'
-import { afterEach, beforeEach, vi } from 'vitest'
+import { Container, Graphics } from 'pixi.js'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Stars } from '@/scene/StarLayer'
 import { cadrageCiel } from '@/scene/layout'
 import { ETOILES_MAX_BUREAU, limiteEtoiles, projeter, projeterAuCadrage } from '@/scene/stars'
@@ -189,4 +189,105 @@ test('sur un format décalé, l’étoile se pose au cadrage de la scène', () =
   expect(decalage).toBeGreaterThan(0)
   const attendu = projeter({ x: 0.25, y: 0.5 }, 1512, 771, echelle, decalage)
   expect(racine.children[0].y).toBeCloseTo(attendu.py)
+})
+
+/**
+ * De jour, une étoile est un point d'encre.
+ *
+ * Sa lueur est une pile d'anneaux à l'alpha décroissant — un dégradé radial
+ * fait main, qui ne figurait dans aucune liste d'« entorses assumées » du
+ * CONCEPT. Sur du papier, le négatif d'un dégradé blanc donne une tache ; il
+ * reste donc le cœur, et la constellation se dessine à la plume.
+ */
+describe('les étoiles selon le mode', () => {
+  function cercles(racine: Container): number {
+    const gfx = racine.children[0] as Graphics | undefined
+    return gfx ? gfx.context.instructions.length : 0
+  }
+
+  function uneEtoile(mode?: 'nuit' | 'jour') {
+    const { stars, racine } = monter()
+    if (mode) stars.setMode(mode)
+    stars.setStars([trace(0)], 1200, 800)
+    return { stars, racine }
+  }
+
+  it('porte sa lueur de nuit : les anneaux, le disque et le cœur', () => {
+    expect(cercles(uneEtoile('nuit').racine)).toBeGreaterThan(5)
+  })
+
+  it('se réduit à son cœur de jour', () => {
+    expect(cercles(uneEtoile('jour').racine)).toBe(1)
+  })
+
+  it('retrouve sa lueur en revenant à la nuit', () => {
+    const { stars, racine } = uneEtoile('jour')
+    stars.setMode('nuit')
+    expect(cercles(racine)).toBeGreaterThan(5)
+  })
+
+  /** Le rayon du premier cercle tracé — de jour, le cœur et rien d'autre. */
+  function rayon(racine: Container): number {
+    const gfx = racine.children[0] as Graphics
+    type Chemin = { action: string; data: number[] }
+    const chemin = (
+      gfx.context.instructions[0] as unknown as { data: { path: { instructions: Chemin[] } } }
+    ).data.path.instructions.find((c) => c.action === 'circle')
+    return chemin!.data[2]
+  }
+
+  function vieille(): Trace {
+    return { ...trace(0), creeLe: MAINTENANT - 200 * JOUR }
+  }
+
+  /**
+   * **Une étoile de jour doit se distinguer d'un grain de poussière.**
+   *
+   * De nuit, c'est sa lueur qui la détache : quatorze anneaux sur seize pixels
+   * de portée. Réduite à son cœur d'un pixel, elle devenait exactement ce que
+   * le ciel a déjà par milliers — Emmanuelle, le 25/11 : « les étoiles ne se
+   * voient pas en thème light ». Sur du papier, ce qui remplace la lueur ne
+   * peut pas être de la lumière : c'est de la **taille**.
+   */
+  it('fait de jour un point bien plus gros qu’un grain de poussière', () => {
+    // Un grain de poussière du ciel fait un pixel. Même la plus ancienne des
+    // étoiles doit rester au-dessus, sans quoi elle s'y noie — c'est très
+    // exactement ce qui se passait avec le cœur d'un pixel. Le garde-fou est
+    // là pour ça : il tombe si quelqu'un remet l'étoile à la taille d'un grain.
+    const { stars, racine } = monter()
+    stars.setMode('jour')
+    stars.setStars([vieille()], 1200, 800)
+    expect(rayon(racine)).toBeGreaterThan(1.1)
+  })
+
+  it('garde de jour l’éclat dans la taille, pas seulement dans l’encre', () => {
+    const { stars, racine } = monter()
+    stars.setMode('jour')
+    stars.setStars([trace(0)], 1200, 800)
+    const neuve = rayon(racine)
+    const autre = monter()
+    autre.stars.setMode('jour')
+    autre.stars.setStars([vieille()], 1200, 800)
+    expect(neuve).toBeGreaterThan(rayon(autre.racine))
+  })
+
+  it('ne laisse jamais une étoile de jour tomber sous une encre lisible', () => {
+    const { stars, racine } = monter()
+    stars.setMode('jour')
+    stars.setStars([vieille()], 1200, 800)
+    for (let i = 0; i < 40; i += 1) stars.update(0.1, MAINTENANT)
+    expect((racine.children[0] as Graphics).alpha).toBeGreaterThan(0.6)
+  })
+
+  it('ne touche pas à l’encre des étoiles de nuit', () => {
+    const { stars, racine } = monter()
+    stars.setStars([vieille()], 1200, 800)
+    expect((racine.children[0] as Graphics).alpha).toBeLessThan(0.2)
+  })
+
+  it('pose une étoile neuve sans lueur quand il fait déjà jour', () => {
+    const { stars, racine } = uneEtoile('jour')
+    stars.setStars([trace(0), trace(1)], 1200, 800)
+    expect(cercles(racine)).toBe(1)
+  })
 })

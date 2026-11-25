@@ -9,6 +9,7 @@ import {
   cellulesClaires,
   cuireCellule,
   densite,
+  epaissir,
   etendue,
 } from '@/scene/grain'
 
@@ -196,5 +197,94 @@ describe('cellulesClaires', () => {
     const rien = vide(colonnes, lignes)
     const claires = cellulesClaires(rien, rien, colonnes, lignes)
     expect(claires.some((v) => v === 1)).toBe(false)
+  })
+})
+
+/**
+ * Le contour épaissi, demandé le 25 novembre 2026 : « sur les oiseaux il faut
+ * aussi renforcer le contour du tracé ». C'est la même constatation que pour
+ * le train — un trait d'un pixel de cadre, coupé par une cellule de grain, ne
+ * tient plus la silhouette —, et elle vaut dans les deux modes.
+ *
+ * Le trait grandit **vers l'intérieur** : il ne déborde jamais de la masse,
+ * sans quoi l'oiseau grossirait au lieu d'être mieux dessiné.
+ */
+describe('epaissir', () => {
+  /** Une silhouette carrée : contour sur son bord, masse dedans. */
+  function carre(cote: number, bord: number) {
+    const trait = new Uint8Array(cote * cote)
+    const masse = new Uint8Array(cote * cote)
+    for (let l = 0; l < cote; l += 1) {
+      for (let c = 0; c < cote; c += 1) {
+        const i = l * cote + c
+        const surLeBord = l < bord || c < bord || l >= cote - bord || c >= cote - bord
+        if (surLeBord) trait[i] = 1
+        else masse[i] = 1
+      }
+    }
+    return { trait, masse }
+  }
+
+  it('laisse le trait tel quel à zéro cellule', () => {
+    const { trait, masse } = carre(10, 1)
+    expect([...epaissir(trait, masse, 10, 10, 0)]).toEqual([...trait])
+  })
+
+  it('épaissit le trait d’une cellule vers l’intérieur', () => {
+    const { trait, masse } = carre(10, 1)
+    const epais = epaissir(trait, masse, 10, 10, 1)
+    // Le bord d'avant, plus le premier anneau de masse.
+    expect(epais[1 * 10 + 1]).toBe(1)
+    // Et pas le second : on n'épaissit que d'une cellule.
+    expect(epais[2 * 10 + 2]).toBe(0)
+  })
+
+  it('ne déborde jamais de la silhouette', () => {
+    const cote = 10
+    const { trait, masse } = carre(cote, 1)
+    const epais = epaissir(trait, masse, cote, cote, 3)
+    for (let i = 0; i < epais.length; i += 1) {
+      if (epais[i] === 1) expect(trait[i] === 1 || masse[i] === 1).toBe(true)
+    }
+  })
+
+  it('épaissit de deux cellules quand on en demande deux', () => {
+    const { trait, masse } = carre(12, 1)
+    const epais = epaissir(trait, masse, 12, 12, 2)
+    expect(epais[2 * 12 + 2]).toBe(1)
+    expect(epais[3 * 12 + 3]).toBe(0)
+  })
+})
+
+describe('le contour de la recette', () => {
+  const colonnes = 40
+  const lignes = 40
+
+  function carre() {
+    const trait = new Uint8Array(colonnes * lignes)
+    const masse = new Uint8Array(colonnes * lignes)
+    for (let l = 4; l < 36; l += 1) {
+      for (let c = 4; c < 36; c += 1) {
+        const i = l * colonnes + c
+        if (l === 4 || c === 4 || l === 35 || c === 35) trait[i] = 1
+        else masse[i] = 1
+      }
+    }
+    return { trait, masse }
+  }
+
+  it('pose plus de cellules claires avec un contour qu’avec aucun', () => {
+    const { trait, masse } = carre()
+    const sans = cellulesClaires(trait, masse, colonnes, lignes, { matiere: { haut: 0, bas: 0 }, trous: TROUS })
+    const avec = cellulesClaires(trait, masse, colonnes, lignes, { matiere: { haut: 0, bas: 0 }, trous: TROUS, contour: 1 })
+    const compter = (g: Uint8Array) => g.reduce((n, v) => n + v, 0)
+    expect(compter(avec)).toBeGreaterThan(compter(sans))
+  })
+
+  it('reste sans effet quand la recette n’en demande pas', () => {
+    const { trait, masse } = carre()
+    const a = cellulesClaires(trait, masse, colonnes, lignes, { matiere: { haut: 0, bas: 0 }, trous: TROUS })
+    const b = cellulesClaires(trait, masse, colonnes, lignes, { matiere: { haut: 0, bas: 0 }, trous: TROUS, contour: 0 })
+    expect([...a]).toEqual([...b])
   })
 })

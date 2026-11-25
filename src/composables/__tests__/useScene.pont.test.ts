@@ -8,6 +8,7 @@ import { cadrageScene } from '@/scene/layout'
 import { HORLOGE } from '@/scene/quai'
 import { useTraces } from '@/stores/traces'
 import { useVoyage } from '@/stores/voyage'
+import { COULEURS } from '@/scene/palette'
 import type { Trace } from '@/scene/types'
 
 /**
@@ -24,13 +25,14 @@ vi.mock('@/scene/Scene', () => ({
     setPointerPx = vi.fn()
     clicPx = vi.fn(() => false)
     setPointer = vi.fn()
-    setFond = vi.fn()
+    setMode = vi.fn()
     setVoyage = vi.fn()
     setGare = vi.fn()
     setLegs = vi.fn()
     dispose = vi.fn()
     on = vi.fn(() => () => {})
     init = vi.fn(async () => {})
+    pret = Promise.resolve()
     constructor() {
       // eslint-disable-next-line @typescript-eslint/no-this-alias
       double.instance = this as unknown as Record<string, ReturnType<typeof vi.fn>>
@@ -61,8 +63,36 @@ function monter(charger: () => Promise<void> = async () => {}) {
   return { traces, spy, wrapper, router, rideau: rideau! }
 }
 
+/** Le cas d'un navigateur qui ne pose pas de canevas : il n'y aura pas de scène. */
+function monterSansCanevas() {
+  setActivePinia(createPinia())
+  vi.spyOn(useTraces(), 'charger').mockImplementation(async () => {})
+  const Hote = defineComponent({
+    setup() {
+      useScene(ref(null))
+      return () => h('div')
+    },
+  })
+  const router = createAppRouter(createMemoryHistory())
+  return mount(Hote, { global: { plugins: [router] } })
+}
+
 afterEach(() => {
+  // Un test de cette suite remplace `Storage.prototype.setItem` : sans cette
+  // ligne, la doublure survivait aux suivants et leur rendait un stockage mort.
+  vi.restoreAllMocks()
   double.instance = null
+  // `remettreEcran` repose un écran : sans ce nettoyage il survit au test
+  // suivant, dont le `retirerEcran` le retrouve.
+  document.querySelector('#chargement')?.remove()
+  const racine = document.documentElement
+  delete racine.dataset.mode
+  for (const token of ['--fond', '--texte', '--trait']) racine.style.removeProperty(token)
+  try {
+    localStorage.clear()
+  } catch {
+    /* indisponible : rien à nettoyer */
+  }
 })
 
 test('useScene charge les traces au montage et les descend par setStars', async () => {
@@ -150,18 +180,32 @@ test('un échec de chargement laisse la scène démarrer quand même', async () 
   expect(double.instance!.setVoyage).toHaveBeenCalled()
 })
 
-test('la nuit se pose au fil du fondu de la scène, et non d’un coup', async () => {
-  // CONCEPT §6 : la couleur est animée en douceur, ~1 s. Côté scène c'est un
-  // tween GSAP ; si Vue écrivait `--fond` d'un coup, la tache de nuit du
-  // formulaire basculerait en une image sur l'ancienne nuit encore en train de
-  // fondre — un rectangle de la nouvelle couleur par-dessus l'ancienne.
+test('le mode se pose sur la racine quand la scène le dit', async () => {
+  // Les trois tokens, et `data-mode` que lit le CSS : c'est le pont qui les
+  // écrit, parce que la scène ne connaît pas le DOM.
   monter()
   await flushPromises()
   const scene = double.instance!
-  const abonnement = scene.on.mock.calls.find((c) => c[0] === 'fond')
-  expect(abonnement, 'useScene doit suivre le fondu de la scène').toBeDefined()
-  ;(abonnement![1] as (hex: string) => void)('#1a120b')
-  expect(document.documentElement.style.getPropertyValue('--fond')).toBe('#1a120b')
+  const abonnement = scene.on.mock.calls.find((c) => c[0] === 'mode')
+  expect(abonnement, 'useScene doit suivre le mode de la scène').toBeDefined()
+  ;(abonnement![1] as (mode: string) => void)('jour')
+  const racine = document.documentElement
+  expect(racine.dataset.mode).toBe('jour')
+  expect(racine.style.getPropertyValue('--fond')).toBe(COULEURS.jour.fond)
+  expect(racine.style.getPropertyValue('--texte')).toBe(COULEURS.jour.texte)
+  expect(racine.style.getPropertyValue('--trait')).toBe(COULEURS.jour.trait)
+})
+
+// Review Focus #3 : sans canevas il n'y a jamais de scène, et pourtant la page
+// doit porter les couleurs du mode retenu.
+test('pose les couleurs du mode même sans canevas', async () => {
+  localStorage.setItem('train-de-nuit:mode', 'jour')
+  monterSansCanevas()
+  await flushPromises()
+  const racine = document.documentElement
+  expect(racine.dataset.mode).toBe('jour')
+  expect(racine.style.getPropertyValue('--fond')).toBe(COULEURS.jour.fond)
+  expect(racine.style.getPropertyValue('--trait')).toBe(COULEURS.jour.trait)
 })
 
 test('un clic qui touche un oiseau n’ouvre pas aussi la bulle d’une étoile', async () => {
@@ -195,4 +239,73 @@ test('le rideau est inconnu tant que la scène n’a rien émis, puis suit ce qu
   expect(rideau.value).toEqual({ y: -120, baisse: false })
   emettre(340, true)
   expect(rideau.value).toEqual({ y: 340, baisse: true })
+})
+
+/**
+ * La bascule de mode : on écrit le choix, l'écran d'attente remonte, et la page
+ * recharge. Elle recharge parce qu'un fondu d'une seconde entre la nuit et le
+ * papier passerait par un gris plat plein écran — et parce que les deux modes
+ * n'ont pas le même jeu d'images du train, qu'il vaut mieux demander d'emblée.
+ */
+describe('la bascule de mode', () => {
+  function monterAvecRecharge() {
+    const reload = vi.fn()
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload },
+    })
+    setActivePinia(createPinia())
+    vi.spyOn(useTraces(), 'charger').mockImplementation(async () => {})
+    let basculer: (m: 'nuit' | 'jour') => void
+    const Hote = defineComponent({
+      setup() {
+        basculer = useScene(ref(document.createElement('canvas'))).basculerMode
+        return () => h('div')
+      },
+    })
+    const router = createAppRouter(createMemoryHistory())
+    mount(Hote, { global: { plugins: [router] } })
+    return { reload, basculer: basculer! }
+  }
+
+  test('écrit le mode, puis recharge', async () => {
+    const { reload, basculer } = monterAvecRecharge()
+    await flushPromises()
+    await basculer('jour')
+    expect(localStorage.getItem('train-de-nuit:mode')).toBe('jour')
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  // Review Focus #1 : stockage bloqué. Le mode n'est pas retenu, mais la page
+  // recharge quand même — sinon le clic ne fait rien du tout.
+  test('recharge même si le stockage lève', async () => {
+    const { reload, basculer } = monterAvecRecharge()
+    await flushPromises()
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceeded')
+    })
+    await basculer('jour')
+    expect(reload).toHaveBeenCalledOnce()
+  })
+
+  // L'écran qui remonte doit être de la couleur où l'on va, pas de celle d'où
+  // l'on vient : sinon le rechargement coupe d'une couleur à l'autre.
+  // Entrée maintenue sur l'œil : le clic part plusieurs fois avant que l'écran
+  // d'attente ne couvre le bouton. Une seule bascule doit aboutir.
+  test('ne recharge qu’une fois même si on bascule deux fois de suite', async () => {
+    const { reload, basculer } = monterAvecRecharge()
+    await flushPromises()
+    await Promise.all([basculer('jour'), basculer('nuit')])
+    expect(reload).toHaveBeenCalledOnce()
+    expect(localStorage.getItem('train-de-nuit:mode')).toBe('jour')
+  })
+
+  test('remonte l’écran dans la couleur du mode visé', async () => {
+    const { basculer } = monterAvecRecharge()
+    await flushPromises()
+    await basculer('jour')
+    expect(document.documentElement.style.getPropertyValue('--nuit-attente')).toBe(
+      COULEURS.jour.fond,
+    )
+  })
 })

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { DEFAUT, nextFond } from '@/scene/palette'
+import { DEFAUT, autreMode } from '@/scene/palette'
+import type { Mode } from '@/scene/palette'
 import { useTextes } from '@/i18n'
 
-withDefaults(defineProps<{ fond?: string }>(), { fond: DEFAUT })
-defineEmits<{ change: [fond: string] }>()
+withDefaults(defineProps<{ mode?: Mode }>(), { mode: DEFAUT })
+defineEmits<{ change: [mode: Mode] }>()
 
 const t = useTextes()
 </script>
@@ -13,11 +14,11 @@ const t = useTextes()
     type="button"
     class="oeil"
     :aria-label="t.commandes.oeil"
-    @click="$emit('change', nextFond(fond))"
+    @click="$emit('change', autreMode(mode))"
   >
     <!-- Duotone : l'intérieur est légèrement éclairé plutôt que rempli d'une
          couleur fixe, sans quoi il disparaîtrait sur la nuit encre et
-         trancherait sur les autres couleurs du cycle.
+         trancherait sur le papier du jour.
          Le trait est affiné à 1,25 : la source est dessinée en 2, qui faisait
          le double des traits de 1 px de la voie et des points de gare. -->
     <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false">

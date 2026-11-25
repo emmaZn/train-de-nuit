@@ -42,7 +42,16 @@ const faux = vi.hoisted(() => ({ frame: null as unknown, rideau: null as unknown
 vi.mock('@/composables/useScene', async (importOriginal) => {
   const { ref } = await import('vue')
   const reel = await importOriginal<typeof import('@/composables/useScene')>()
-  return { ...reel, useScene: () => ({ scene: ref(null), fond: ref('#2E2313'), frame: ref(faux.frame), rideau: ref(faux.rideau), changerFond: () => {} }) }
+  return {
+    ...reel,
+    useScene: () => ({
+      scene: ref(null),
+      mode: ref('nuit' as const),
+      frame: ref(faux.frame),
+      rideau: ref(faux.rideau),
+      basculerMode: async () => {},
+    }),
+  }
 })
 
 async function monterApp(chemin: string) {
@@ -153,6 +162,46 @@ describe('CvLigne', () => {
   it('n’utilise aucune couleur en dur', () => {
     const source = readFileSync('src/components/CvLigne.vue', 'utf8')
     expect(source).not.toMatch(/#[0-9a-fA-F]{3,8}\b/)
+  })
+
+  /**
+   * De jour, **il n'y a plus de feuille** : la page est la feuille.
+   *
+   * Sous l'inversion, « papier » et « encre » échangent leur sens : la plaque
+   * deviendrait un rectangle presque noir, plein écran, sur une page beige.
+   * On retire donc la plaque, son ombre et son bord perforé, et on écrit
+   * directement sur la page. Ça amende la règle du 22/11 — « la feuille change
+   * avec l'œil, c'est un papier posé dans cette nuit-là » : elle ne vaut que
+   * de nuit.
+   */
+  describe('la feuille selon le mode', () => {
+    const source = readFileSync('src/components/CvLigne.vue', 'utf8')
+    const bloc = () => source.match(/\[data-mode="jour"\][^{]*\{([^}]*)\}/)?.[1] ?? ''
+
+    it('pose une feuille distincte du fond en nuit', () => {
+      expect(source).toContain('--papier: color-mix')
+      expect(source).toContain('--encre: color-mix')
+    })
+
+    it('fond la feuille dans la page en jour', () => {
+      expect(bloc()).toMatch(/--papier:\s*var\(--fond\)/)
+      expect(bloc()).toMatch(/--encre:\s*var\(--texte\)/)
+    })
+
+    it('retire l’ombre portée de la plaque en jour', () => {
+      expect(bloc()).toMatch(/box-shadow:\s*none/)
+    })
+
+    it('retire le bord perforé en jour', () => {
+      expect(source).toMatch(/\[data-mode="jour"\]\s*\.perfo[^{]*\{[^}]*display:\s*none/)
+    })
+
+    // Le 25/11 : « le CV n'a pas de contour ». Sans la plaque ni son ombre, la
+    // feuille n'avait plus de bord : le texte flottait sur la page. Un trait
+    // d'encre le lui rend — la même matière que les filets du tableau.
+    it('rend un contour à la feuille en jour', () => {
+      expect(bloc()).toMatch(/border:\s*1px solid var\(--encre\)/)
+    })
   })
 
   it('le focus entre dans le CV à l’ouverture', async () => {
