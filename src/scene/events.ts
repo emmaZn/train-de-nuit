@@ -1,4 +1,5 @@
 import type { Frame } from './layout'
+import type { Mode } from './palette'
 import type { Trace } from './types'
 
 type AnyListener = (...args: never[]) => void
@@ -13,11 +14,11 @@ export type SceneEvents = {
    */
   arrived: () => void
   /**
-   * La couleur de la nuit, à chaque image du fondu de `setFond`. Vue s'en sert
-   * pour écrire `--fond` : sans ça, le CSS basculerait d'un coup pendant que la
-   * scène, elle, fond sur une seconde (CONCEPT §6).
+   * Le mode du site, quand la scène vient de le prendre. Vue s'en sert pour
+   * écrire `--fond`, `--texte`, `--trait` et `data-mode` sur la racine : la
+   * scène ne connaît pas le DOM, et tout ce qui est en CSS suit le même mode.
    */
-  fond: (hex: string) => void
+  mode: (mode: Mode) => void
   /**
    * Le cadre de la scène, à chaque recadrage (redimensionnement compris). Ce
    * qui est en DOM mais posé *dans* la scène en tire sa place : `offset +

@@ -67,8 +67,22 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
   const detacher: Array<() => void> = []
 
-  function poserFond(hex: string) {
-    document.documentElement.style.setProperty('--fond', hex)
+  /**
+   * Les couleurs du mode sur la racine, et le mode lui-même.
+   *
+   * `data-mode` est ce que lit `base.css` — et la feuille du CV, qui s'efface
+   * de jour. Les trois tokens sont écrits en ligne par-dessus : le script de
+   * tête d'`index.html` fait déjà le premier geste, celui-ci le refait quand
+   * le mode change, et surtout **même quand il n'y a pas de scène** — pas de
+   * canevas, pas de WebGL : la page a quand même ses couleurs.
+   */
+  function poserMode(valeur: Mode) {
+    const racine = document.documentElement
+    racine.dataset.mode = valeur
+    const couleurs = COULEURS[valeur]
+    racine.style.setProperty('--fond', couleurs.fond)
+    racine.style.setProperty('--texte', couleurs.texte)
+    racine.style.setProperty('--trait', couleurs.trait)
   }
 
   /**
@@ -91,13 +105,9 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   function appliquerMode(valeur: Mode) {
     mode.value = valeur
     saveMode(valeur)
-    const couleur = COULEURS[valeur].fond
-    // On n'écrit pas la couleur ici : la scène la fait fondre sur une seconde
-    // et l'émet à chaque image (CONCEPT §6). Écrire d'un coup ferait basculer
-    // la tache de nuit du formulaire sur une nuit encore en train de changer.
-    // Sans scène — avant l'init — il n'y a pas de fondu : on pose directement.
-    if (scene.value) scene.value.setFond(couleur)
-    else poserFond(couleur)
+    // La scène émet `mode`, et `poserMode` suit ; sans scène, on pose nous-même.
+    if (scene.value) scene.value.setMode(valeur)
+    else poserMode(valeur)
   }
 
   function surPointeur(event: PointerEvent) {
@@ -188,7 +198,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
   }
 
   onMounted(async () => {
-    document.documentElement.style.setProperty('--fond', COULEURS[mode.value].fond)
+    poserMode(mode.value)
     if (!canvas.value) {
       // Pas de canevas, donc pas de scène, donc rien à attendre : l'écran
       // d'attente n'a personne pour le relever.
@@ -198,7 +208,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
     const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
     // markRaw : Pixi tient ses propres références, le rendre réactif le casserait.
-    const instance = markRaw(new Scene(canvas.value, { reducedMotion }))
+    const instance = markRaw(new Scene(canvas.value, { reducedMotion, mode: mode.value }))
     scene.value = instance
 
     // L'écran d'attente d'`index.html` s'efface quand le train et le massif
@@ -208,7 +218,7 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
 
     detacher.push(instance.on('progress', (p) => voyage.setProgression(p)))
     detacher.push(instance.on('arrived', () => voyage.finirEtape()))
-    detacher.push(instance.on('fond', poserFond))
+    detacher.push(instance.on('mode', poserMode))
     detacher.push(instance.on('frame', (f) => { frame.value = f; poserVoie(f) }))
     // Un objet neuf à chaque émission : `shallowRef` ne réagit qu'à un changement de référence.
     detacher.push(instance.on('rideau', (y, baisse) => { rideau.value = { y, baisse } }))
@@ -221,7 +231,9 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     window.addEventListener('pointercancel', surAnnulation, { passive: true })
 
     await instance.init()
-    instance.setFond(COULEURS[mode.value].fond)
+    // Après `init` : c'est ce geste qui descend le mode dans les couches que
+    // l'init vient de construire — la gare, les vitres, les étoiles.
+    instance.setMode(mode.value)
     instance.setGare(gare.value)
     instance.setVoyage(enRoute.value, etapesRestantes.value, cible.value)
     instance.setLegs(legs.value)
@@ -265,5 +277,5 @@ export function useScene(canvas: Ref<HTMLCanvasElement | null>) {
     scene.value = null
   })
 
-  return { scene, mode, frame, rideau, changerFond: appliquerMode }
+  return { scene, mode, frame, rideau, basculerMode: appliquerMode }
 }

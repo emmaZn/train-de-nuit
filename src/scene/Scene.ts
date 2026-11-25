@@ -40,6 +40,7 @@ import {
 import type { Frame } from './layout'
 import type { Relief } from './Relief'
 import { COULEURS, DEFAUT, fondToHex } from './palette'
+import type { Mode } from './palette'
 import { Sky } from './Sky'
 import { Stars } from './StarLayer'
 import type { Place } from './stars'
@@ -48,7 +49,7 @@ import { createEmitter } from './events'
 import type { Emitter, SceneEvents } from './events'
 import { Neige } from './NeigeLayer'
 import { nuitDeLaGare } from './nuit'
-import { createRecolorFilter, hexToUnit, setRecolorFond } from './recolor'
+import { createRecolorFilter, setRecolorFond, setRecolorMode } from './recolor'
 import { forwardSteps } from './types'
 import type { Gare, Manifest, Trace } from './types'
 
@@ -284,7 +285,7 @@ export function monterLaRame(
   return { vitres, fumee }
 }
 
-export type SceneOptions = { reducedMotion: boolean }
+export type SceneOptions = { reducedMotion: boolean; mode?: Mode }
 
 /**
  * Où une île est accrochée sur la ligne, et où elle est posée à l'écran.
@@ -403,7 +404,12 @@ export class Scene {
   /** Le grain qui retire des points au reflet, au lieu de le rendre pâle. */
   private readonly refletMasque = new Sprite()
 
-  private fond = COULEURS[DEFAUT].fond as string
+  private mode: Mode = DEFAUT
+
+  /** La couleur du sol du mode courant : une seule source, c'est `COULEURS`. */
+  private get fond(): string {
+    return COULEURS[this.mode].fond
+  }
   private phase = 0
   /**
    * L'arrivée du voyage en cours a-t-elle déjà été annoncée ?
@@ -448,6 +454,9 @@ export class Scene {
   constructor(canvas: HTMLCanvasElement, opts: SceneOptions) {
     this.canvas = canvas
     this.reducedMotion = opts.reducedMotion
+    // Le mode est connu **avant** `init` : c'est lui qui donne la couleur du
+    // renderer dès la première image, et le jeu d'images du train à charger.
+    this.mode = opts.mode ?? DEFAUT
     this.pret = new Promise<void>((resoudre) => {
       this.tenirPret = resoudre
     })
@@ -479,6 +488,7 @@ export class Scene {
 
     this.vivante = true
     this.recolor = createRecolorFilter(fondToHex(this.fond))
+    setRecolorMode(this.recolor, this.mode === 'jour')
 
     // Le ciel se mesure en pixels d'écran — un téléphone ne voit qu'un quart
     // de la largeur du cadre —, mais il se dessine entre le massif et le
@@ -1184,30 +1194,25 @@ export class Scene {
     this.relief?.setLegs(this.legsParcourues)
   }
 
-  /** Fades the colour of the night over about a second (CONCEPT.md §6). */
-  setFond(hex: string): void {
-    const depart = hexToUnit(fondToHex(this.fond))
-    const arrivee = hexToUnit(fondToHex(hex))
-    this.fond = hex
-    const etat = { t: 0 }
-    gsap.to(etat, {
-      t: 1,
-      duration: this.reducedMotion ? 0 : 1,
-      ease: 'power1.inOut',
-      onUpdate: () => {
-        const melange = depart.map((c, i) => c + (arrivee[i] - c) * etat.t)
-        const couleur =
-          (Math.round(melange[0] * 255) << 16) |
-          (Math.round(melange[1] * 255) << 8) |
-          Math.round(melange[2] * 255)
-        if (this.recolor) setRecolorFond(this.recolor, couleur)
-        if (this.vivante) this.app.renderer.background.color = couleur
-        // Vue écoute pour écrire `--fond` au même rythme : tout ce qui est en
-        // CSS — la tache de nuit du formulaire, celle de la bulle — fond avec
-        // la scène au lieu de sauter d'une image.
-        this.emitter.emit('fond', '#' + couleur.toString(16).padStart(6, '0'))
-      },
-    })
+  /**
+   * Le mode du site, d'un seul geste.
+   *
+   * Pas de fondu : la bascule **recharge la page** (spec du 25/11, §6). Un
+   * fondu d'une seconde entre la nuit et le papier passerait par un gris plat
+   * plein écran, et les deux modes n'ont de toute façon pas le même jeu
+   * d'images du train.
+   */
+  setMode(mode: Mode): void {
+    this.mode = mode
+    const couleur = fondToHex(this.fond)
+    if (this.recolor) {
+      setRecolorFond(this.recolor, couleur)
+      setRecolorMode(this.recolor, mode === 'jour')
+    }
+    if (this.vivante) this.app.renderer.background.color = couleur
+    // Vue écoute pour écrire les tokens CSS et `data-mode` : la scène ne
+    // connaît pas le DOM, et tout ce qui est en CSS suit le même mode.
+    this.emitter.emit('mode', mode)
   }
 
   private tick(dt: number): void {

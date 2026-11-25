@@ -5,6 +5,8 @@ import { Application, Container } from 'pixi.js'
 import { Quai } from '@/scene/QuaiLayer'
 import { Scene, plansDuDecor, poserCiel, poserMonde } from '@/scene/Scene'
 import { cadrageScene, HORIZON, SEUIL_MOBILE } from '@/scene/layout'
+import { COULEURS, fondToHex } from '@/scene/palette'
+import { createRecolorFilter } from '@/scene/recolor'
 import { HORLOGE, PIECES, cibleReverbere } from '@/scene/quai'
 import { Rideau, yPoseA } from '@/scene/rideau'
 import type { Trace } from '@/scene/types'
@@ -922,4 +924,66 @@ test('le massif descend pendant que le train descend', () => {
   const pose = corps.indexOf('await this.train.poserAQuai()')
   expect(lance).toBeGreaterThan(-1)
   expect(lance).toBeLessThan(pose)
+})
+
+/**
+ * La bascule de mode. Elle ne fond plus sur une seconde : le site recharge
+ * (spec du 25/11, §6), donc `setMode` est instantané — un seul geste, une
+ * seule émission.
+ */
+describe('la scène bascule de mode', () => {
+  type InterneMode = {
+    vivante: boolean
+    recolor: import('pixi.js').Filter | null
+    app: { renderer: { background: { color: number } } }
+  }
+
+  function uniformes(filtre: import('pixi.js').Filter): Record<string, unknown> {
+    return (filtre.resources.recolorUniforms as { uniforms: Record<string, unknown> }).uniforms
+  }
+
+  test('émet le mode qu’on lui donne, une fois et pas trente', () => {
+    const scene = sceneSansRendu()
+    const emis: string[] = []
+    scene.on('mode', (m) => emis.push(m))
+    scene.setMode('jour')
+    expect(emis).toEqual(['jour'])
+  })
+
+  // Review Focus #3 : `init` est sorti par son `catch`, il n'y a ni renderer
+  // ni filtre. La page doit quand même pouvoir changer de mode.
+  test('ne jette pas sans contexte WebGL', () => {
+    const scene = sceneSansRendu()
+    expect(() => scene.setMode('jour')).not.toThrow()
+  })
+
+  test('pose le papier sur le fond du renderer en jour', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneMode
+    interne.vivante = true
+    interne.app = { renderer: { background: { color: 0 } } }
+    scene.setMode('jour')
+    expect(interne.app.renderer.background.color).toBe(0xf2eee6)
+  })
+
+  test('allume le jour dans le filtre et y pose le papier', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneMode
+    interne.recolor = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
+    scene.setMode('jour')
+    const u = uniformes(interne.recolor!)
+    expect(u.uJour).toBe(1)
+    expect((u.uFond as Float32Array)[0]).toBeCloseTo(0xf2 / 255, 4)
+  })
+
+  test('revient à la nuit sans laisser de jour derrière', () => {
+    const scene = sceneSansRendu()
+    const interne = scene as unknown as InterneMode
+    interne.recolor = createRecolorFilter(fondToHex(COULEURS.nuit.fond))
+    scene.setMode('jour')
+    scene.setMode('nuit')
+    const u = uniformes(interne.recolor!)
+    expect(u.uJour).toBe(0)
+    expect((u.uFond as Float32Array)[0]).toBeCloseTo(0x15 / 255, 4)
+  })
 })
