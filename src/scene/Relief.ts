@@ -34,6 +34,48 @@ import type { Manifest } from './types'
 const TAILLE_MAX = 8192
 
 /**
+ * Densité de pixels maximale pour le massif, quoi qu'en dise l'écran.
+ *
+ * **Le défaut du 25 novembre 2026.** Emmanuelle : « la texture horrible de la
+ * montagne » — sur son téléphone seulement, « ok » sur l'ordinateur. Le grain
+ * se compte en texels du rendu (`GRAIN_ECRAN` dans `Massif.ts`), et le rendu
+ * se faisait à la densité de l'écran : son Mac est à 2, un téléphone est à 3
+ * ou plus. Le même 1,5 texel y valait donc 0,75 pixel de CSS d'un côté et 0,5
+ * de l'autre — un grain deux fois plus fin que celui qu'elle avait validé, à
+ * la limite de ce qu'un écran peut tenir sans scintiller.
+ *
+ * Ce n'est pas une affaire de plafond de texture : le rendu ne couvre que la
+ * fenêtre visible, soit un peu plus de mille pixels de cadre sur un téléphone,
+ * et même à trois on reste très loin des 4096 d'un GPU mobile. C'est bien la
+ * **densité seule** qui amincit le grain.
+ *
+ * Deux, donc : c'est la densité de l'écran sur lequel le grain a été jugé. Les
+ * écrans à 1 et à 2 ne changent pas d'un pixel — condition pour que
+ * l'ordinateur reste exactement ce qu'elle a validé —, et au-delà la texture
+ * est agrandie d'un facteur modeste, au plus proche voisin : les points
+ * gardent leur contraste au lieu de se fondre.
+ */
+export const RESOLUTION_MAX = 2
+
+/**
+ * Largeur du rendu du massif, en pixels, pour ce cadre et cet écran.
+ *
+ * Trois bornes se croisent ici : ce qu'il faudrait pour un texel par pixel,
+ * ce que la densité d'écran mérite (`RESOLUTION_MAX`), et ce que le GPU sait
+ * tenir. Fonction à part parce que c'est elle qu'un test peut interroger, là
+ * où `appliquer` demande un WebGL.
+ */
+export function tailleDuRendu(
+  largeurCadre: number,
+  echelleEcran: number,
+  resolution: number,
+  plafondTexture: number,
+): number {
+  const voulue = largeurCadre * echelleEcran * Math.min(resolution, RESOLUTION_MAX)
+  return Math.max(1, Math.round(Math.min(voulue, plafondTexture, TAILLE_MAX)))
+}
+
+/**
  * La carte de relief, ramenée à des hauteurs 0..1.
  *
  * `colorSpaceConversion: 'none'` est ce qui garantit qu'on relit les octets
@@ -96,7 +138,14 @@ export class Relief {
     const massif = new Massif(canvas, carte.hauteurs, carte.largeur, carte.hauteur)
     this.canvas = canvas
     this.massif = massif
-    this.source = new CanvasSource({ resource: canvas, alphaMode: 'premultiplied-alpha' })
+    // Au plus proche voisin : si le GPU force un agrandissement malgré les
+    // deux plafonds, mieux vaut des points un peu inégaux que des points
+    // fondus — toute la scène est dessinée ainsi, reflet compris.
+    this.source = new CanvasSource({
+      resource: canvas,
+      alphaMode: 'premultiplied-alpha',
+      scaleMode: 'nearest',
+    })
     this.sprite.texture = new Texture({ source: this.source })
     this.appliquer()
   }
@@ -124,11 +173,15 @@ export class Relief {
     this.sprite.position.set(f.x, f.y)
     if (!this.massif || !this.canvas || !this.source) return
 
-    // Un texel du rendu pour un pixel de l'écran : c'est tout l'intérêt, le
-    // massif n'est plus jamais agrandi.
-    const voulue = f.width * this.echelleEcran * this.resolution
-    const plafond = Math.min(this.massif.tailleMax, TAILLE_MAX)
-    const largeur = Math.max(1, Math.round(Math.min(voulue, plafond)))
+    // Un texel du rendu pour un pixel de l'écran — à deux pixels d'écran par
+    // pixel de CSS au plus, au-delà desquels le grain se perd et la texture
+    // dépasse ce que les GPU de téléphone savent tenir.
+    const largeur = tailleDuRendu(
+      f.width,
+      this.echelleEcran,
+      this.resolution,
+      this.massif.tailleMax,
+    )
     const hauteur = Math.max(1, Math.round((largeur * f.height) / f.width))
 
     this.massif.cadrer(
