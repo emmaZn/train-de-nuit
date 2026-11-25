@@ -16,6 +16,7 @@ import {
   reculDuFormat,
   teteDuFormat,
   CADRAGE_PAYSAGE,
+  CADRAGE_PORTRAIT,
   TETE_LOCO_MAX,
   cadrageCiel,
   versCadre,
@@ -100,10 +101,17 @@ test.each(FENETRES)('le monde couvre le viewport, à %i × %i', (w, h) => {
 })
 
 test('le plateau, lui, a le droit de ne plus couvrir : c’est le recul', () => {
-  // 412 × 915, l'ancre portrait : la scène y est à la moitié de sa couverture.
+  // 412 × 915, l'ancre portrait. Le recul y valait la moitié jusqu'au soir du
+  // 25 novembre 2026, où Emmanuelle a jugé la scène **sur son téléphone** et
+  // non plus sur un rendu à sa taille : « c'est vraiment trop petit, c'est
+  // illisible ». Il vaut 0,72 depuis. Le test ne tient pas le chiffre, il
+  // tient la règle : l'échelle est celle de la couverture, multipliée par le
+  // recul de ce format, et le plateau ne couvre plus l'écran.
   const { scale } = fitStage(412, 915)
   expect(STAGE.height * scale).toBeLessThan(915)
-  expect(scale).toBeCloseTo(Math.max(412 / STAGE.width, 915 / STAGE.height) * 0.5, 6)
+  const couvre = Math.max(412 / STAGE.width, 915 / STAGE.height)
+  expect(scale).toBeCloseTo(couvre * CADRAGE_PORTRAIT.recul, 6)
+  expect(CADRAGE_PORTRAIT.recul).toBeLessThan(1)
 })
 
 test('le cadre est centré sur le viewport', () => {
@@ -417,14 +425,17 @@ describe('la règle de dégagement', () => {
   // pleine partout — rabotée seulement sur une fenêtre basse et large.
   //
   // Les écrans larges descendent de cinquante pixels de plus depuis que
-  // l'ancre paysage est passée à 70 px et 1,25 (25 novembre 2026) : un
-  // téléphone en portrait, lui, ne bouge que d'un pixel.
+  // l'ancre paysage est passée à 70 px et 1,25 (25 novembre 2026), et tout a
+  // encore bougé le même soir quand l'ancre **portrait** a été reprise sur le
+  // vrai téléphone : recul 0,72, descente 200 px, massif 1,02. Ces nombres se
+  // recalculent, ils ne se choisissent pas — seules les deux ancres sont des
+  // choix.
   test.each([
-    [1512, 771, 83, 2.762],
-    [1280, 800, 94, 2.785],
-    [1440, 900, 106, 2.785],
-    [1728, 1117, 134, 2.789],
-    [390, 844, 129, 2.859],
+    [1512, 771, 88, 2.695],
+    [1280, 800, 111, 2.587],
+    [1440, 900, 125, 2.587],
+    [1728, 1117, 159, 2.571],
+    [390, 844, 184, 2.248],
     [844, 390, 40, 1.84],
   ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
     const c = cadrageCiel(w, h)
@@ -436,9 +447,9 @@ describe('la règle de dégagement', () => {
     // Ce sont les deux seuls formats qu'elle ait jugés, sur des rendus à
     // taille d'appareil : 412 × 915 et 1480 × 690. Tout le reste du cadrage
     // n'est qu'une interpolation entre eux, et peut bouger ; ces deux-là non.
-    expect(reculDuFormat(412, 915)).toBeCloseTo(0.5, 6)
-    expect(massifDuFormat(412, 915)).toBeCloseTo(1.3, 6)
-    expect(cadrageCiel(412, 915).decalage).toBeCloseTo(140, 0)
+    expect(reculDuFormat(412, 915)).toBeCloseTo(0.72, 6)
+    expect(massifDuFormat(412, 915)).toBeCloseTo(1.02, 6)
+    expect(cadrageCiel(412, 915).decalage).toBeCloseTo(200, 0)
 
     expect(reculDuFormat(1480, 690)).toBeCloseTo(0.8, 6)
     expect(massifDuFormat(1480, 690)).toBeCloseTo(1.25, 6)

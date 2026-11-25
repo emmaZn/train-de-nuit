@@ -57,6 +57,21 @@ export const MONDE = {
  * La descente se garde en **fraction de la hauteur** : 140 px sur les 915 de
  * son rendu. En pixels, elle aurait voulu dire autre chose sur chaque écran.
  *
+ * **L'ancre portrait a été reprise le 25 novembre 2026**, et celle-là sur le
+ * vrai téléphone, le site en ligne : « c'est vraiment trop petit sur téléphone,
+ * c'est illisible — il faudrait descendre encore l'horizon et agrandir ».
+ *
+ * C'est la limite des rendus à taille d'appareil, et elle vaut d'être écrite :
+ * une fenêtre de 412 px sur un écran d'ordinateur fait dix centimètres de
+ * large, et le même 412 px sur un téléphone en fait sept. Tout y est plus
+ * petit d'un tiers, et un recul qui paraissait juste sur la planche ne l'était
+ * pas dans la main. Le recul passe donc de 0,5 à **0,72**, la descente de 140
+ * à **200 px**, et le massif de 1,3 à **1,02** — sans quoi, la scène
+ * grandissant, il reprendrait toute la place qu'on venait de lui ôter.
+ *
+ * **Sa butée, mesurée sur rendu :** à 0,82 de recul, ou à 250 px de descente,
+ * la signature du pied de page vient se poser sur la voie et sur le train.
+ *
  * **L'ancre paysage a été reprise le 25 novembre 2026**, au vu du premier
  * rendu large : « il faut que l'horizon soit plus bas et que le massif soit
  * légèrement plus grand ». La descente passe de 20 à 70 px et le massif de 1
@@ -66,9 +81,9 @@ export const MONDE = {
  */
 export const CADRAGE_PORTRAIT = {
   aspect: 412 / 915,
-  recul: 0.5,
-  massif: 1.3,
-  descente: 140 / 915,
+  recul: 0.72,
+  massif: 1.02,
+  descente: 200 / 915,
   tete: 0.53,
 } as const
 
