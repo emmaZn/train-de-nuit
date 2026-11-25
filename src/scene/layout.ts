@@ -66,8 +66,12 @@ export const MONDE = {
  * large, et le même 412 px sur un téléphone en fait sept. Tout y est plus
  * petit d'un tiers, et un recul qui paraissait juste sur la planche ne l'était
  * pas dans la main. Le recul passe donc de 0,5 à **0,72**, la descente de 140
- * à **200 px**, et le massif de 1,3 à **1,02** — sans quoi, la scène
+ * à **170 px**, et le massif de 1,3 à **1,02** — sans quoi, la scène
  * grandissant, il reprendrait toute la place qu'on venait de lui ôter.
+ *
+ * La descente était d'abord passée à 200, et elle l'a reprise aussitôt : « un
+ * tout petit peu trop en bas ». À 200, la signature du pied de page venait
+ * s'écrire sur la voie ; à 170 elle retrouve sa bande sombre sous le reflet.
  *
  * **Sa butée, mesurée sur rendu :** à 0,82 de recul, ou à 250 px de descente,
  * la signature du pied de page vient se poser sur la voie et sur le train.
@@ -83,7 +87,7 @@ export const CADRAGE_PORTRAIT = {
   aspect: 412 / 915,
   recul: 0.72,
   massif: 1.02,
-  descente: 200 / 915,
+  descente: 170 / 915,
   tete: 0.53,
 } as const
 

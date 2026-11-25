@@ -431,11 +431,11 @@ describe('la règle de dégagement', () => {
   // recalculent, ils ne se choisissent pas — seules les deux ancres sont des
   // choix.
   test.each([
-    [1512, 771, 88, 2.695],
-    [1280, 800, 111, 2.587],
-    [1440, 900, 125, 2.587],
-    [1728, 1117, 159, 2.571],
-    [390, 844, 184, 2.248],
+    [1512, 771, 85, 2.695],
+    [1280, 800, 103, 2.587],
+    [1440, 900, 116, 2.587],
+    [1728, 1117, 147, 2.571],
+    [390, 844, 156, 2.248],
     [844, 390, 40, 1.84],
   ])('cadrage de %ix%i', (w, h, decalage, echelle) => {
     const c = cadrageCiel(w, h)
@@ -449,7 +449,7 @@ describe('la règle de dégagement', () => {
     // n'est qu'une interpolation entre eux, et peut bouger ; ces deux-là non.
     expect(reculDuFormat(412, 915)).toBeCloseTo(0.72, 6)
     expect(massifDuFormat(412, 915)).toBeCloseTo(1.02, 6)
-    expect(cadrageCiel(412, 915).decalage).toBeCloseTo(200, 0)
+    expect(cadrageCiel(412, 915).decalage).toBeCloseTo(170, 0)
 
     expect(reculDuFormat(1480, 690)).toBeCloseTo(0.8, 6)
     expect(massifDuFormat(1480, 690)).toBeCloseTo(1.25, 6)
