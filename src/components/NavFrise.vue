@@ -204,10 +204,22 @@ const entrees = computed(() => {
   border-radius: 50%;
 }
 
+/*
+ * Les deux lignes d'une gare portent une **hauteur explicite**, et non celle
+ * que la fonte propose. La bande est en `overflow: hidden` sur une hauteur
+ * fixe, que `HAUTEUR_FRISE` reprend comme plafond du ciel, du rideau et de
+ * l'infobulle : la colonne doit donc tenir dedans par construction, sans
+ * dépendre de métriques. En `normal`, le mono du 25 novembre rendait 1,32 em
+ * là où l'Inter d'avant en rendait 1,21, et « À QUAI » — la seule mention
+ * sous un libellé de 16 px — se faisait couper le bas par le bord de la
+ * bande ; pendant le `display=swap`, la fonte de secours la déplaçait encore.
+ * Un test tient la somme : 44 - 5 + 9 + 14 + 16 x 1,2 + 5 + 9 = 95,2 px.
+ */
 .libelle {
   display: block;
   margin-top: 14px;
   font-size: 13px;
+  line-height: 1.2;
   font-weight: 300;
   white-space: nowrap;
   transition: font-size 1.2s ease;
@@ -218,6 +230,7 @@ const entrees = computed(() => {
   margin-top: 5px;
   font-family: var(--police-mono);
   font-size: 9px;
+  line-height: 1;
   letter-spacing: 0.18em;
   opacity: var(--faible);
   white-space: nowrap;

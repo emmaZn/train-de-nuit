@@ -286,3 +286,104 @@ describe('la frise selon le mode', () => {
     }
   })
 })
+
+
+/**
+ * Relevé le 26 novembre 2026, sur la page qui tourne : « À QUAI » était
+ * **coupé en travers**, le bas des lettres mangé, à toutes les largeurs.
+ *
+ * La frise est une bande de hauteur fixe — `--haut-voie` plus 52 px — en
+ * `overflow: hidden`, et `HAUTEUR_FRISE` reprend cette somme ailleurs dans le
+ * site : c'est le plafond du ciel des visiteurs, celui du rideau et celui de
+ * l'infobulle d'étoile. On ne peut donc pas agrandir la bande sans déplacer
+ * des étoiles déjà posées : **c'est la colonne d'une gare qui doit tenir
+ * dedans**, pas la bande qui doit s'ouvrir.
+ *
+ * Or la colonne n'avait aucune hauteur de ligne à elle : elle dépendait des
+ * métriques de la fonte. Le passage au tout-mono du 25 novembre (JetBrains
+ * Mono rend à peu près 1,32 em de haut, l'Inter qu'il remplace 1,21) a fait
+ * déborder l'état à quai, le seul dont le libellé monte à 16 px, et la bande
+ * a coupé le reste. Pendant le `display=swap`, la fonte de secours changeait
+ * cette hauteur une seconde fois.
+ *
+ * D'où la règle, et ce test : les deux lignes portent une hauteur explicite,
+ * et la somme des morceaux reste sous la bande — pour les deux corps de
+ * libellé de chaque largeur.
+ */
+describe('la colonne d’une gare tient dans la hauteur de la frise', () => {
+  /** Le corps d'une règle, prise au ras de la marge — pas celles des médias. */
+  function regle(css: string, selecteur: string): string {
+    const trouve = new RegExp(
+      `^${selecteur.replace(/[.[\]*+?^${}()|\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`,
+      'm',
+    ).exec(css)
+    expect(trouve, selecteur).not.toBeNull()
+    return trouve![1]
+  }
+
+  /** Une longueur en pixels, déclarée dans ce corps de règle. */
+  function px(corps: string, propriete: string): number {
+    const trouve = new RegExp(`${propriete}:\\s*(-?[\\d.]+)px`).exec(corps)
+    expect(trouve, propriete).not.toBeNull()
+    return Number(trouve![1])
+  }
+
+  /** Une hauteur de ligne **sans unité** : sans elle, la fonte décide. */
+  function hauteurLigne(corps: string, quoi: string): number {
+    const trouve = /line-height:\s*([\d.]+)\s*;/.exec(corps)
+    expect(trouve, `hauteur de ligne explicite sur ${quoi}`).not.toBeNull()
+    return Number(trouve![1])
+  }
+
+  /** Le bas de la mention, et le bas de la bande, pour un corps de libellé. */
+  function mesurer(corpsLibelle: 'repos' | 'a-quai', mediaMobile: boolean) {
+    const css = readFileSync('src/components/NavFrise.vue', 'utf8')
+    const base = readFileSync('src/styles/base.css', 'utf8')
+
+    const hautVoie = Number(/--haut-voie:\s*([\d.]+)px/.exec(base)?.[1])
+    const bande =
+      hautVoie + Number(/height:\s*calc\(var\(--haut-voie\)\s*\+\s*([\d.]+)px\)/.exec(css)?.[1])
+
+    const libelle = regle(css, '.libelle')
+    const mention = regle(css, '.mention')
+    const aQuai = regle(css, ".gare[data-etat='a-quai'] .libelle")
+
+    // Sous 360 px, le mono est plus large : les deux corps baissent d'un cran.
+    const mobile = /@media \(max-width: 359px\)\s*\{([\s\S]*?\n\})\n/.exec(css)?.[1] ?? ''
+    const corps = mediaMobile
+      ? Number(
+          (corpsLibelle === 'a-quai'
+            ? /a-quai'\]\s*\.libelle\s*\{[^}]*font-size:\s*([\d.]+)px/
+            : /^\s*\.libelle\s*\{[^}]*font-size:\s*([\d.]+)px/m
+          ).exec(mobile)?.[1],
+        )
+      : px(corpsLibelle === 'a-quai' ? aQuai : libelle, 'font-size')
+
+    // Le point est en `border-box` (base.css) : son bord d'1 px est dans les 9.
+    const bas =
+      hautVoie +
+      px(regle(css, '.gare'), 'top') +
+      px(regle(css, '.point'), 'height') +
+      px(libelle, 'margin-top') +
+      corps * hauteurLigne(libelle, '.libelle') +
+      px(mention, 'margin-top') +
+      px(mention, 'font-size') * hauteurLigne(mention, '.mention')
+
+    expect(Number.isFinite(corps), 'corps du libellé').toBe(true)
+    return { bas, bande }
+  }
+
+  const cas: Array<[string, 'repos' | 'a-quai', boolean]> = [
+    ['au repos', 'repos', false],
+    ['à quai', 'a-quai', false],
+    ['au repos, sous 360 px', 'repos', true],
+    ['à quai, sous 360 px', 'a-quai', true],
+  ]
+
+  for (const [etat, corps, mobile] of cas) {
+    it(`${etat}, la mention ne touche pas le bas de la bande`, () => {
+      const { bas, bande } = mesurer(corps, mobile)
+      expect(bas).toBeLessThanOrEqual(bande)
+    })
+  }
+})
